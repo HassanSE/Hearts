@@ -34,15 +34,11 @@ struct Deck {
     var count: Int { deck.count }
     
     init() {
-        deck = {
-            var arr = [PlayingCard]()
-            for rank in CardRank.allCases {
-                for type in CardType.allCases {
-                    arr.append(PlayingCard(rank: rank, type: type))
-                }
+        deck = CardRank.allCases.flatMap { rank in
+            CardType.allCases.map { type in
+                PlayingCard(rank: rank, type: type)
             }
-            return arr
-        }()
+        }
     }
 }
 
