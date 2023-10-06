@@ -1,6 +1,6 @@
 import UIKit
 
-enum CardRank: CaseIterable {
+enum CardRank: CaseIterable, Comparable {
     case ace
     case king
     case queen
@@ -28,6 +28,12 @@ struct PlayingCard {
     let type: CardType
 }
 
+extension PlayingCard: Comparable {
+    static func < (lhs: PlayingCard, rhs: PlayingCard) -> Bool {
+        lhs.rank > rhs.rank
+    }
+}
+
 struct Deck {
     let deck: [PlayingCard]
     
@@ -44,3 +50,9 @@ struct Deck {
 
 let deck = Deck()
 assert(deck.count == 52)
+
+let ace = PlayingCard(rank: .ace, type: .hearts)
+let king = PlayingCard(rank: .king, type: .hearts)
+
+assert(ace > king)
+assert(ace == ace)
