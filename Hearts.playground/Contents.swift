@@ -34,6 +34,12 @@ extension PlayingCard: Comparable {
     }
 }
 
+extension PlayingCard: CustomStringConvertible {
+    var description: String {
+        "Playing Card: \(self.type) - \(self.rank)\n"
+    }
+}
+
 struct Deck {
     let deck: [PlayingCard]
     
@@ -56,3 +62,28 @@ let king = PlayingCard(rank: .king, type: .hearts)
 
 assert(ace > king)
 assert(ace == ace)
+
+struct CardDistributor {
+    let deck: Deck
+    
+    init(_ deck: Deck) {
+        self.deck = deck
+    }
+    
+    func distribute(_ slots: Int = 4) -> [[PlayingCard]] {
+        let shufffled = deck.deck.shuffled()
+        var chunks: [[PlayingCard]] = Array(repeating: [], count: slots)
+        for (index, card) in shufffled.enumerated() {
+            let chunkNumber = index % slots
+            chunks[chunkNumber].append(card)
+        }
+        return chunks
+    }
+}
+
+let cardDistributor = CardDistributor(deck)
+let chunks = cardDistributor.distribute()
+
+for chunk in chunks {
+    print(chunk)
+}
