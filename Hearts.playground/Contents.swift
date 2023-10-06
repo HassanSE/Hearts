@@ -28,14 +28,23 @@ struct PlayingCard {
     let type: CardType
 }
 
-var deck: [PlayingCard] = {
-    var arr = [PlayingCard]()
-    for rank in CardRank.allCases {
-        for type in CardType.allCases {
-            arr.append(PlayingCard(rank: rank, type: type))
-        }
+struct Deck {
+    let deck: [PlayingCard]
+    
+    var count: Int { deck.count }
+    
+    init() {
+        deck = {
+            var arr = [PlayingCard]()
+            for rank in CardRank.allCases {
+                for type in CardType.allCases {
+                    arr.append(PlayingCard(rank: rank, type: type))
+                }
+            }
+            return arr
+        }()
     }
-    return arr
-}()
+}
 
+let deck = Deck()
 assert(deck.count == 52)
