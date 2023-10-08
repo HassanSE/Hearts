@@ -54,7 +54,7 @@ extension CardRank: CustomStringConvertible {
     }
 }
 
-enum CardType: CaseIterable {
+enum CardType: CaseIterable, Comparable {
     case hearts
     case spades
     case diamonds
@@ -134,16 +134,17 @@ struct CardDistributor {
             let chunkNumber = index % slots
             chunks[chunkNumber].append(card)
         }
-        return chunks
+        return chunks.compactMap { arr in
+            arr.sorted { lhs, rhs in
+                lhs.type > rhs.type
+            }
+        }
     }
 }
 
 let cardDistributor = CardDistributor(deck)
 let chunks = cardDistributor.distribute()
 
-//for chunk in chunks {
-//    print(chunk)
-//}
-
-let ten = PlayingCard(rank: .ten, type: .hearts)
-print(ten)
+for chunk in chunks {
+    print(chunk)
+}
