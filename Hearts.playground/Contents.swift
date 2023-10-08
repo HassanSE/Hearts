@@ -136,6 +136,8 @@ struct CardDistributor {
         }
         return chunks.compactMap { arr in
             arr.sorted { lhs, rhs in
+                lhs.rank > rhs.rank
+            }.sorted { lhs, rhs in
                 lhs.type > rhs.type
             }
         }
@@ -143,8 +145,8 @@ struct CardDistributor {
 }
 
 let cardDistributor = CardDistributor(deck)
-let chunks = cardDistributor.distribute()
+let chunks = cardDistributor.distribute(4)
 
 for chunk in chunks {
-    print(chunk)
+    print("\(chunk) - \(chunk.count)")
 }
