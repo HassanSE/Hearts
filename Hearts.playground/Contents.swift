@@ -16,11 +16,68 @@ enum CardRank: CaseIterable, Comparable {
     case two
 }
 
+extension CardRank: CustomStringConvertible {
+    var symbol: String {
+        switch self {
+        case .ace:
+            return "A"
+        case .king:
+            return "K"
+        case .queen:
+            return "Q"
+        case .jack:
+            return "J"
+        case .ten:
+            return "10"
+        case .nine:
+            return "9"
+        case .eight:
+            return "8"
+        case .seven:
+            return "7"
+        case .six:
+            return "6"
+        case .five:
+            return "5"
+        case .four:
+            return "4"
+        case .three:
+            return "3"
+        case .two:
+            return "2"
+            
+        }
+    }
+    
+    var description: String {
+        symbol
+    }
+}
+
 enum CardType: CaseIterable {
     case hearts
     case spades
     case diamonds
     case clubs
+}
+
+extension CardType: CustomStringConvertible {
+    var symbol: String {
+        switch self {
+        case .hearts:
+            return "♥"
+        case .spades:
+            return "♠"
+        case .diamonds:
+            return "♦"
+        case .clubs:
+            return "♣"
+        }
+    }
+    
+    var description: String {
+        symbol
+    }
 }
 
 struct PlayingCard {
@@ -36,7 +93,7 @@ extension PlayingCard: Comparable {
 
 extension PlayingCard: CustomStringConvertible {
     var description: String {
-        "Playing Card: \(self.type) - \(self.rank)\n"
+        "\(self.rank) \(self.type)"
     }
 }
 
@@ -84,6 +141,9 @@ struct CardDistributor {
 let cardDistributor = CardDistributor(deck)
 let chunks = cardDistributor.distribute()
 
-for chunk in chunks {
-    print(chunk)
-}
+//for chunk in chunks {
+//    print(chunk)
+//}
+
+let ten = PlayingCard(rank: .ten, type: .hearts)
+print(ten)
