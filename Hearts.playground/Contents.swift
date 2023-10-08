@@ -120,6 +120,8 @@ let king = PlayingCard(rank: .king, type: .hearts)
 assert(ace > king)
 assert(ace == ace)
 
+typealias Hand = [PlayingCard]
+
 struct CardDistributor {
     let deck: Deck
     
@@ -127,14 +129,23 @@ struct CardDistributor {
         self.deck = deck
     }
     
-    func distribute(_ slots: Int = 4) -> [[PlayingCard]] {
+    func distribute(_ slots: Int = 4) -> [Hand] {
         let shufffled = deck.deck.shuffled()
-        var chunks: [[PlayingCard]] = Array(repeating: [], count: slots)
+        var hands: [Hand] = Array(repeating: [], count: slots)
         for (index, card) in shufffled.enumerated() {
             let chunkNumber = index % slots
-            chunks[chunkNumber].append(card)
+            hands[chunkNumber].append(card)
         }
-        return chunks.map { arr in
+        return hands.map { hand in
+            hand.sorted { $0.rank > $1.rank }
+               .sorted { $0.type > $1.type }
+        }
+    }
+}
+
+struct HandSortor {
+    static func sort(_ hands: [Hand]) -> [Hand] {
+        return hands.map { arr in
             arr.sorted { $0.rank > $1.rank }
                .sorted { $0.type > $1.type }
         }
@@ -142,8 +153,9 @@ struct CardDistributor {
 }
 
 let cardDistributor = CardDistributor(deck)
-let chunks = cardDistributor.distribute(6)
+let hands = cardDistributor.distribute()
+let sortedHands = HandSortor.sort(hands)
 
-for chunk in chunks {
-    print("\(chunk) - \(chunk.count)")
+for hand in sortedHands {
+    print("\(hand) - \(hand.count)")
 }
