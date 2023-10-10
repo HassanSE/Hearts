@@ -54,14 +54,14 @@ extension Rank: CustomStringConvertible {
     }
 }
 
-enum CardType: CaseIterable, Comparable {
+enum Suit: CaseIterable, Comparable {
     case hearts
     case spades
     case diamonds
     case clubs
 }
 
-extension CardType: CustomStringConvertible {
+extension Suit: CustomStringConvertible {
     var symbol: String {
         switch self {
         case .hearts:
@@ -82,7 +82,7 @@ extension CardType: CustomStringConvertible {
 
 struct Card {
     let rank: Rank
-    let type: CardType
+    let type: Suit
 }
 
 extension Card: Comparable {
@@ -104,7 +104,7 @@ struct Deck {
     
     init() {
         deck = Rank.allCases.flatMap { rank in
-            CardType.allCases.map { type in
+            Suit.allCases.map { type in
                 Card(rank: rank, type: type)
             }
         }
