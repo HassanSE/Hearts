@@ -80,32 +80,32 @@ extension CardType: CustomStringConvertible {
     }
 }
 
-struct PlayingCard {
+struct Card {
     let rank: CardRank
     let type: CardType
 }
 
-extension PlayingCard: Comparable {
-    static func < (lhs: PlayingCard, rhs: PlayingCard) -> Bool {
+extension Card: Comparable {
+    static func < (lhs: Card, rhs: Card) -> Bool {
         lhs.rank > rhs.rank
     }
 }
 
-extension PlayingCard: CustomStringConvertible {
+extension Card: CustomStringConvertible {
     var description: String {
         "\(self.rank) \(self.type)"
     }
 }
 
 struct Deck {
-    let deck: [PlayingCard]
+    let deck: [Card]
     
     var count: Int { deck.count }
     
     init() {
         deck = CardRank.allCases.flatMap { rank in
             CardType.allCases.map { type in
-                PlayingCard(rank: rank, type: type)
+                Card(rank: rank, type: type)
             }
         }
     }
@@ -114,13 +114,13 @@ struct Deck {
 let deck = Deck()
 assert(deck.count == 52)
 
-let ace = PlayingCard(rank: .ace, type: .hearts)
-let king = PlayingCard(rank: .king, type: .hearts)
+let ace = Card(rank: .ace, type: .hearts)
+let king = Card(rank: .king, type: .hearts)
 
 assert(ace > king)
 assert(ace == ace)
 
-typealias Hand = [PlayingCard]
+typealias Hand = [Card]
 
 struct CardDistributor {
     let deck: Deck
