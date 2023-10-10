@@ -1,19 +1,11 @@
 import UIKit
 
-enum Rank: CaseIterable, Comparable {
-    case ace
-    case king
-    case queen
-    case jack
-    case ten
-    case nine
-    case eight
-    case seven
-    case six
-    case five
-    case four
-    case three
-    case two
+enum Rank: Int, CaseIterable, Comparable {
+    static func < (lhs: Rank, rhs: Rank) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+    
+    case two = 2, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace
 }
 
 extension Rank: CustomStringConvertible {
@@ -82,18 +74,18 @@ extension Suit: CustomStringConvertible {
 
 struct Card {
     let rank: Rank
-    let type: Suit
+    let suit: Suit
 }
 
 extension Card: Comparable {
     static func < (lhs: Card, rhs: Card) -> Bool {
-        lhs.rank > rhs.rank
+        lhs.rank < rhs.rank
     }
 }
 
 extension Card: CustomStringConvertible {
     var description: String {
-        "\(self.rank) \(self.type)"
+        "\(self.rank) \(self.suit)"
     }
 }
 
@@ -104,8 +96,8 @@ struct Deck {
     
     init() {
         deck = Rank.allCases.flatMap { rank in
-            Suit.allCases.map { type in
-                Card(rank: rank, type: type)
+            Suit.allCases.map { suit in
+                Card(rank: rank, suit: suit)
             }
         }
     }
@@ -114,8 +106,8 @@ struct Deck {
 let deck = Deck()
 assert(deck.count == 52)
 
-let ace = Card(rank: .ace, type: .hearts)
-let king = Card(rank: .king, type: .hearts)
+let ace = Card(rank: .ace, suit: .hearts)
+let king = Card(rank: .king, suit: .hearts)
 
 assert(ace > king)
 assert(ace == ace)
@@ -138,7 +130,7 @@ struct CardDistributor {
         }
         return hands.map { hand in
             hand.sorted { $0.rank > $1.rank }
-               .sorted { $0.type > $1.type }
+               .sorted { $0.suit > $1.suit }
         }
     }
 }
@@ -146,8 +138,8 @@ struct CardDistributor {
 struct HandSortor {
     static func sort(_ hands: [Hand]) -> [Hand] {
         return hands.map { arr in
-            arr.sorted { $0.rank > $1.rank }
-               .sorted { $0.type > $1.type }
+            arr.sorted { $0.rank < $1.rank }
+               .sorted { $0.suit > $1.suit }
         }
     }
 }
