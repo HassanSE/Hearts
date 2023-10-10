@@ -1,14 +1,26 @@
 import UIKit
 
-enum Rank: Int, CaseIterable, Comparable {
-    static func < (lhs: Rank, rhs: Rank) -> Bool {
-        lhs.rawValue < rhs.rawValue
+struct Card {
+    let suit: Suit
+    let rank: Rank
+    
+    enum Rank: Int, CaseIterable, Comparable {
+        static func < (lhs: Rank, rhs: Rank) -> Bool {
+            lhs.rawValue < rhs.rawValue
+        }
+        
+        case two = 2, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace
     }
     
-    case two = 2, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace
+    enum Suit: CaseIterable, Comparable {
+        case hearts
+        case spades
+        case diamonds
+        case clubs
+    }
 }
 
-extension Rank: CustomStringConvertible {
+extension Card.Rank: CustomStringConvertible {
     var symbol: String {
         switch self {
         case .ace:
@@ -29,14 +41,7 @@ extension Rank: CustomStringConvertible {
     }
 }
 
-enum Suit: CaseIterable, Comparable {
-    case hearts
-    case spades
-    case diamonds
-    case clubs
-}
-
-extension Suit: CustomStringConvertible {
+extension Card.Suit: CustomStringConvertible {
     var symbol: String {
         switch self {
         case .hearts:
@@ -53,11 +58,6 @@ extension Suit: CustomStringConvertible {
     var description: String {
         symbol
     }
-}
-
-struct Card {
-    let rank: Rank
-    let suit: Suit
 }
 
 extension Card: Comparable {
@@ -78,9 +78,9 @@ struct Deck {
     var count: Int { deck.count }
     
     init() {
-        deck = Rank.allCases.flatMap { rank in
-            Suit.allCases.map { suit in
-                Card(rank: rank, suit: suit)
+        deck = Card.Suit.allCases.flatMap { suit in
+            Card.Rank.allCases.map { rank in
+                Card(suit: suit, rank: rank)
             }
         }
     }
@@ -89,8 +89,8 @@ struct Deck {
 let deck = Deck()
 assert(deck.count == 52)
 
-let ace = Card(rank: .ace, suit: .hearts)
-let king = Card(rank: .king, suit: .hearts)
+let ace = Card(suit: .hearts, rank: .ace)
+let king = Card(suit: .hearts, rank: .king)
 
 assert(ace > king)
 assert(ace == ace)
