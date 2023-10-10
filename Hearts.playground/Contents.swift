@@ -72,17 +72,25 @@ extension Card: CustomStringConvertible {
     }
 }
 
-struct Deck {
-    let deck: [Card]
+class Deck {
+    private var cards: [Card] = []
     
-    var count: Int { deck.count }
+    var count: Int { cards.count }
     
     init() {
-        deck = Card.Suit.allCases.flatMap { suit in
-            Card.Rank.allCases.map { rank in
-                Card(suit: suit, rank: rank)
+        for suit in Card.Suit.allCases {
+            for rank in Card.Rank.allCases {
+                cards.append(Card(suit: suit, rank: rank))
             }
         }
+    }
+    
+    func shuffle() {
+        cards.shuffle()
+    }
+    
+    func deal() -> Card? {
+        return cards.popLast()
     }
 }
 
@@ -105,11 +113,13 @@ struct CardDistributor {
     }
     
     func distribute(_ slots: Int = 4) -> [Hand] {
-        let shufffled = deck.deck.shuffled()
+        deck.shuffle()
         var hands: [Hand] = Array(repeating: [], count: slots)
-        for (index, card) in shufffled.enumerated() {
+        for index in 0...deck.count - 1 {
             let chunkNumber = index % slots
-            hands[chunkNumber].append(card)
+            if let card = deck.deal() {
+                hands[chunkNumber].append(card)
+            }
         }
         return hands.map { hand in
             hand.sorted { $0.rank > $1.rank }
