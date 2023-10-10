@@ -1,6 +1,6 @@
 import UIKit
 
-enum CardRank: CaseIterable, Comparable {
+enum Rank: CaseIterable, Comparable {
     case ace
     case king
     case queen
@@ -16,7 +16,7 @@ enum CardRank: CaseIterable, Comparable {
     case two
 }
 
-extension CardRank: CustomStringConvertible {
+extension Rank: CustomStringConvertible {
     var symbol: String {
         switch self {
         case .ace:
@@ -81,7 +81,7 @@ extension CardType: CustomStringConvertible {
 }
 
 struct Card {
-    let rank: CardRank
+    let rank: Rank
     let type: CardType
 }
 
@@ -103,7 +103,7 @@ struct Deck {
     var count: Int { deck.count }
     
     init() {
-        deck = CardRank.allCases.flatMap { rank in
+        deck = Rank.allCases.flatMap { rank in
             CardType.allCases.map { type in
                 Card(rank: rank, type: type)
             }
