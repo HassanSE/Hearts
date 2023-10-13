@@ -20,8 +20,8 @@ struct Card {
     }
     
     enum Suit: CaseIterable, Comparable {
-        case hearts
         case spades
+        case hearts
         case diamonds
         case clubs
     }
