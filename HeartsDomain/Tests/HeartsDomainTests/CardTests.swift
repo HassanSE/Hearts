@@ -23,5 +23,14 @@ final class CardTests: XCTestCase {
         XCTAssertEqual(card.suit, Card.Suit.clubs)
         XCTAssertEqual(card.rank, Card.Rank.ace)
     }
+    
+    func test_cards_with_same_suit_are_comparable() {
+        let aceOfClubs = Card(suit: .clubs, rank: .ace)
+        let jackOfClubs = Card(suit: .clubs, rank: .jack)
+        let twoOfClubs = Card(suit: .clubs, rank: .two)
+        XCTAssertGreaterThan(aceOfClubs, jackOfClubs)
+        XCTAssertGreaterThan(jackOfClubs, twoOfClubs)
+        XCTAssertLessThan(twoOfClubs, aceOfClubs)
+    }
 
 }
