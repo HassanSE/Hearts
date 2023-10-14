@@ -14,7 +14,10 @@ class Game {
         self.players = Player.makeBotPlayers()
     }
     
-    init(players: [Player]) {
-        self.players = players
+    init(player1: Player,
+         player2: Player,
+         player3: Player,
+         player4: Player) {
+        self.players = [player1, player2, player3, player4]
     }
 }

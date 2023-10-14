@@ -15,12 +15,10 @@ final class GameTests: XCTestCase {
     }
     
     func test_init_game_pass_4_players() {
-        let player1 = Player(name: "Joe")
-        let player2 = Player(name: "Dan")
-        let player3 = Player(name: "Ali")
-        let player4 = Player(name: "Tim")
-        
-        let game = Game(players: [player1, player2, player3, player4])
+        let game = Game(player1: Player(name: "Joe"),
+                        player2: Player(name: "Dan"),
+                        player3: Player(name: "Ali"),
+                        player4: Player(name: "Tim"))
         XCTAssertEqual(game.players.count, 4)
     }
 }
