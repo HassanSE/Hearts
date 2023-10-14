@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Card {
+public struct Card {
     let suit: Suit
     let rank: Rank
     
@@ -68,13 +68,13 @@ extension Card.Suit: CustomStringConvertible {
 }
 
 extension Card: Comparable {
-    static func < (lhs: Card, rhs: Card) -> Bool {
+    public static func < (lhs: Card, rhs: Card) -> Bool {
         lhs.rank < rhs.rank
     }
 }
 
 extension Card: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         "\(self.rank) \(self.suit)"
     }
 }
