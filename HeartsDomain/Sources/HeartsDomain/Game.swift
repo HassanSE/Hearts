@@ -11,6 +11,10 @@ class Game {
     var players: [Player]
 
     init() {
-        players = Player.makeBotPlayers()
+        self.players = Player.makeBotPlayers()
+    }
+    
+    init(players: [Player]) {
+        self.players = players
     }
 }
