@@ -26,4 +26,17 @@ final class DeckTests: XCTestCase {
         XCTAssertEqual(diamonds.count, 13)
         XCTAssertEqual(clubs.count, 13)
     }
+    
+    func test_deck_shuffling() {
+        let deck = Deck()
+        let ordered = deck.cards
+        deck.shuffle()
+        let afterFirstShuffle = deck.cards
+        XCTAssertNotEqual(ordered, afterFirstShuffle)
+        XCTAssertEqual(deck.count, 52)
+        
+        deck.shuffle()
+        XCTAssertNotEqual(afterFirstShuffle, deck.cards)
+        XCTAssertEqual(deck.count, 52)
+    }
 }
