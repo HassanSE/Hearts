@@ -8,7 +8,7 @@
 import Foundation
 
 public class Deck {
-    private var cards: [Card] = []
+    public var cards: [Card] = []
     
     public var count: Int { cards.count }
     

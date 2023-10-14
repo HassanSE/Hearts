@@ -13,4 +13,17 @@ final class DeckTests: XCTestCase {
         let deck = Deck()
         XCTAssertEqual(deck.count, 52)
     }
+    
+    func test_deck_has_4_suits_of_cards() {
+        let deck = Deck()
+        let spades = deck.cards.filter { $0.suit == .spades }
+        let hearts = deck.cards.filter { $0.suit == .hearts }
+        let diamonds = deck.cards.filter { $0.suit == .diamonds }
+        let clubs = deck.cards.filter { $0.suit == .clubs }
+        
+        XCTAssertEqual(spades.count, 13)
+        XCTAssertEqual(hearts.count, 13)
+        XCTAssertEqual(diamonds.count, 13)
+        XCTAssertEqual(clubs.count, 13)
+    }
 }

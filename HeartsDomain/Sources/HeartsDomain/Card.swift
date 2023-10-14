@@ -8,18 +8,18 @@
 import Foundation
 
 public struct Card {
-    let suit: Suit
-    let rank: Rank
+    public let suit: Suit
+    public let rank: Rank
     
-    enum Rank: Int, CaseIterable, Comparable {
-        static func < (lhs: Rank, rhs: Rank) -> Bool {
+    public enum Rank: Int, CaseIterable, Comparable {
+        public static func < (lhs: Rank, rhs: Rank) -> Bool {
             lhs.rawValue < rhs.rawValue
         }
         
         case two = 2, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace
     }
     
-    enum Suit: CaseIterable, Comparable {
+    public enum Suit: CaseIterable, Comparable {
         case spades
         case hearts
         case diamonds
@@ -43,7 +43,7 @@ extension Card.Rank: CustomStringConvertible {
         }
     }
     
-    var description: String {
+    public var description: String {
         symbol
     }
 }
@@ -62,7 +62,7 @@ extension Card.Suit: CustomStringConvertible {
         }
     }
     
-    var description: String {
+    public var description: String {
         symbol
     }
 }
