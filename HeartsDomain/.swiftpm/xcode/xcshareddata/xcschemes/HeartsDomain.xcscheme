@@ -67,7 +67,7 @@
       allowLocationSimulation = "YES">
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "BUILT_PRODUCTS_DIR /HeartsDomain"
+            argument = "$BUILT_PRODUCTS_DIR /HeartsDomain"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
