@@ -21,4 +21,12 @@ final class GameTests: XCTestCase {
                         player4: Player(name: "Tim"))
         XCTAssertEqual(game.players.count, 4)
     }
+    
+    func test_init_deal_cards() {
+        let game = Game()
+        XCTAssertEqual(game.players[0].hand.count, 13)
+        XCTAssertEqual(game.players[1].hand.count, 13)
+        XCTAssertEqual(game.players[2].hand.count, 13)
+        XCTAssertEqual(game.players[3].hand.count, 13)
+    }
 }

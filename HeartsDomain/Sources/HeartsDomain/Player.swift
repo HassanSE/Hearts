@@ -9,6 +9,12 @@ import Foundation
 
 struct Player {
     let name: String
+    var hand: [Card]
+    
+    init(name: String, hand: [Card] = []) {
+        self.name = name
+        self.hand = hand
+    }
 }
 
 extension Player {
