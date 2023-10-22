@@ -9,14 +9,6 @@ import XCTest
 @testable import HeartsDomain
 
 final class CardTests: XCTestCase {
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
     
     func test_init_card_has_suit_and_rank() {
         let card = Card(suit: .clubs, rank: .ace)
@@ -31,6 +23,21 @@ final class CardTests: XCTestCase {
         XCTAssertGreaterThan(aceOfClubs, jackOfClubs)
         XCTAssertGreaterThan(jackOfClubs, twoOfClubs)
         XCTAssertLessThan(twoOfClubs, aceOfClubs)
+    }
+    
+    func test_cards_points() {
+        let deck = Deck()
+        for card in deck.cards {
+            if card.suit == .hearts {
+                XCTAssertEqual(card.points, 1)
+            } else if card.suit == .spades && card.rank == .queen {
+                XCTAssertEqual(card.points, 13)
+            } else if card.suit == .diamonds && card.rank == .jack {
+                XCTAssertEqual(card.points, -10)
+            } else {
+                XCTAssertEqual(card.points, 0)
+            }
+        }
     }
 
 }

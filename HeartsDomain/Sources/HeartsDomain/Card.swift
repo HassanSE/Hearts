@@ -78,3 +78,18 @@ extension Card: CustomStringConvertible {
         "\(self.rank) \(self.suit)"
     }
 }
+
+extension Card {
+    var points: Int {
+        switch (rank, suit) {
+        case (_, .hearts):
+            return 1
+        case (.queen, .spades):
+            return 13
+        case (.jack, .diamonds):
+            return -10
+        default:
+            return 0
+        }
+    }
+}
