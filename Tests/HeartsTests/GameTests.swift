@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@testable import HeartsDomain
+@testable import Hearts
 
 final class GameTests: XCTestCase {
     func test_init_game_has_4_players() {

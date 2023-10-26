@@ -6,7 +6,7 @@
 //
 
 import XCTest
-import HeartsDomain
+import Hearts
 
 final class DeckTests: XCTestCase {
     func test_init_deck_has_52_cards() {

@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@testable import HeartsDomain
+@testable import Hearts
 
 final class SuitTests: XCTestCase {
     

@@ -4,12 +4,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "HeartsDomain",
+    name: "Hearts",
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
-            name: "HeartsDomain",
-            targets: ["HeartsDomain"]),
+            name: "Hearts",
+            targets: ["Hearts"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -19,10 +19,10 @@ let package = Package(
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
-            name: "HeartsDomain",
+            name: "Hearts",
             dependencies: []),
         .testTarget(
-            name: "HeartsDomainTests",
-            dependencies: ["HeartsDomain"]),
+            name: "HeartsTests",
+            dependencies: ["Hearts"]),
     ]
 )
