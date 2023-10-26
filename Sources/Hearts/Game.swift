@@ -18,6 +18,10 @@ class Game {
         self.init(player1: players[0], player2: players[1], player3: players[2], player4: players[3])
     }
     
+    var leader: Player? {
+        players.filter{ $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }.first
+    }
+    
     init(player1: Player,
          player2: Player,
          player3: Player,

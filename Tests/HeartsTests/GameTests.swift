@@ -50,4 +50,10 @@ final class GameTests: XCTestCase {
             unique.append(opponent)
         }
     }
+    
+    func test_leader_after_first_hand_is_dealt() {
+        let game = Game()
+        let leader = game.players.filter { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }.first
+        XCTAssertEqual(leader, game.leader)
+    }
 }
