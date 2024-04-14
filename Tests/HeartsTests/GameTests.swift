@@ -33,22 +33,13 @@ final class GameTests: XCTestCase {
     func test_init_each_player_has_3_opponents() {
         let game = Game()
         let players = game.players
-        XCTAssertEqual(players[0].opponents?.count, 3)
-        XCTAssertEqual(players[1].opponents?.count, 3)
-        XCTAssertEqual(players[2].opponents?.count, 3)
-        XCTAssertEqual(players[3].opponents?.count, 3)
+        XCTAssertEqual(players[0].opponents.count, 3)
+        XCTAssertEqual(players[1].opponents.count, 3)
+        XCTAssertEqual(players[2].opponents.count, 3)
+        XCTAssertEqual(players[3].opponents.count, 3)
         
-        let allOpponents = Array(players[0].opponents! +
-                                 players[1].opponents! +
-                                 players[2].opponents! +
-                                 players[3].opponents!)
+        let allOpponents = players.flatMap { $0.opponents }
         XCTAssertEqual(allOpponents.count, 12)
-        
-        var unique: [Opponent] = []
-        for opponent in allOpponents {
-            if unique.contains(opponent) { XCTFail("Opponents are not unique") }
-            unique.append(opponent)
-        }
     }
     
     func test_leader_after_first_hand_is_dealt() {

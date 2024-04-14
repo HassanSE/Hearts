@@ -39,10 +39,10 @@ class Game {
     }
     
     private func assignPositions() {
-        players[0].assign(opponenets: [.left(players[1]), .across(players[2]), .right(players[3])])
-        players[1].assign(opponenets: [.left(players[2]), .across(players[3]), .right(players[0])])
-        players[2].assign(opponenets: [.left(players[3]), .across(players[0]), .right(players[1])])
-        players[3].assign(opponenets: [.left(players[0]), .across(players[1]), .right(players[2])])
+        players[0].assign(opponenets: [.left: players[1], .across: players[2], .right: players[3]])
+        players[1].assign(opponenets: [.left: players[2], .across: players[3], .right: players[0]])
+        players[2].assign(opponenets: [.left: players[3], .across: players[0], .right: players[1]])
+        players[3].assign(opponenets: [.left: players[0], .across: players[1], .right: players[2]])
     }
     
     private func deal() {

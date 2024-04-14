@@ -17,7 +17,7 @@ struct Player {
     let id: UUID
     let name: String
     var hand: [Card]
-    var opponents: [Opponent]?
+    var opponents: [Direction: Player] = [:]
     
     init(name: String, hand: [Card] = []) {
         self.id = UUID()
@@ -25,26 +25,12 @@ struct Player {
         self.hand = hand
     }
     
-    mutating func assign(opponenets: [Opponent]) {
+    mutating func assign(opponenets: [Direction: Player]) {
         self.opponents = opponenets
     }
     
     func getOpponent(direction: Direction) -> Player? {
-        switch direction {
-        case .left:
-            if case let .left(player) = opponents?[0] {
-                return player
-            }
-        case .across:
-            if case let .across(player) = opponents?[1] {
-                return player
-            }
-        case .right:
-            if case let .right(player) = opponents?[2] {
-                return player
-            }
-        }
-        return nil
+        opponents[direction]
     }
 }
 
@@ -60,27 +46,6 @@ extension Player {
 extension Player: Equatable { 
     static func ==(lhs: Player, rhs: Player) -> Bool {
         lhs.id == rhs.id
-    }
-}
-
-enum Opponent {
-    case left(Player)
-    case right(Player)
-    case across(Player)
-}
-
-extension Opponent: Equatable {
-    static func ==(lhs: Opponent, rhs: Opponent) -> Bool {
-        switch (lhs, rhs) {
-        case (.left(let player1), .left(let player2)):
-            return player1 == player2
-        case (.right(let player1), .right(let player2)):
-            return player1 == player2
-        case (.across(let player1), .across(let player2)):
-            return player1 == player2
-        default:
-            return false
-        }
     }
 }
 
