@@ -12,6 +12,7 @@ typealias Hand = [Card]
 class Game {
     var players: [Player]
     var deck: Deck
+    var hand = 0
     
     convenience init() {
         let players = Player.makeBotPlayers()
@@ -30,6 +31,11 @@ class Game {
         self.deck = Deck()
         assignPositions()
         deal()
+        performExchange()
+    }
+    
+    func getOpponent(_ player: Player, direction: Direction) -> Player? {
+        players.first { $0.id == player.id }?.getOpponent(direction: direction)
     }
     
     private func assignPositions() {
@@ -48,5 +54,9 @@ class Game {
             players[2].hand.append(deck.deal()!)
             players[3].hand.append(deck.deal()!)
         }
+    }
+    
+    private func performExchange() {
+        
     }
 }

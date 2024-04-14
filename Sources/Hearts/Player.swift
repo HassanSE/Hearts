@@ -7,18 +7,44 @@
 
 import Foundation
 
+enum Direction {
+    case left
+    case right
+    case across
+}
+
 struct Player {
+    let id: UUID
     let name: String
     var hand: [Card]
     var opponents: [Opponent]?
     
     init(name: String, hand: [Card] = []) {
+        self.id = UUID()
         self.name = name
         self.hand = hand
     }
     
     mutating func assign(opponenets: [Opponent]) {
         self.opponents = opponenets
+    }
+    
+    func getOpponent(direction: Direction) -> Player? {
+        switch direction {
+        case .left:
+            if case let .left(player) = opponents?[0] {
+                return player
+            }
+        case .across:
+            if case let .across(player) = opponents?[1] {
+                return player
+            }
+        case .right:
+            if case let .right(player) = opponents?[2] {
+                return player
+            }
+        }
+        return nil
     }
 }
 
@@ -31,7 +57,11 @@ extension Player {
     }
 }
 
-extension Player: Equatable { }
+extension Player: Equatable { 
+    static func ==(lhs: Player, rhs: Player) -> Bool {
+        lhs.id == rhs.id
+    }
+}
 
 enum Opponent {
     case left(Player)
@@ -51,5 +81,13 @@ extension Opponent: Equatable {
         default:
             return false
         }
+    }
+}
+
+extension Player: CardExchangeStrategy { }
+
+extension Player: CustomDebugStringConvertible {
+    var debugDescription: String {
+        "Player(id: \(id), name: \(name)"
     }
 }

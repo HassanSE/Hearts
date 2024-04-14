@@ -56,4 +56,37 @@ final class GameTests: XCTestCase {
         let leader = game.players.filter { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }.first
         XCTAssertEqual(leader, game.leader)
     }
+    
+    func test_players_direction() {
+        let game = Game()
+        let players = game.players
+        
+        let player1 = players[0]
+        XCTAssertEqual(player1.getOpponent(direction: .right), players[3], "Player 1's right opponent should be Player 4.")
+        XCTAssertEqual(players[3].getOpponent(direction: .left), players[0], "Player 4's left opponent should be Player 1.")
+        
+        guard let left = player1.getOpponent(direction: .left),
+              let leftOfLeft = game.getOpponent(left, direction: .left),
+              let player1Across = player1.getOpponent(direction: .across) else {
+            XCTFail("Failed to get left opponent of Player 1 or player across from Player 1.")
+            return
+        }
+        XCTAssertEqual(leftOfLeft, player1Across, "The left of left opponent of Player 1 should be the player across from Player 1.")
+        
+        guard let right = player1.getOpponent(direction: .right),
+              let rightOfRight = game.getOpponent(right, direction: .right),
+              let player1Across = player1.getOpponent(direction: .across) else {
+            XCTFail("Failed to get right opponent of Player 1 or player across from Player 1.")
+            return
+        }
+        
+        XCTAssertEqual(rightOfRight, player1Across, "The right of right opponent of Player 1 should be the player across from Player 1.")
+        
+        let acrossOfRight = game.getOpponent(right, direction: .across)
+        XCTAssertEqual(acrossOfRight, left, "The across opponent of right opponent of Player 1 should be the left opponent of Player 1.")
+    }
+    
+    func test_exchange_cards() {
+        let game = Game()
+    }
 }
