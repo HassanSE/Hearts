@@ -9,6 +9,13 @@ import Foundation
 
 typealias Hand = [Card]
 
+enum CardExchangeDirection {
+    case left
+    case right
+    case across
+    case none
+}
+
 class Game {
     var players: [Player]
     var deck: Deck
@@ -21,6 +28,15 @@ class Game {
     
     var leader: Player? {
         players.filter{ $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }.first
+    }
+    
+    var exchangeDirection: CardExchangeDirection {
+        switch hand % 4 {
+        case 0: return .left
+        case 1: return .right
+        case 2: return .across
+        default: return .none
+        }
     }
     
     init(player1: Player,
@@ -56,7 +72,16 @@ class Game {
         }
     }
     
-    private func performExchange() {
-        
+    func performExchange() {
+        guard exchangeDirection != .none else { return }
+        players.forEach { performExchange(for: $0, exchangeDirection: exchangeDirection) }
+    }
+    
+    private func performExchange(for player: Player, exchangeDirection: CardExchangeDirection) {
+        var player = player
+        let direction: Direction = exchangeDirection == .left ? .left : exchangeDirection == .right ? .right : .across
+        let nextPlayer = getOpponent(player, direction: direction)
+        let passingCards = player.pickCards()
+        nextPlayer?.acceptExchange(cards: passingCards)
     }
 }

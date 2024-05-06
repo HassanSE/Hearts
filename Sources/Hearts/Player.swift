@@ -13,7 +13,7 @@ enum Direction {
     case across
 }
 
-struct Player {
+class Player {
     let id: UUID
     let name: String
     var hand: [Card]
@@ -25,12 +25,18 @@ struct Player {
         self.hand = hand
     }
     
-    mutating func assign(opponenets: [Direction: Player]) {
+    func assign(opponenets: [Direction: Player]) {
         self.opponents = opponenets
     }
     
     func getOpponent(direction: Direction) -> Player? {
         opponents[direction]
+    }
+
+    func acceptExchange(cards: PassedCards) {
+      hand.append(cards.first)
+      hand.append(cards.second)
+      hand.append(cards.third)
     }
 }
 

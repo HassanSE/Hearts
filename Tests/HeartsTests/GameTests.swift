@@ -76,8 +76,66 @@ final class GameTests: XCTestCase {
         let acrossOfRight = game.getOpponent(right, direction: .across)
         XCTAssertEqual(acrossOfRight, left, "The across opponent of right opponent of Player 1 should be the left opponent of Player 1.")
     }
+
+    func test_exchange_cards_direction() {
+        let game = Game()
+        XCTAssertEqual(game.exchangeDirection, .left)
+
+        game.hand = 1
+        XCTAssertEqual(game.exchangeDirection, .right)
+
+        game.hand = 2
+        XCTAssertEqual(game.exchangeDirection, .across)
+
+        game.hand = 3
+        XCTAssertEqual(game.exchangeDirection, .none)
+
+        game.hand = 4
+        XCTAssertEqual(game.exchangeDirection, .left)
+    }
     
     func test_exchange_cards() {
         let game = Game()
+        
+        // Cards before exchange
+        let player1CardsBE = game.players[0].hand
+        let player2CardsBE = game.players[1].hand
+        let player3CardsBE = game.players[2].hand
+        let player4CardsBE = game.players[3].hand
+
+        game.performExchange()
+        
+        // Cards after exchange
+        let player1CardsAE = game.players[0].hand
+        let player2CardsAE = game.players[1].hand
+        let player3CardsAE = game.players[2].hand
+        let player4CardsAE = game.players[3].hand
+        
+        let playerHandCount = 13
+        let passedCardCount = 3
+
+        // Player 1 Assertions
+        XCTAssertEqual(player1CardsAE.count, playerHandCount)
+        let passedCards = player1CardsBE.filter { !player1CardsAE.contains($0) }
+        XCTAssertEqual(passedCards.count, passedCardCount)
+        
+        // Player 2 Assertions
+        XCTAssertTrue(player2CardsAE.contains(passedCards))
+        XCTAssertEqual(player2CardsAE.count, playerHandCount)
+        let passedCards2 = player2CardsBE.filter { !player2CardsAE.contains($0) }
+        XCTAssertEqual(passedCards2.count, passedCardCount)
+        
+        // Player 3 Assertions
+        XCTAssertTrue(player3CardsAE.contains(passedCards2))
+        XCTAssertEqual(player3CardsAE.count, playerHandCount)
+        let passedCards3 = player3CardsBE.filter { !player3CardsAE.contains($0) }
+        XCTAssertEqual(passedCards3.count, passedCardCount)
+        
+        // Player 4 Assertions
+        XCTAssertTrue(player4CardsAE.contains(passedCards3))
+        XCTAssertEqual(player4CardsAE.count, playerHandCount)
+        let passedCards4 = player4CardsBE.filter { !player4CardsAE.contains($0) }
+        XCTAssertEqual(passedCards4.count, passedCardCount)
+        XCTAssertTrue(player1CardsAE.contains(passedCards4))
     }
 }

@@ -7,13 +7,17 @@
 
 import Foundation
 
+typealias PassedCards = (first: Card, second: Card, third: Card)
+
 protocol CardExchangeStrategy {
-    var hand: Hand { get }
-    func pickCards() -> [Card]
+    var hand: Hand { get set }
+    mutating func pickCards() -> PassedCards
 }
 
 extension CardExchangeStrategy {
-    func pickCards() -> [Card] {
-        Array(hand.prefix(3))
+  mutating func pickCards() -> PassedCards {
+        let passedCards = PassedCards(first: hand[0], second: hand[1], third: hand[2])
+        hand.removeFirst(3)
+        return passedCards
     }
 }
