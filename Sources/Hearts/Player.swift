@@ -40,9 +40,15 @@ extension Player {
     }
 }
 
-extension Player: Equatable { 
+extension Player: Equatable {
     static func ==(lhs: Player, rhs: Player) -> Bool {
         lhs.id == rhs.id
+    }
+}
+
+extension Player: Hashable {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 
