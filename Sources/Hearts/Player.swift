@@ -17,20 +17,11 @@ class Player {
     let id: UUID
     let name: String
     var hand: [Card]
-    var opponents: [Direction: Player] = [:]
-    
+
     init(name: String, hand: [Card] = []) {
         self.id = UUID()
         self.name = name
         self.hand = hand
-    }
-    
-    func assign(opponenets: [Direction: Player]) {
-        self.opponents = opponenets
-    }
-    
-    func getOpponent(direction: Direction) -> Player? {
-        opponents[direction]
     }
 
     func acceptExchange(cards: PassedCards) {

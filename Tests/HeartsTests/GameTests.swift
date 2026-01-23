@@ -33,13 +33,13 @@ final class GameTests: XCTestCase {
     func test_init_each_player_has_3_opponents() {
         let game = Game()
         let players = game.players
-        XCTAssertEqual(players[0].opponents.count, 3)
-        XCTAssertEqual(players[1].opponents.count, 3)
-        XCTAssertEqual(players[2].opponents.count, 3)
-        XCTAssertEqual(players[3].opponents.count, 3)
-        
-        let allOpponents = players.flatMap { $0.opponents }
-        XCTAssertEqual(allOpponents.count, 12)
+
+        // Each player should have 3 opponents (left, right, across)
+        for player in players {
+            XCTAssertNotNil(game.getOpponent(player, direction: .left))
+            XCTAssertNotNil(game.getOpponent(player, direction: .right))
+            XCTAssertNotNil(game.getOpponent(player, direction: .across))
+        }
     }
     
     func test_leader_after_first_hand_is_dealt() {
@@ -51,28 +51,28 @@ final class GameTests: XCTestCase {
     func test_players_direction() {
         let game = Game()
         let players = game.players
-        
+
         let player1 = players[0]
-        XCTAssertEqual(player1.getOpponent(direction: .right), players[3], "Player 1's right opponent should be Player 4.")
-        XCTAssertEqual(players[3].getOpponent(direction: .left), players[0], "Player 4's left opponent should be Player 1.")
-        
-        guard let left = player1.getOpponent(direction: .left),
+        XCTAssertEqual(game.getOpponent(player1, direction: .right), players[3], "Player 1's right opponent should be Player 4.")
+        XCTAssertEqual(game.getOpponent(players[3], direction: .left), players[0], "Player 4's left opponent should be Player 1.")
+
+        guard let left = game.getOpponent(player1, direction: .left),
               let leftOfLeft = game.getOpponent(left, direction: .left),
-              let player1Across = player1.getOpponent(direction: .across) else {
+              let player1Across = game.getOpponent(player1, direction: .across) else {
             XCTFail("Failed to get left opponent of Player 1 or player across from Player 1.")
             return
         }
         XCTAssertEqual(leftOfLeft, player1Across, "The left of left opponent of Player 1 should be the player across from Player 1.")
-        
-        guard let right = player1.getOpponent(direction: .right),
+
+        guard let right = game.getOpponent(player1, direction: .right),
               let rightOfRight = game.getOpponent(right, direction: .right),
-              let player1Across = player1.getOpponent(direction: .across) else {
+              let player1Across = game.getOpponent(player1, direction: .across) else {
             XCTFail("Failed to get right opponent of Player 1 or player across from Player 1.")
             return
         }
-        
+
         XCTAssertEqual(rightOfRight, player1Across, "The right of right opponent of Player 1 should be the player across from Player 1.")
-        
+
         let acrossOfRight = game.getOpponent(right, direction: .across)
         XCTAssertEqual(acrossOfRight, left, "The across opponent of right opponent of Player 1 should be the left opponent of Player 1.")
     }
