@@ -50,6 +50,6 @@ extension Player: CardExchangeStrategy { }
 
 extension Player: CustomDebugStringConvertible {
     var debugDescription: String {
-        "Player(id: \(id), name: \(name)"
+        "Player(id: \(id), name: \(name))"
     }
 }
