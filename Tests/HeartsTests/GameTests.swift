@@ -81,16 +81,16 @@ final class GameTests: XCTestCase {
         let game = Game()
         XCTAssertEqual(game.exchangeDirection, .left)
 
-        game.hand = 1
+        game.roundNumber = 1
         XCTAssertEqual(game.exchangeDirection, .right)
 
-        game.hand = 2
+        game.roundNumber = 2
         XCTAssertEqual(game.exchangeDirection, .across)
 
-        game.hand = 3
+        game.roundNumber = 3
         XCTAssertEqual(game.exchangeDirection, .none)
 
-        game.hand = 4
+        game.roundNumber = 4
         XCTAssertEqual(game.exchangeDirection, .left)
     }
     

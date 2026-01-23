@@ -196,7 +196,7 @@ Alternative: Store only `UUID` in opponents and look up via `Game.players`.
 
 ### 3-5 Concrete Tasks to Pick Up Immediately
 
-1. **Rename `Game.hand` → `Game.roundNumber`**
+1. **Rename `Game.hand` → `Game.roundNumber`** - [Done]
    - Trivial change, removes confusion immediately
    - Update tests that reference it
 

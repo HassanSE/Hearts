@@ -19,7 +19,7 @@ enum CardExchangeDirection {
 class Game {
     var players: [Player]
     var deck: Deck
-    var hand = 0
+    var roundNumber = 0
     
     convenience init() {
         let players = Player.makeBotPlayers()
@@ -31,7 +31,7 @@ class Game {
     }
     
     var exchangeDirection: CardExchangeDirection {
-        switch hand % 4 {
+        switch roundNumber % 4 {
         case 0: return .left
         case 1: return .right
         case 2: return .across
