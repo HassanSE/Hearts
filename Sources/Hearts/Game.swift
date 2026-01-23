@@ -68,14 +68,21 @@ class Game {
     
     func performExchange() {
         guard exchangeDirection != .none else { return }
-        players.forEach { performExchange(for: $0, exchangeDirection: exchangeDirection) }
-    }
-    
-    private func performExchange(for player: Player, exchangeDirection: CardExchangeDirection) {
-        var player = player
+
         let direction: Direction = exchangeDirection == .left ? .left : exchangeDirection == .right ? .right : .across
-        let nextPlayer = getOpponent(player, direction: direction)
-        let passingCards = player.pickCards()
-        nextPlayer?.acceptExchange(cards: passingCards)
+        let offset = direction == .left ? 1 : direction == .right ? 3 : 2
+
+        // Collect cards from all players first
+        var cardsToPass: [(fromIndex: Int, toIndex: Int, cards: PassedCards)] = []
+        for i in 0..<players.count {
+            let passingCards = players[i].pickCards()
+            let toIndex = (i + offset) % 4
+            cardsToPass.append((fromIndex: i, toIndex: toIndex, cards: passingCards))
+        }
+
+        // Then distribute them
+        for exchange in cardsToPass {
+            players[exchange.toIndex].acceptExchange(cards: exchange.cards)
+        }
     }
 }
