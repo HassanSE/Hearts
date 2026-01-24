@@ -17,11 +17,15 @@ struct Player {
     let id: UUID
     let name: String
     var hand: [Card]
+    var roundScore: Int
+    var totalScore: Int
 
-    init(name: String, hand: [Card] = []) {
+    init(name: String, hand: [Card] = [], roundScore: Int = 0, totalScore: Int = 0) {
         self.id = UUID()
         self.name = name
         self.hand = hand
+        self.roundScore = roundScore
+        self.totalScore = totalScore
     }
 
     mutating func acceptExchange(cards: PassedCards) {
@@ -56,6 +60,6 @@ extension Player: CardExchangeStrategy { }
 
 extension Player: CustomDebugStringConvertible {
     var debugDescription: String {
-        "Player(id: \(id), name: \(name))"
+        "Player(id: \(id), name: \(name), roundScore: \(roundScore), totalScore: \(totalScore))"
     }
 }
