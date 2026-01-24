@@ -13,16 +13,106 @@ enum Direction {
     case across
 }
 
+// MARK: - Bot AI Strategy
+
+protocol AIStrategy {
+    func selectCardsToPass(from hand: Hand) -> PassedCards
+    func selectCardToPlay(from hand: Hand) -> Card
+}
+
+enum BotDifficulty {
+    case easy
+    case medium
+    case hard
+
+    func makeStrategy() -> AIStrategy {
+        switch self {
+        case .easy:
+            return RandomAIStrategy()
+        case .medium:
+            return BasicAIStrategy()
+        case .hard:
+            return AdvancedAIStrategy()
+        }
+    }
+}
+
+// MARK: - AI Strategy Implementations
+
+struct RandomAIStrategy: AIStrategy {
+    func selectCardsToPass(from hand: Hand) -> PassedCards {
+        // Random strategy: just pick first 3 cards
+        return (hand[0], hand[1], hand[2])
+    }
+
+    func selectCardToPlay(from hand: Hand) -> Card {
+        // Random strategy: pick first valid card
+        return hand[0]
+    }
+}
+
+struct BasicAIStrategy: AIStrategy {
+    func selectCardsToPass(from hand: Hand) -> PassedCards {
+        // Basic strategy: pass high cards
+        // TODO: Implement smarter logic
+        return (hand[0], hand[1], hand[2])
+    }
+
+    func selectCardToPlay(from hand: Hand) -> Card {
+        // Basic strategy: simple heuristics
+        // TODO: Implement smarter logic
+        return hand[0]
+    }
+}
+
+struct AdvancedAIStrategy: AIStrategy {
+    func selectCardsToPass(from hand: Hand) -> PassedCards {
+        // Advanced strategy: card counting, shooting the moon detection
+        // TODO: Implement advanced logic
+        return (hand[0], hand[1], hand[2])
+    }
+
+    func selectCardToPlay(from hand: Hand) -> Card {
+        // Advanced strategy: strategic play
+        // TODO: Implement advanced logic
+        return hand[0]
+    }
+}
+
+// MARK: - Player Type
+
+enum PlayerType: Equatable {
+    case human
+    case bot(difficulty: BotDifficulty)
+
+    var isBot: Bool {
+        if case .bot = self { return true }
+        return false
+    }
+
+    var isHuman: Bool {
+        if case .human = self { return true }
+        return false
+    }
+
+    var botDifficulty: BotDifficulty? {
+        if case .bot(let difficulty) = self { return difficulty }
+        return nil
+    }
+}
+
 struct Player {
     let id: UUID
     let name: String
+    let type: PlayerType
     var hand: [Card]
     var roundScore: Int
     var totalScore: Int
 
-    init(name: String, hand: [Card] = [], roundScore: Int = 0, totalScore: Int = 0) {
+    init(name: String, type: PlayerType = .human, hand: [Card] = [], roundScore: Int = 0, totalScore: Int = 0) {
         self.id = UUID()
         self.name = name
+        self.type = type
         self.hand = hand
         self.roundScore = roundScore
         self.totalScore = totalScore
@@ -38,11 +128,11 @@ struct Player {
 }
 
 extension Player {
-    static func makeBotPlayers() -> [Player] {
-        return [Player(name: "Watson"),
-                Player(name: "Beth"),
-                Player(name: "Cindy"),
-                Player(name: "Max")]
+    static func makeBotPlayers(difficulty: BotDifficulty = .medium) -> [Player] {
+        return [Player(name: "Watson", type: .bot(difficulty: difficulty)),
+                Player(name: "Beth", type: .bot(difficulty: difficulty)),
+                Player(name: "Cindy", type: .bot(difficulty: difficulty)),
+                Player(name: "Max", type: .bot(difficulty: difficulty))]
     }
 }
 
@@ -62,6 +152,13 @@ extension Player: CardExchangeStrategy { }
 
 extension Player: CustomDebugStringConvertible {
     var debugDescription: String {
-        "Player(id: \(id), name: \(name), roundScore: \(roundScore), totalScore: \(totalScore))"
+        let typeDescription: String
+        switch type {
+        case .human:
+            typeDescription = "human"
+        case .bot(let difficulty):
+            typeDescription = "bot(\(difficulty))"
+        }
+        return "Player(id: \(id), name: \(name), type: \(typeDescription), roundScore: \(roundScore), totalScore: \(totalScore))"
     }
 }

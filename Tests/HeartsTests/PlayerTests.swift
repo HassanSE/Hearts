@@ -33,6 +33,21 @@ final class PlayerTests: XCTestCase {
         XCTAssertEqual(player.hand.count, 0)
     }
 
+    func test_init_player_defaults_to_human_type() {
+        let player = Player(name: "Alice")
+
+        XCTAssertTrue(player.type.isHuman)
+        XCTAssertFalse(player.type.isBot)
+    }
+
+    func test_init_player_with_bot_type() {
+        let player = Player(name: "BotPlayer", type: .bot(difficulty: .medium))
+
+        XCTAssertTrue(player.type.isBot)
+        XCTAssertFalse(player.type.isHuman)
+        XCTAssertEqual(player.type.botDifficulty, .medium)
+    }
+
     // MARK: - Score Tracking Tests
 
     func test_roundScore_can_be_updated() {
@@ -153,5 +168,81 @@ final class PlayerTests: XCTestCase {
         XCTAssertTrue(player.hand.contains(exchangeCards.first))
         XCTAssertTrue(player.hand.contains(exchangeCards.second))
         XCTAssertTrue(player.hand.contains(exchangeCards.third))
+    }
+
+    // MARK: - Player Type Tests
+
+    func test_playerType_human_properties() {
+        let humanType = PlayerType.human
+
+        XCTAssertTrue(humanType.isHuman)
+        XCTAssertFalse(humanType.isBot)
+        XCTAssertNil(humanType.botDifficulty)
+    }
+
+    func test_playerType_bot_easy_properties() {
+        let botType = PlayerType.bot(difficulty: .easy)
+
+        XCTAssertFalse(botType.isHuman)
+        XCTAssertTrue(botType.isBot)
+        XCTAssertEqual(botType.botDifficulty, .easy)
+    }
+
+    func test_playerType_bot_medium_properties() {
+        let botType = PlayerType.bot(difficulty: .medium)
+
+        XCTAssertFalse(botType.isHuman)
+        XCTAssertTrue(botType.isBot)
+        XCTAssertEqual(botType.botDifficulty, .medium)
+    }
+
+    func test_playerType_bot_hard_properties() {
+        let botType = PlayerType.bot(difficulty: .hard)
+
+        XCTAssertFalse(botType.isHuman)
+        XCTAssertTrue(botType.isBot)
+        XCTAssertEqual(botType.botDifficulty, .hard)
+    }
+
+    func test_makeBotPlayers_creates_medium_difficulty_by_default() {
+        let bots = Player.makeBotPlayers()
+
+        XCTAssertEqual(bots.count, 4)
+        for bot in bots {
+            XCTAssertTrue(bot.type.isBot)
+            XCTAssertEqual(bot.type.botDifficulty, .medium)
+        }
+    }
+
+    func test_makeBotPlayers_with_custom_difficulty() {
+        let easyBots = Player.makeBotPlayers(difficulty: .easy)
+        let hardBots = Player.makeBotPlayers(difficulty: .hard)
+
+        for bot in easyBots {
+            XCTAssertEqual(bot.type.botDifficulty, .easy)
+        }
+
+        for bot in hardBots {
+            XCTAssertEqual(bot.type.botDifficulty, .hard)
+        }
+    }
+
+    func test_botDifficulty_creates_correct_strategies() {
+        let easyStrategy = BotDifficulty.easy.makeStrategy()
+        let mediumStrategy = BotDifficulty.medium.makeStrategy()
+        let hardStrategy = BotDifficulty.hard.makeStrategy()
+
+        XCTAssertTrue(easyStrategy is RandomAIStrategy)
+        XCTAssertTrue(mediumStrategy is BasicAIStrategy)
+        XCTAssertTrue(hardStrategy is AdvancedAIStrategy)
+    }
+
+    func test_debugDescription_includes_player_type() {
+        let human = Player(name: "Alice", type: .human)
+        let bot = Player(name: "BotBob", type: .bot(difficulty: .hard))
+
+        XCTAssertTrue(human.debugDescription.contains("human"))
+        XCTAssertTrue(bot.debugDescription.contains("bot"))
+        XCTAssertTrue(bot.debugDescription.contains("hard"))
     }
 }
