@@ -125,9 +125,7 @@ final class PlayerTests: XCTestCase {
     // MARK: - Card Exchange Tests
 
     func test_acceptExchange_with_valid_hand_size() {
-        // Note: This test simulates the player's state AFTER they've already passed 3 cards.
-        // In actual gameplay: player starts with 13 cards → picks 3 to pass (now has 10) → accepts 3 from another player (back to 13).
-        // This test covers just the acceptExchange() method in isolation, assuming pickCards() was already called.
+        // Simulates the player's state AFTER they've already passed 3 cards.
         let cards = [
             Card(suit: .clubs, rank: .two),
             Card(suit: .clubs, rank: .three),
