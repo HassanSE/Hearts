@@ -186,9 +186,9 @@ Alternative: Store only `UUID` in opponents and look up via `Game.players`.
 
 ### Recommended Order of Work
 
-1. **Fix structural issues** (naming, Player reference problem)
-2. **Add Trick type** - foundation for all gameplay
-3. **Implement card passing** - complete the setup phase
+1. **Fix structural issues** (naming, Player reference problem) [Done]
+2. **Add Trick type** - foundation for all gameplay [Done]
+3. **Implement card passing** - complete the setup phase [Done]
 4. **Implement trick-taking** - core gameplay loop
 5. **Add scoring** - complete a round
 6. **Add basic AI** - make it playable
