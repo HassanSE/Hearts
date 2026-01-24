@@ -31,7 +31,7 @@ Because writing card game logic is tedious:
 **OR** you could:
 
 ```bash
-swift package add https://github.com/yourusername/Hearts.git
+swift package add https://github.com/HassanSE/Hearts.git
 ```
 
 ## Show Me The Code
@@ -78,21 +78,21 @@ let hard = Player(name: "Pro", type: .bot(difficulty: .hard))
 
 ## What's Working
 
-✅ Deck shuffling
-✅ Card dealing
-✅ Card exchange (left/right/across/none)
-✅ Player management
-✅ Score tracking
-✅ Bot difficulty system
-✅ Comprehensive tests (40+ passing)
+- ✅ Deck shuffling
+- ✅ Card dealing
+- ✅ Card exchange (left/right/across/none)
+- ✅ Player management
+- ✅ Score tracking
+- ✅ Bot difficulty system
+- ✅ Comprehensive tests (40+ passing)
 
 ## What's Coming
 
-🚧 Full trick-taking logic
-🚧 Complete scoring system
-🚧 Smart AI implementation
-🚧 Game events & delegates
-🚧 Persistence
+- 🚧 Full trick-taking logic
+- 🚧 Complete scoring system
+- 🚧 Smart AI implementation
+- 🚧 Game events & delegates
+- 🚧 Persistence
 
 ## Project Stats
 
