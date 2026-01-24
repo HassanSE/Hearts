@@ -125,6 +125,9 @@ final class PlayerTests: XCTestCase {
     // MARK: - Card Exchange Tests
 
     func test_acceptExchange_with_valid_hand_size() {
+        // Note: This test simulates the player's state AFTER they've already passed 3 cards.
+        // In actual gameplay: player starts with 13 cards → picks 3 to pass (now has 10) → accepts 3 from another player (back to 13).
+        // This test covers just the acceptExchange() method in isolation, assuming pickCards() was already called.
         let cards = [
             Card(suit: .clubs, rank: .two),
             Card(suit: .clubs, rank: .three),
@@ -139,7 +142,7 @@ final class PlayerTests: XCTestCase {
         ]
         var player = Player(name: "Nina", hand: cards)
 
-        XCTAssertEqual(player.hand.count, 10)
+        XCTAssertEqual(player.hand.count, 10, "Player should have 10 cards after passing 3")
 
         let exchangeCards: PassedCards = (
             Card(suit: .hearts, rank: .ace),
@@ -148,7 +151,7 @@ final class PlayerTests: XCTestCase {
         )
         player.acceptExchange(cards: exchangeCards)
 
-        XCTAssertEqual(player.hand.count, 13)
+        XCTAssertEqual(player.hand.count, 13, "Player should have 13 cards after accepting 3")
         XCTAssertTrue(player.hand.contains(exchangeCards.first))
         XCTAssertTrue(player.hand.contains(exchangeCards.second))
         XCTAssertTrue(player.hand.contains(exchangeCards.third))
