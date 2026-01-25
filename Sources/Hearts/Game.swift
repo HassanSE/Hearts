@@ -16,10 +16,25 @@ enum CardExchangeDirection {
     case none
 }
 
+enum GameError: Error, Equatable {
+    case notPlayersTurn
+    case cardNotInHand
+    case mustLeadWithTwoOfClubs
+    case cannotPlayPointsOnFirstTrick
+    case heartsNotBroken
+    case handComplete
+}
+
 class Game {
     var players: [Player]
     var deck: Deck
     var roundNumber = 0
+
+    // Trick-taking state
+    var currentTrick: Trick = Trick()
+    var completedTricks: [Trick] = []
+    var heartsBroken: Bool = false
+    var currentPlayerIndex: Int = 0
     
     convenience init() {
         let players = Player.makeBotPlayers()
@@ -28,6 +43,14 @@ class Game {
     
     var leader: Player? {
         players.filter{ $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }.first
+    }
+
+    var currentPlayer: Player {
+        players[currentPlayerIndex]
+    }
+
+    var isHandComplete: Bool {
+        completedTricks.count == 13
     }
     
     var exchangeDirection: CardExchangeDirection {
@@ -47,6 +70,11 @@ class Game {
         self.deck = Deck()
         deal()
         performExchange()
+
+        // Set current player to whoever has 2 of clubs
+        if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
+            currentPlayerIndex = leaderIndex
+        }
     }
     
     func getOpponent(_ player: Player, direction: Direction) -> Player? {
@@ -84,5 +112,102 @@ class Game {
         for exchange in cardsToPass {
             players[exchange.toIndex].acceptExchange(cards: exchange.cards)
         }
+    }
+
+    // MARK: - Trick-Taking Gameplay
+
+    /// Play a card from a player's hand
+    /// - Parameters:
+    ///   - card: The card to play
+    ///   - player: The player playing the card
+    /// - Throws: GameError or TrickError if the play is invalid
+    func playCard(_ card: Card, by player: Player) throws {
+        // 1. Validate it's this player's turn
+        guard player == currentPlayer else {
+            throw GameError.notPlayersTurn
+        }
+
+        // 2. Validate hand is not complete
+        guard !isHandComplete else {
+            throw GameError.handComplete
+        }
+
+        // 3. Get player index and validate card is in hand
+        guard let playerIndex = players.firstIndex(of: player) else {
+            throw GameError.cardNotInHand
+        }
+
+        guard players[playerIndex].hand.contains(card) else {
+            throw GameError.cardNotInHand
+        }
+
+        // 4. Validate first trick rules (must lead with 2♣, no points)
+        if completedTricks.isEmpty && currentTrick.plays.isEmpty {
+            // First card of first trick must be 2♣
+            guard card.suit == .clubs && card.rank == .two else {
+                throw GameError.mustLeadWithTwoOfClubs
+            }
+        }
+
+        if completedTricks.isEmpty {
+            // No points on first trick (unless no choice)
+            if card.points > 0 {
+                let hasNonPointCard = players[playerIndex].hand.contains(where: { $0.points == 0 })
+                guard !hasNonPointCard else {
+                    throw GameError.cannotPlayPointsOnFirstTrick
+                }
+            }
+        }
+
+        // 5. Validate hearts broken rule (only when leading)
+        if currentTrick.plays.isEmpty && card.suit == .hearts {
+            // Can't lead hearts until broken, unless only hearts in hand
+            if !heartsBroken {
+                let hasOnlyHearts = players[playerIndex].hand.allSatisfy { $0.suit == .hearts }
+                guard hasOnlyHearts else {
+                    throw GameError.heartsNotBroken
+                }
+            }
+        }
+
+        // 6. Play the card (Trick will validate follow-suit rules)
+        try currentTrick.play(card, by: player, from: players[playerIndex].hand)
+
+        // 7. Remove card from player's hand
+        players[playerIndex].hand.removeAll { $0 == card }
+
+        // 8. Update hearts broken state
+        if card.suit == .hearts {
+            heartsBroken = true
+        }
+
+        // 9. Check if trick is complete
+        if currentTrick.isComplete {
+            completeTrick()
+        } else {
+            // Advance to next player
+            advanceTurn()
+        }
+    }
+
+    private func completeTrick() {
+        guard let winner = currentTrick.winner,
+              let winnerIndex = players.firstIndex(of: winner) else {
+            return
+        }
+
+        // Award points to winner
+        players[winnerIndex].roundScore += currentTrick.points
+
+        // Store completed trick
+        completedTricks.append(currentTrick)
+
+        // Start new trick with winner leading
+        currentTrick = Trick()
+        currentPlayerIndex = winnerIndex
+    }
+
+    private func advanceTurn() {
+        currentPlayerIndex = (currentPlayerIndex + 1) % 4
     }
 }
