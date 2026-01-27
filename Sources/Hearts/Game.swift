@@ -35,6 +35,9 @@ class Game {
     var completedTricks: [Trick] = []
     var heartsBroken: Bool = false
     var currentPlayerIndex: Int = 0
+
+    // Game completion
+    let winningScore: Int = 100
     
     convenience init() {
         let players = Player.makeBotPlayers()
@@ -51,6 +54,15 @@ class Game {
 
     var isHandComplete: Bool {
         completedTricks.count == 13
+    }
+
+    var isGameOver: Bool {
+        players.contains(where: { $0.totalScore >= winningScore })
+    }
+
+    var gameWinner: Player? {
+        guard isGameOver else { return nil }
+        return players.min(by: { $0.totalScore < $1.totalScore })
     }
     
     var exchangeDirection: CardExchangeDirection {
@@ -209,5 +221,44 @@ class Game {
 
     private func advanceTurn() {
         currentPlayerIndex = (currentPlayerIndex + 1) % 4
+    }
+
+    // MARK: - Multi-Round Management
+
+    /// End the current hand and transfer round scores to total scores
+    func endHand() {
+        // Transfer round scores to total scores
+        for i in 0..<players.count {
+            players[i].totalScore += players[i].roundScore
+            players[i].roundScore = 0
+        }
+
+        // Increment round number for next hand
+        roundNumber += 1
+    }
+
+    /// Start a new hand by dealing cards and performing exchange
+    func startNewHand() {
+        // Clear all hands first
+        for i in 0..<players.count {
+            players[i].hand = []
+        }
+
+        // Reset deck and deal new cards
+        deck = Deck()
+        deal()
+
+        // Perform card exchange based on round number
+        performExchange()
+
+        // Reset game state
+        currentTrick = Trick()
+        completedTricks = []
+        heartsBroken = false
+
+        // Set current player to whoever has 2 of clubs
+        if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
+            currentPlayerIndex = leaderIndex
+        }
     }
 }

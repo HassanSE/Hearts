@@ -353,4 +353,164 @@ final class GameplayTests: XCTestCase {
         XCTAssertEqual(game.currentTrick.plays.count, 0)
         XCTAssertEqual(game.currentPlayerIndex, 3, "Winner leads next")
     }
+
+    // MARK: - Multi-Round Tests
+
+    func test_endHand_transfers_round_scores_to_total_scores() {
+        let game = makeTestGame()
+
+        // Set up some round scores
+        game.players[0].roundScore = 10
+        game.players[1].roundScore = 5
+        game.players[2].roundScore = 0
+        game.players[3].roundScore = 26
+
+        let initialTotals = game.players.map { $0.totalScore }
+
+        game.endHand()
+
+        XCTAssertEqual(game.players[0].totalScore, initialTotals[0] + 10)
+        XCTAssertEqual(game.players[1].totalScore, initialTotals[1] + 5)
+        XCTAssertEqual(game.players[2].totalScore, initialTotals[2] + 0)
+        XCTAssertEqual(game.players[3].totalScore, initialTotals[3] + 26)
+    }
+
+    func test_endHand_resets_round_scores_to_zero() {
+        let game = makeTestGame()
+
+        game.players[0].roundScore = 10
+        game.players[1].roundScore = 5
+        game.players[2].roundScore = 0
+        game.players[3].roundScore = 26
+
+        game.endHand()
+
+        XCTAssertEqual(game.players[0].roundScore, 0)
+        XCTAssertEqual(game.players[1].roundScore, 0)
+        XCTAssertEqual(game.players[2].roundScore, 0)
+        XCTAssertEqual(game.players[3].roundScore, 0)
+    }
+
+    func test_endHand_increments_round_number() {
+        let game = makeTestGame()
+
+        let initialRound = game.roundNumber
+
+        game.endHand()
+
+        XCTAssertEqual(game.roundNumber, initialRound + 1)
+    }
+
+    func test_startNewHand_deals_13_cards_to_each_player() {
+        let game = makeTestGame()
+
+        // Clear hands
+        game.players[0].hand = []
+        game.players[1].hand = []
+        game.players[2].hand = []
+        game.players[3].hand = []
+
+        game.startNewHand()
+
+        XCTAssertEqual(game.players[0].hand.count, 13)
+        XCTAssertEqual(game.players[1].hand.count, 13)
+        XCTAssertEqual(game.players[2].hand.count, 13)
+        XCTAssertEqual(game.players[3].hand.count, 13)
+    }
+
+    func test_startNewHand_resets_trick_state() {
+        let game = makeTestGame()
+
+        // Create some completed tricks
+        game.completedTricks = [Trick(), Trick(), Trick()]
+        game.heartsBroken = true
+
+        game.startNewHand()
+
+        XCTAssertEqual(game.completedTricks.count, 0)
+        XCTAssertEqual(game.currentTrick.plays.count, 0)
+        XCTAssertFalse(game.heartsBroken)
+    }
+
+    func test_startNewHand_sets_current_player_to_leader() {
+        let game = makeTestGame()
+
+        game.startNewHand()
+
+        // Verify current player has 2 of clubs
+        let currentPlayer = game.currentPlayer
+        XCTAssertTrue(currentPlayer.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }))
+    }
+
+    func test_isGameOver_is_false_when_no_player_reaches_winning_score() {
+        let game = makeTestGame()
+
+        game.players[0].totalScore = 50
+        game.players[1].totalScore = 60
+        game.players[2].totalScore = 70
+        game.players[3].totalScore = 80
+
+        XCTAssertFalse(game.isGameOver)
+    }
+
+    func test_isGameOver_is_true_when_player_reaches_winning_score() {
+        let game = makeTestGame()
+
+        game.players[0].totalScore = 50
+        game.players[1].totalScore = 100
+        game.players[2].totalScore = 70
+        game.players[3].totalScore = 80
+
+        XCTAssertTrue(game.isGameOver)
+    }
+
+    func test_gameWinner_is_nil_when_game_not_over() {
+        let game = makeTestGame()
+
+        game.players[0].totalScore = 50
+        game.players[1].totalScore = 60
+
+        XCTAssertNil(game.gameWinner)
+    }
+
+    func test_gameWinner_returns_player_with_lowest_score() {
+        let game = makeTestGame()
+
+        game.players[0].totalScore = 105
+        game.players[1].totalScore = 100
+        game.players[2].totalScore = 110
+        game.players[3].totalScore = 95  // Lowest score - winner!
+
+        let winner = game.gameWinner
+
+        XCTAssertEqual(winner, game.players[3])
+    }
+
+    func test_multi_round_flow() {
+        let game = makeTestGame()
+
+        // Play first round and accumulate scores
+        game.players[0].roundScore = 10
+        game.players[1].roundScore = 5
+        game.players[2].roundScore = 0
+        game.players[3].roundScore = 26
+
+        // End first hand
+        game.endHand()
+
+        XCTAssertEqual(game.roundNumber, 1)
+        XCTAssertEqual(game.players[0].totalScore, 10)
+        XCTAssertEqual(game.players[3].totalScore, 26)
+        XCTAssertEqual(game.players[0].roundScore, 0)
+
+        // Start second hand
+        game.startNewHand()
+
+        XCTAssertEqual(game.players[0].hand.count, 13)
+        XCTAssertEqual(game.completedTricks.count, 0)
+        XCTAssertFalse(game.heartsBroken)
+
+        // Verify game continues
+        XCTAssertFalse(game.isGameOver)
+    }
 }
