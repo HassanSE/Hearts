@@ -32,8 +32,6 @@ final class CardTests: XCTestCase {
                 XCTAssertEqual(card.points, 1)
             } else if card.suit == .spades && card.rank == .queen {
                 XCTAssertEqual(card.points, 13)
-            } else if card.suit == .diamonds && card.rank == .jack {
-                XCTAssertEqual(card.points, -10)
             } else {
                 XCTAssertEqual(card.points, 0)
             }

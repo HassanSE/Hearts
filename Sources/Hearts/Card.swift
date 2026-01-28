@@ -80,14 +80,14 @@ extension Card: CustomStringConvertible {
 }
 
 extension Card {
+    /// Standard Hearts point values (no variant rules)
+    /// Hearts = 1 point, Queen of Spades = 13 points, all others = 0
     var points: Int {
         switch (rank, suit) {
         case (_, .hearts):
             return 1
         case (.queen, .spades):
             return 13
-        case (.jack, .diamonds):
-            return -10
         default:
             return 0
         }
