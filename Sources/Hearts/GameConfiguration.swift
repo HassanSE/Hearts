@@ -26,9 +26,12 @@ import Foundation
 struct GameConfiguration {
     /// When true, the Jack of Diamonds reduces the trick winner's score by 10 points.
     ///
-    /// This is a popular Hearts variant. Note that if a player attempts to shoot the moon
-    /// and also captures the Jack of Diamonds, their total will be 16 points (13 hearts + 13 Q♠ - 10 J♦),
-    /// which does NOT qualify as shooting the moon (requires exactly 26 points).
+    /// This is a popular Hearts variant. When combined with shooting the moon:
+    /// - Shooting the moon is detected by capturing all 13 hearts + Queen of Spades (regardless of other cards)
+    /// - If a player shoots the moon with this bonus enabled, they get -10 points (instead of 0)
+    /// - Other players still get 26 points each
+    ///
+    /// Example: Player captures all hearts, Q♠, and J♦ = shooter gets -10, others get 26 each
     let jackOfDiamondsBonus: Bool
 
     /// Target score to end the game. First player to reach or exceed this score loses.
