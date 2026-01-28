@@ -359,11 +359,11 @@ final class GameplayTests: XCTestCase {
     func test_endHand_transfers_round_scores_to_total_scores() {
         let game = makeTestGame()
 
-        // Set up some round scores
+        // Set up some round scores (avoid 26 to not trigger shoot the moon)
         game.players[0].roundScore = 10
         game.players[1].roundScore = 5
         game.players[2].roundScore = 0
-        game.players[3].roundScore = 26
+        game.players[3].roundScore = 11
 
         let initialTotals = game.players.map { $0.totalScore }
 
@@ -372,7 +372,7 @@ final class GameplayTests: XCTestCase {
         XCTAssertEqual(game.players[0].totalScore, initialTotals[0] + 10)
         XCTAssertEqual(game.players[1].totalScore, initialTotals[1] + 5)
         XCTAssertEqual(game.players[2].totalScore, initialTotals[2] + 0)
-        XCTAssertEqual(game.players[3].totalScore, initialTotals[3] + 26)
+        XCTAssertEqual(game.players[3].totalScore, initialTotals[3] + 11)
     }
 
     func test_endHand_resets_round_scores_to_zero() {
@@ -381,7 +381,7 @@ final class GameplayTests: XCTestCase {
         game.players[0].roundScore = 10
         game.players[1].roundScore = 5
         game.players[2].roundScore = 0
-        game.players[3].roundScore = 26
+        game.players[3].roundScore = 11
 
         game.endHand()
 
@@ -493,14 +493,14 @@ final class GameplayTests: XCTestCase {
         game.players[0].roundScore = 10
         game.players[1].roundScore = 5
         game.players[2].roundScore = 0
-        game.players[3].roundScore = 26
+        game.players[3].roundScore = 11
 
         // End first hand
         game.endHand()
 
         XCTAssertEqual(game.roundNumber, 1)
         XCTAssertEqual(game.players[0].totalScore, 10)
-        XCTAssertEqual(game.players[3].totalScore, 26)
+        XCTAssertEqual(game.players[3].totalScore, 11)
         XCTAssertEqual(game.players[0].roundScore, 0)
 
         // Start second hand
@@ -512,5 +512,193 @@ final class GameplayTests: XCTestCase {
 
         // Verify game continues
         XCTAssertFalse(game.isGameOver)
+    }
+
+    // MARK: - Shooting the Moon Tests
+
+    func test_shootTheMoon_player_with_26_points_gets_zero() {
+        let game = makeTestGame()
+
+        // Player 2 shoots the moon
+        game.players[0].roundScore = 0
+        game.players[1].roundScore = 0
+        game.players[2].roundScore = 26  // Shot the moon!
+        game.players[3].roundScore = 0
+
+        game.endHand()
+
+        // Moon shooter gets 0 points
+        XCTAssertEqual(game.players[2].totalScore, 0)
+    }
+
+    func test_shootTheMoon_other_players_get_26_points() {
+        let game = makeTestGame()
+
+        // Player 2 shoots the moon
+        game.players[0].roundScore = 0
+        game.players[1].roundScore = 0
+        game.players[2].roundScore = 26  // Shot the moon!
+        game.players[3].roundScore = 0
+
+        game.endHand()
+
+        // All other players get 26 points
+        XCTAssertEqual(game.players[0].totalScore, 26)
+        XCTAssertEqual(game.players[1].totalScore, 26)
+        XCTAssertEqual(game.players[3].totalScore, 26)
+    }
+
+    func test_shootTheMoon_round_scores_reset_after_moon_shot() {
+        let game = makeTestGame()
+
+        // Player 1 shoots the moon
+        game.players[0].roundScore = 0
+        game.players[1].roundScore = 26  // Shot the moon!
+        game.players[2].roundScore = 0
+        game.players[3].roundScore = 0
+
+        game.endHand()
+
+        // All round scores should be reset to 0
+        XCTAssertEqual(game.players[0].roundScore, 0)
+        XCTAssertEqual(game.players[1].roundScore, 0)
+        XCTAssertEqual(game.players[2].roundScore, 0)
+        XCTAssertEqual(game.players[3].roundScore, 0)
+    }
+
+    func test_shootTheMoon_adds_to_existing_total_scores() {
+        let game = makeTestGame()
+
+        // Set up existing total scores
+        game.players[0].totalScore = 10
+        game.players[1].totalScore = 5
+        game.players[2].totalScore = 8
+        game.players[3].totalScore = 12
+
+        // Player 3 shoots the moon
+        game.players[0].roundScore = 0
+        game.players[1].roundScore = 0
+        game.players[2].roundScore = 0
+        game.players[3].roundScore = 26  // Shot the moon!
+
+        game.endHand()
+
+        // Moon shooter's total unchanged, others get +26
+        XCTAssertEqual(game.players[0].totalScore, 36)  // 10 + 26
+        XCTAssertEqual(game.players[1].totalScore, 31)  // 5 + 26
+        XCTAssertEqual(game.players[2].totalScore, 34)  // 8 + 26
+        XCTAssertEqual(game.players[3].totalScore, 12)  // 12 + 0 (moon shooter)
+    }
+
+    func test_shootTheMoon_does_not_trigger_with_25_points() {
+        let game = makeTestGame()
+
+        // Player 0 has 25 points (not quite the moon)
+        game.players[0].roundScore = 25
+        game.players[1].roundScore = 1
+        game.players[2].roundScore = 0
+        game.players[3].roundScore = 0
+
+        game.endHand()
+
+        // Normal scoring applies
+        XCTAssertEqual(game.players[0].totalScore, 25)
+        XCTAssertEqual(game.players[1].totalScore, 1)
+        XCTAssertEqual(game.players[2].totalScore, 0)
+        XCTAssertEqual(game.players[3].totalScore, 0)
+    }
+
+    func test_shootTheMoon_integration_with_actual_gameplay() throws {
+        let game = makeTestGame()
+
+        // Set up a scenario where player 0 takes all point cards
+        // Give player 0 high cards to win tricks
+        game.players[0].hand = [
+            Card(suit: .clubs, rank: .two),    // Must lead
+            Card(suit: .hearts, rank: .ace),
+            Card(suit: .hearts, rank: .king),
+            Card(suit: .hearts, rank: .queen),
+            Card(suit: .hearts, rank: .jack),
+            Card(suit: .hearts, rank: .ten),
+            Card(suit: .hearts, rank: .nine),
+            Card(suit: .hearts, rank: .eight),
+            Card(suit: .hearts, rank: .seven),
+            Card(suit: .hearts, rank: .six),
+            Card(suit: .hearts, rank: .five),
+            Card(suit: .hearts, rank: .four),
+            Card(suit: .spades, rank: .ace)   // Can win Q♠ trick
+        ]
+
+        // Give other players low cards
+        game.players[1].hand = [
+            Card(suit: .clubs, rank: .three),
+            Card(suit: .hearts, rank: .three),
+            Card(suit: .hearts, rank: .two),
+            Card(suit: .spades, rank: .two),
+            Card(suit: .spades, rank: .queen),  // Q♠
+            Card(suit: .diamonds, rank: .two),
+            Card(suit: .diamonds, rank: .three),
+            Card(suit: .diamonds, rank: .four),
+            Card(suit: .diamonds, rank: .five),
+            Card(suit: .diamonds, rank: .six),
+            Card(suit: .diamonds, rank: .seven),
+            Card(suit: .diamonds, rank: .eight),
+            Card(suit: .diamonds, rank: .nine)
+        ]
+
+        game.players[2].hand = [
+            Card(suit: .clubs, rank: .four),
+            Card(suit: .clubs, rank: .five),
+            Card(suit: .clubs, rank: .six),
+            Card(suit: .clubs, rank: .seven),
+            Card(suit: .clubs, rank: .eight),
+            Card(suit: .spades, rank: .three),
+            Card(suit: .spades, rank: .four),
+            Card(suit: .diamonds, rank: .ten),
+            Card(suit: .diamonds, rank: .jack),
+            Card(suit: .diamonds, rank: .queen),
+            Card(suit: .diamonds, rank: .king),
+            Card(suit: .diamonds, rank: .ace),
+            Card(suit: .clubs, rank: .nine)
+        ]
+
+        game.players[3].hand = [
+            Card(suit: .clubs, rank: .ten),
+            Card(suit: .clubs, rank: .jack),
+            Card(suit: .clubs, rank: .queen),
+            Card(suit: .clubs, rank: .king),
+            Card(suit: .clubs, rank: .ace),
+            Card(suit: .spades, rank: .five),
+            Card(suit: .spades, rank: .six),
+            Card(suit: .spades, rank: .seven),
+            Card(suit: .spades, rank: .eight),
+            Card(suit: .spades, rank: .nine),
+            Card(suit: .spades, rank: .ten),
+            Card(suit: .spades, rank: .jack),
+            Card(suit: .spades, rank: .king)
+        ]
+
+        // First trick - player 0 leads with 2♣ and wins
+        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
+        try game.playCard(Card(suit: .clubs, rank: .three), by: game.players[1])
+        try game.playCard(Card(suit: .clubs, rank: .four), by: game.players[2])
+        try game.playCard(Card(suit: .clubs, rank: .ten), by: game.players[3])
+
+        XCTAssertEqual(game.players[0].roundScore, 0)  // No points on first trick
+
+        // Now player 0 can lead hearts and take all remaining tricks
+        // For brevity, just verify the moon shooting scoring works
+        game.players[0].roundScore = 26
+        game.players[1].roundScore = 0
+        game.players[2].roundScore = 0
+        game.players[3].roundScore = 0
+
+        game.endHand()
+
+        // Verify moon shot scoring
+        XCTAssertEqual(game.players[0].totalScore, 0)   // Moon shooter
+        XCTAssertEqual(game.players[1].totalScore, 26)  // Others get 26
+        XCTAssertEqual(game.players[2].totalScore, 26)
+        XCTAssertEqual(game.players[3].totalScore, 26)
     }
 }

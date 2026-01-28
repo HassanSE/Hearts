@@ -227,14 +227,33 @@ class Game {
 
     /// End the current hand and transfer round scores to total scores
     func endHand() {
-        // Transfer round scores to total scores
-        for i in 0..<players.count {
-            players[i].totalScore += players[i].roundScore
-            players[i].roundScore = 0
+        // Check for shooting the moon
+        if let moonShooter = detectMoonShooter() {
+            // Moon shooter gets 0, everyone else gets 26
+            for i in 0..<players.count {
+                if players[i].id == moonShooter.id {
+                    players[i].totalScore += 0
+                } else {
+                    players[i].totalScore += 26
+                }
+                players[i].roundScore = 0
+            }
+        } else {
+            // Normal scoring: transfer round scores to total scores
+            for i in 0..<players.count {
+                players[i].totalScore += players[i].roundScore
+                players[i].roundScore = 0
+            }
         }
 
         // Increment round number for next hand
         roundNumber += 1
+    }
+
+    /// Detect if any player shot the moon (took all 26 points)
+    /// - Returns: The player who shot the moon, or nil if no one did
+    private func detectMoonShooter() -> Player? {
+        return players.first(where: { $0.roundScore == 26 })
     }
 
     /// Start a new hand by dealing cards and performing exchange
