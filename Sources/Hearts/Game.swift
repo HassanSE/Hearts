@@ -255,10 +255,13 @@ class Game {
     func endHand() {
         // Check for shooting the moon
         if let moonShooter = detectMoonShooter() {
-            // Moon shooter gets 0, everyone else gets 26
+            // Moon shooter gets special score, everyone else gets 26
             for i in 0..<players.count {
                 if players[i].id == moonShooter.id {
-                    players[i].totalScore += 0
+                    // If Jack of Diamonds bonus is enabled, shooter gets -10
+                    // Otherwise, shooter gets 0
+                    let moonShooterScore = configuration.jackOfDiamondsBonus ? -10 : 0
+                    players[i].totalScore += moonShooterScore
                 } else {
                     players[i].totalScore += 26
                 }
@@ -276,10 +279,40 @@ class Game {
         roundNumber += 1
     }
 
-    /// Detect if any player shot the moon (took all 26 points)
+    /// Detect if any player shot the moon (captured all 13 hearts + Queen of Spades)
     /// - Returns: The player who shot the moon, or nil if no one did
     private func detectMoonShooter() -> Player? {
-        return players.first(where: { $0.roundScore == 26 })
+        for player in players {
+            let capturedCards = getCardsCaptured(by: player)
+
+            // Check if player has all 13 hearts
+            let hearts = capturedCards.filter { $0.suit == .hearts }
+            let hasAllHearts = hearts.count == 13
+
+            // Check if player has Queen of Spades
+            let hasQueenOfSpades = capturedCards.contains { $0.suit == .spades && $0.rank == .queen }
+
+            if hasAllHearts && hasQueenOfSpades {
+                return player
+            }
+        }
+
+        return nil
+    }
+
+    /// Get all cards captured by a player during the current hand
+    /// - Parameter player: The player to check
+    /// - Returns: Array of cards the player won in tricks
+    private func getCardsCaptured(by player: Player) -> [Card] {
+        var capturedCards: [Card] = []
+
+        for trick in completedTricks {
+            if let winner = trick.winner, winner.id == player.id {
+                capturedCards.append(contentsOf: trick.cards)
+            }
+        }
+
+        return capturedCards
     }
 
     /// Start a new hand by dealing cards and performing exchange

@@ -53,6 +53,48 @@ final class GameplayTests: XCTestCase {
         return game
     }
 
+    /// Helper to simulate player capturing all hearts + Q♠ (shooting the moon)
+    /// Creates completed tricks where the specified player won all point cards
+    func simulateMoonShot(by moonShooter: Player, in game: Game, includeJackOfDiamonds: Bool = false) {
+        // Get other players for trick construction
+        let otherPlayers = game.players.filter { $0.id != moonShooter.id }
+
+        // Create 13 separate tricks, one for each heart rank
+        let heartRanks = Card.Rank.allCases
+        for rank in heartRanks {
+            var trick = Trick()
+
+            // Moon shooter leads and wins with the heart
+            // Other players play non-hearts (lower rank cards)
+            try! trick.play(Card(suit: .hearts, rank: rank), by: moonShooter, from: [Card(suit: .hearts, rank: rank)])
+            try! trick.play(Card(suit: .clubs, rank: .two), by: otherPlayers[0], from: [Card(suit: .clubs, rank: .two)])
+            try! trick.play(Card(suit: .clubs, rank: .three), by: otherPlayers[1], from: [Card(suit: .clubs, rank: .three)])
+            try! trick.play(Card(suit: .clubs, rank: .four), by: otherPlayers[2], from: [Card(suit: .clubs, rank: .four)])
+
+            game.completedTricks.append(trick)
+        }
+
+        // Create trick with Q♠ and optionally J♦ where moon shooter wins
+        var queenTrick = Trick()
+        try! queenTrick.play(Card(suit: .spades, rank: .two), by: otherPlayers[0], from: [Card(suit: .spades, rank: .two)])
+        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: otherPlayers[1], from: [Card(suit: .spades, rank: .queen)])
+
+        if includeJackOfDiamonds {
+            try! queenTrick.play(Card(suit: .diamonds, rank: .jack), by: otherPlayers[2], from: [Card(suit: .diamonds, rank: .jack)])
+        } else {
+            try! queenTrick.play(Card(suit: .spades, rank: .three), by: otherPlayers[2], from: [Card(suit: .spades, rank: .three)])
+        }
+
+        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: moonShooter, from: [Card(suit: .spades, rank: .ace)])
+        game.completedTricks.append(queenTrick)
+
+        // Calculate and set round scores (points were awarded during tricks in real game)
+        let expectedPoints = includeJackOfDiamonds ? 16 : 26
+        if let shooterIndex = game.players.firstIndex(where: { $0.id == moonShooter.id }) {
+            game.players[shooterIndex].roundScore = expectedPoints
+        }
+    }
+
     // MARK: - Turn Validation Tests
 
     func test_playCard_throws_when_not_players_turn() throws {
@@ -640,7 +682,7 @@ final class GameplayTests: XCTestCase {
         XCTAssertEqual(game.players[3].roundScore, -10)
     }
 
-    func test_jackOfDiamonds_bonus_prevents_shooting_moon_with_all_cards() {
+    func test_shootTheMoon_with_jackBonus_shooter_gets_negative_10() {
         let game = Game(
             player1: Player(name: "Alice"),
             player2: Player(name: "Bob"),
@@ -649,32 +691,25 @@ final class GameplayTests: XCTestCase {
             configuration: .withJackBonus
         )
 
-        // Player 0 takes all hearts (13) + Q♠ (13) + J♦ (-10) = 16 points
-        // This is NOT shooting the moon (requires exactly 26)
-        game.players[0].roundScore = 16
-        game.players[1].roundScore = 0
-        game.players[2].roundScore = 0
-        game.players[3].roundScore = 0
+        // Player 0 shoots the moon and also captures J♦
+        simulateMoonShot(by: game.players[0], in: game, includeJackOfDiamonds: true)
 
         game.endHand()
 
-        // Normal scoring applies (not moon shot)
-        XCTAssertEqual(game.players[0].totalScore, 16)
-        XCTAssertEqual(game.players[1].totalScore, 0)
-        XCTAssertEqual(game.players[2].totalScore, 0)
-        XCTAssertEqual(game.players[3].totalScore, 0)
+        // Moon shooter gets -10, others get 26
+        XCTAssertEqual(game.players[0].totalScore, -10, "Moon shooter with J♦ bonus gets -10")
+        XCTAssertEqual(game.players[1].totalScore, 26)
+        XCTAssertEqual(game.players[2].totalScore, 26)
+        XCTAssertEqual(game.players[3].totalScore, 26)
     }
 
     // MARK: - Shooting the Moon Tests
 
-    func test_shootTheMoon_player_with_26_points_gets_zero() {
+    func test_shootTheMoon_standard_config_shooter_gets_zero() {
         let game = makeTestGame()
 
-        // Player 2 shoots the moon
-        game.players[0].roundScore = 0
-        game.players[1].roundScore = 0
-        game.players[2].roundScore = 26  // Shot the moon!
-        game.players[3].roundScore = 0
+        // Player 2 shoots the moon (no J♦ bonus in standard config)
+        simulateMoonShot(by: game.players[2], in: game, includeJackOfDiamonds: false)
 
         game.endHand()
 
@@ -682,14 +717,11 @@ final class GameplayTests: XCTestCase {
         XCTAssertEqual(game.players[2].totalScore, 0)
     }
 
-    func test_shootTheMoon_other_players_get_26_points() {
+    func test_shootTheMoon_standard_config_others_get_26() {
         let game = makeTestGame()
 
         // Player 2 shoots the moon
-        game.players[0].roundScore = 0
-        game.players[1].roundScore = 0
-        game.players[2].roundScore = 26  // Shot the moon!
-        game.players[3].roundScore = 0
+        simulateMoonShot(by: game.players[2], in: game, includeJackOfDiamonds: false)
 
         game.endHand()
 
@@ -703,10 +735,7 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Player 1 shoots the moon
-        game.players[0].roundScore = 0
-        game.players[1].roundScore = 26  // Shot the moon!
-        game.players[2].roundScore = 0
-        game.players[3].roundScore = 0
+        simulateMoonShot(by: game.players[1], in: game, includeJackOfDiamonds: false)
 
         game.endHand()
 
@@ -727,10 +756,7 @@ final class GameplayTests: XCTestCase {
         game.players[3].totalScore = 12
 
         // Player 3 shoots the moon
-        game.players[0].roundScore = 0
-        game.players[1].roundScore = 0
-        game.players[2].roundScore = 0
-        game.players[3].roundScore = 26  // Shot the moon!
+        simulateMoonShot(by: game.players[3], in: game, includeJackOfDiamonds: false)
 
         game.endHand()
 
@@ -741,115 +767,66 @@ final class GameplayTests: XCTestCase {
         XCTAssertEqual(game.players[3].totalScore, 12)  // 12 + 0 (moon shooter)
     }
 
-    func test_shootTheMoon_does_not_trigger_with_25_points() {
+    func test_shootTheMoon_does_not_trigger_without_all_hearts() {
         let game = makeTestGame()
 
-        // Player 0 has 25 points (not quite the moon)
-        game.players[0].roundScore = 25
-        game.players[1].roundScore = 1
-        game.players[2].roundScore = 0
-        game.players[3].roundScore = 0
+        // Player 0 has Q♠ and only 2 hearts (missing 11)
+        var heartTrick = Trick()
+        try! heartTrick.play(Card(suit: .hearts, rank: .two), by: game.players[1], from: [Card(suit: .hearts, rank: .two)])
+        try! heartTrick.play(Card(suit: .hearts, rank: .three), by: game.players[2], from: [Card(suit: .hearts, rank: .three)])
+        try! heartTrick.play(Card(suit: .clubs, rank: .two), by: game.players[3], from: [Card(suit: .clubs, rank: .two)])
+        try! heartTrick.play(Card(suit: .hearts, rank: .ace), by: game.players[0], from: [Card(suit: .hearts, rank: .ace)])  // Wins
+
+        var queenTrick = Trick()
+        try! queenTrick.play(Card(suit: .spades, rank: .two), by: game.players[1], from: [Card(suit: .spades, rank: .two)])
+        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: game.players[2], from: [Card(suit: .spades, rank: .queen)])
+        try! queenTrick.play(Card(suit: .clubs, rank: .four), by: game.players[3], from: [Card(suit: .clubs, rank: .four)])
+        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[0], from: [Card(suit: .spades, rank: .ace)])  // Wins
+
+        game.completedTricks = [heartTrick, queenTrick]
+        game.players[0].roundScore = 15  // 2 hearts + Q♠ = 15, but missing 11 hearts
 
         game.endHand()
 
-        // Normal scoring applies
-        XCTAssertEqual(game.players[0].totalScore, 25)
-        XCTAssertEqual(game.players[1].totalScore, 1)
+        // Normal scoring applies (no moon shot)
+        XCTAssertEqual(game.players[0].totalScore, 15)
+        XCTAssertEqual(game.players[1].totalScore, 0)
         XCTAssertEqual(game.players[2].totalScore, 0)
         XCTAssertEqual(game.players[3].totalScore, 0)
     }
 
-    func test_shootTheMoon_integration_with_actual_gameplay() throws {
+    func test_shootTheMoon_does_not_trigger_without_queen_of_spades() {
         let game = makeTestGame()
 
-        // Set up a scenario where player 0 takes all point cards
-        // Give player 0 high cards to win tricks
-        game.players[0].hand = [
-            Card(suit: .clubs, rank: .two),    // Must lead
-            Card(suit: .hearts, rank: .ace),
-            Card(suit: .hearts, rank: .king),
-            Card(suit: .hearts, rank: .queen),
-            Card(suit: .hearts, rank: .jack),
-            Card(suit: .hearts, rank: .ten),
-            Card(suit: .hearts, rank: .nine),
-            Card(suit: .hearts, rank: .eight),
-            Card(suit: .hearts, rank: .seven),
-            Card(suit: .hearts, rank: .six),
-            Card(suit: .hearts, rank: .five),
-            Card(suit: .hearts, rank: .four),
-            Card(suit: .spades, rank: .ace)   // Can win Q♠ trick
-        ]
+        // Player 1 has all 13 hearts but not Q♠
+        // Create 13 heart tricks where player 1 wins all of them
+        for rank in Card.Rank.allCases {
+            var trick = Trick()
+            let heartCard = Card(suit: .hearts, rank: rank)
+            try! trick.play(heartCard, by: game.players[0], from: [heartCard])
+            try! trick.play(Card(suit: .clubs, rank: .two), by: game.players[2], from: [Card(suit: .clubs, rank: .two)])
+            try! trick.play(Card(suit: .clubs, rank: .three), by: game.players[3], from: [Card(suit: .clubs, rank: .three)])
+            try! trick.play(Card(suit: .hearts, rank: .ace), by: game.players[1], from: [Card(suit: .hearts, rank: .ace)])  // Wins
+            game.completedTricks.append(trick)
+        }
 
-        // Give other players low cards
-        game.players[1].hand = [
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .hearts, rank: .three),
-            Card(suit: .hearts, rank: .two),
-            Card(suit: .spades, rank: .two),
-            Card(suit: .spades, rank: .queen),  // Q♠
-            Card(suit: .diamonds, rank: .two),
-            Card(suit: .diamonds, rank: .three),
-            Card(suit: .diamonds, rank: .four),
-            Card(suit: .diamonds, rank: .five),
-            Card(suit: .diamonds, rank: .six),
-            Card(suit: .diamonds, rank: .seven),
-            Card(suit: .diamonds, rank: .eight),
-            Card(suit: .diamonds, rank: .nine)
-        ]
+        // Q♠ goes to someone else (player 2)
+        var queenTrick = Trick()
+        try! queenTrick.play(Card(suit: .spades, rank: .two), by: game.players[0], from: [Card(suit: .spades, rank: .two)])
+        try! queenTrick.play(Card(suit: .spades, rank: .three), by: game.players[1], from: [Card(suit: .spades, rank: .three)])
+        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: game.players[3], from: [Card(suit: .spades, rank: .queen)])
+        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[2], from: [Card(suit: .spades, rank: .ace)])  // Wins Q♠
+        game.completedTricks.append(queenTrick)
 
-        game.players[2].hand = [
-            Card(suit: .clubs, rank: .four),
-            Card(suit: .clubs, rank: .five),
-            Card(suit: .clubs, rank: .six),
-            Card(suit: .clubs, rank: .seven),
-            Card(suit: .clubs, rank: .eight),
-            Card(suit: .spades, rank: .three),
-            Card(suit: .spades, rank: .four),
-            Card(suit: .diamonds, rank: .ten),
-            Card(suit: .diamonds, rank: .jack),
-            Card(suit: .diamonds, rank: .queen),
-            Card(suit: .diamonds, rank: .king),
-            Card(suit: .diamonds, rank: .ace),
-            Card(suit: .clubs, rank: .nine)
-        ]
-
-        game.players[3].hand = [
-            Card(suit: .clubs, rank: .ten),
-            Card(suit: .clubs, rank: .jack),
-            Card(suit: .clubs, rank: .queen),
-            Card(suit: .clubs, rank: .king),
-            Card(suit: .clubs, rank: .ace),
-            Card(suit: .spades, rank: .five),
-            Card(suit: .spades, rank: .six),
-            Card(suit: .spades, rank: .seven),
-            Card(suit: .spades, rank: .eight),
-            Card(suit: .spades, rank: .nine),
-            Card(suit: .spades, rank: .ten),
-            Card(suit: .spades, rank: .jack),
-            Card(suit: .spades, rank: .king)
-        ]
-
-        // First trick - player 0 leads with 2♣ and wins
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
-        try game.playCard(Card(suit: .clubs, rank: .three), by: game.players[1])
-        try game.playCard(Card(suit: .clubs, rank: .four), by: game.players[2])
-        try game.playCard(Card(suit: .clubs, rank: .ten), by: game.players[3])
-
-        XCTAssertEqual(game.players[0].roundScore, 0)  // No points on first trick
-
-        // Now player 0 can lead hearts and take all remaining tricks
-        // For brevity, just verify the moon shooting scoring works
-        game.players[0].roundScore = 26
-        game.players[1].roundScore = 0
-        game.players[2].roundScore = 0
-        game.players[3].roundScore = 0
+        game.players[1].roundScore = 13  // All hearts but no Q♠
+        game.players[2].roundScore = 13  // Q♠
 
         game.endHand()
 
-        // Verify moon shot scoring
-        XCTAssertEqual(game.players[0].totalScore, 0)   // Moon shooter
-        XCTAssertEqual(game.players[1].totalScore, 26)  // Others get 26
-        XCTAssertEqual(game.players[2].totalScore, 26)
-        XCTAssertEqual(game.players[3].totalScore, 26)
+        // Normal scoring applies (no moon shot)
+        XCTAssertEqual(game.players[0].totalScore, 0)
+        XCTAssertEqual(game.players[1].totalScore, 13)  // Gets their 13 points
+        XCTAssertEqual(game.players[2].totalScore, 13)  // Gets Q♠
+        XCTAssertEqual(game.players[3].totalScore, 0)
     }
 }
