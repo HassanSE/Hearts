@@ -514,6 +514,157 @@ final class GameplayTests: XCTestCase {
         XCTAssertFalse(game.isGameOver)
     }
 
+    // MARK: - Jack of Diamonds Bonus Tests
+
+    func test_jackOfDiamonds_no_bonus_with_standard_config() throws {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .standard
+        )
+
+        // Set up first trick with Jack of Diamonds
+        game.players[0].hand = [Card(suit: .clubs, rank: .two)]
+        game.players[1].hand = [Card(suit: .clubs, rank: .three)]
+        game.players[2].hand = [Card(suit: .clubs, rank: .four)]
+        game.players[3].hand = [Card(suit: .diamonds, rank: .jack), Card(suit: .clubs, rank: .ace)]  // Will win
+
+        game.currentPlayerIndex = 0
+
+        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
+        try game.playCard(Card(suit: .clubs, rank: .three), by: game.players[1])
+        try game.playCard(Card(suit: .clubs, rank: .four), by: game.players[2])
+        try game.playCard(Card(suit: .clubs, rank: .ace), by: game.players[3])
+
+        // Player 3 won but no bonus applied
+        XCTAssertEqual(game.players[3].roundScore, 0, "Jack of Diamonds should not apply bonus in standard config")
+    }
+
+    func test_jackOfDiamonds_applies_bonus_with_jackBonus_config() throws {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .withJackBonus
+        )
+
+        // Set up trick where player wins Jack of Diamonds
+        game.players[0].hand = [Card(suit: .diamonds, rank: .king)]
+        game.players[1].hand = [Card(suit: .diamonds, rank: .jack)]  // J♦
+        game.players[2].hand = [Card(suit: .diamonds, rank: .three)]
+        game.players[3].hand = [Card(suit: .diamonds, rank: .ace)]  // Will win
+
+        // Can't use 2♣ for first trick here, so manually set up state
+        game.completedTricks = [Trick()]
+        game.currentPlayerIndex = 0
+
+        try game.playCard(Card(suit: .diamonds, rank: .king), by: game.players[0])
+        try game.playCard(Card(suit: .diamonds, rank: .jack), by: game.players[1])
+        try game.playCard(Card(suit: .diamonds, rank: .three), by: game.players[2])
+        try game.playCard(Card(suit: .diamonds, rank: .ace), by: game.players[3])
+
+        // Player 3 won and should get -10 points
+        XCTAssertEqual(game.players[3].roundScore, -10, "Jack of Diamonds should apply -10 bonus")
+    }
+
+    func test_jackOfDiamonds_bonus_with_hearts_in_same_trick() throws {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .withJackBonus
+        )
+
+        // Set up trick with hearts and J♦
+        game.players[0].hand = [Card(suit: .diamonds, rank: .king)]
+        game.players[1].hand = [Card(suit: .diamonds, rank: .jack)]  // J♦
+        game.players[2].hand = [Card(suit: .hearts, rank: .three)]   // 1 point
+        game.players[3].hand = [Card(suit: .diamonds, rank: .ace)]   // Will win
+
+        game.completedTricks = [Trick()]
+        game.currentPlayerIndex = 0
+        game.heartsBroken = true  // Allow hearts to be played
+
+        try game.playCard(Card(suit: .diamonds, rank: .king), by: game.players[0])
+        try game.playCard(Card(suit: .diamonds, rank: .jack), by: game.players[1])
+        try game.playCard(Card(suit: .hearts, rank: .three), by: game.players[2])
+        try game.playCard(Card(suit: .diamonds, rank: .ace), by: game.players[3])
+
+        // Player 3 should get 1 (heart) - 10 (J♦) = -9 points
+        XCTAssertEqual(game.players[3].roundScore, -9)
+    }
+
+    func test_gameConfiguration_custom_winning_score() {
+        let customConfig = GameConfiguration(jackOfDiamondsBonus: false, winningScore: 50)
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: customConfig
+        )
+
+        XCTAssertEqual(game.winningScore, 50)
+
+        game.players[0].totalScore = 50
+        XCTAssertTrue(game.isGameOver)
+    }
+
+    func test_jackOfDiamonds_bonus_can_result_in_negative_round_score() throws {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .withJackBonus
+        )
+
+        // Player takes only J♦, no other point cards
+        game.completedTricks = [Trick()]
+        game.players[0].hand = [Card(suit: .diamonds, rank: .two)]
+        game.players[1].hand = [Card(suit: .diamonds, rank: .jack)]
+        game.players[2].hand = [Card(suit: .diamonds, rank: .three)]
+        game.players[3].hand = [Card(suit: .diamonds, rank: .ace)]  // Wins
+
+        game.currentPlayerIndex = 0
+
+        try game.playCard(Card(suit: .diamonds, rank: .two), by: game.players[0])
+        try game.playCard(Card(suit: .diamonds, rank: .jack), by: game.players[1])
+        try game.playCard(Card(suit: .diamonds, rank: .three), by: game.players[2])
+        try game.playCard(Card(suit: .diamonds, rank: .ace), by: game.players[3])
+
+        XCTAssertEqual(game.players[3].roundScore, -10)
+    }
+
+    func test_jackOfDiamonds_bonus_prevents_shooting_moon_with_all_cards() {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .withJackBonus
+        )
+
+        // Player 0 takes all hearts (13) + Q♠ (13) + J♦ (-10) = 16 points
+        // This is NOT shooting the moon (requires exactly 26)
+        game.players[0].roundScore = 16
+        game.players[1].roundScore = 0
+        game.players[2].roundScore = 0
+        game.players[3].roundScore = 0
+
+        game.endHand()
+
+        // Normal scoring applies (not moon shot)
+        XCTAssertEqual(game.players[0].totalScore, 16)
+        XCTAssertEqual(game.players[1].totalScore, 0)
+        XCTAssertEqual(game.players[2].totalScore, 0)
+        XCTAssertEqual(game.players[3].totalScore, 0)
+    }
+
     // MARK: - Shooting the Moon Tests
 
     func test_shootTheMoon_player_with_26_points_gets_zero() {

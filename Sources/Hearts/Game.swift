@@ -36,12 +36,16 @@ class Game {
     var heartsBroken: Bool = false
     var currentPlayerIndex: Int = 0
 
-    // Game completion
-    let winningScore: Int = 100
+    // Game configuration
+    let configuration: GameConfiguration
+
+    var winningScore: Int {
+        configuration.winningScore
+    }
     
-    convenience init() {
+    convenience init(configuration: GameConfiguration = .standard) {
         let players = Player.makeBotPlayers()
-        self.init(player1: players[0], player2: players[1], player3: players[2], player4: players[3])
+        self.init(player1: players[0], player2: players[1], player3: players[2], player4: players[3], configuration: configuration)
     }
     
     var leader: Player? {
@@ -77,7 +81,9 @@ class Game {
     init(player1: Player,
          player2: Player,
          player3: Player,
-         player4: Player) {
+         player4: Player,
+         configuration: GameConfiguration = .standard) {
+        self.configuration = configuration
         self.players = [player1, player2, player3, player4]
         self.deck = Deck()
         deal()
@@ -208,8 +214,9 @@ class Game {
             return
         }
 
-        // Award points to winner
-        players[winnerIndex].roundScore += currentTrick.points
+        // Award points to winner based on configuration
+        let points = calculateTrickPoints(currentTrick)
+        players[winnerIndex].roundScore += points
 
         // Store completed trick
         completedTricks.append(currentTrick)
@@ -217,6 +224,25 @@ class Game {
         // Start new trick with winner leading
         currentTrick = Trick()
         currentPlayerIndex = winnerIndex
+    }
+
+    /// Calculate points for a trick based on game configuration
+    /// - Parameter trick: The completed trick
+    /// - Returns: Total points (may be negative with Jack of Diamonds bonus)
+    private func calculateTrickPoints(_ trick: Trick) -> Int {
+        var points = 0
+
+        for (_, card) in trick.plays {
+            if card.suit == .hearts {
+                points += 1
+            } else if card.suit == .spades && card.rank == .queen {
+                points += 13
+            } else if configuration.jackOfDiamondsBonus && card.suit == .diamonds && card.rank == .jack {
+                points -= 10
+            }
+        }
+
+        return points
     }
 
     private func advanceTurn() {
