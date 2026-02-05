@@ -7,11 +7,52 @@
 
 import Foundation
 
+// MARK: - Trick Context
+
+/// Context information needed for AI to make informed card-playing decisions
+struct TrickContext {
+    let hand: Hand
+    let currentTrick: Trick
+    let heartsBroken: Bool
+    let isFirstTrick: Bool
+
+    /// Returns only the cards from hand that are legal to play given the current game state
+    func getLegalMoves() -> [Card] {
+        var legalMoves = hand
+
+        // Rule 1: Must follow suit if possible
+        if let leadSuit = currentTrick.leadSuit {
+            let cardsOfLeadSuit = hand.filter { $0.suit == leadSuit }
+            if !cardsOfLeadSuit.isEmpty {
+                legalMoves = cardsOfLeadSuit
+            }
+        }
+
+        // Rule 2: Cannot lead hearts until broken (unless only hearts remain)
+        if currentTrick.leadSuit == nil && !heartsBroken {
+            let nonHearts = legalMoves.filter { $0.suit != .hearts }
+            if !nonHearts.isEmpty {
+                legalMoves = nonHearts
+            }
+        }
+
+        // Rule 3: Cannot play points on first trick (unless no choice)
+        if isFirstTrick && currentTrick.leadSuit != nil {
+            let nonPointCards = legalMoves.filter { $0.points == 0 }
+            if !nonPointCards.isEmpty {
+                legalMoves = nonPointCards
+            }
+        }
+
+        return legalMoves
+    }
+}
+
 // MARK: - AI Strategy Protocol
 
 protocol AIStrategy {
     func selectCardsToPass(from hand: Hand) -> PassedCards
-    func selectCardToPlay(from hand: Hand) -> Card
+    func selectCardToPlay(context: TrickContext) -> Card
 }
 
 // MARK: - Bot Difficulty
@@ -42,9 +83,10 @@ struct RandomAIStrategy: AIStrategy {
         return (shuffled[0], shuffled[1], shuffled[2])
     }
 
-    func selectCardToPlay(from hand: Hand) -> Card {
-        // Random strategy: randomly select any card from hand
-        return hand.randomElement()!
+    func selectCardToPlay(context: TrickContext) -> Card {
+        // Random strategy: randomly select from legal moves
+        let legalMoves = context.getLegalMoves()
+        return legalMoves.randomElement()!
     }
 }
 
@@ -73,15 +115,21 @@ struct BasicAIStrategy: AIStrategy {
         return (sorted[0], sorted[1], sorted[2])
     }
 
-    func selectCardToPlay(from hand: Hand) -> Card {
+    func selectCardToPlay(context: TrickContext) -> Card {
         // Basic strategy: Play low cards to avoid taking points
-        // If all cards are bad, dump the highest card
+        let legalMoves = context.getLegalMoves()
 
-        // Prefer playing low cards
-        let sorted = hand.sorted { lhs, rhs in
-            lhs.rank.rawValue < rhs.rank.rawValue
+        // If we must follow suit, try to play low and avoid winning
+        if context.currentTrick.leadSuit != nil {
+            let sorted = legalMoves.sorted { $0.rank.rawValue < $1.rank.rawValue }
+            return sorted[0]
         }
 
+        // If we're leading, prefer non-point cards, then lowest card
+        let nonPointCards = legalMoves.filter { $0.points == 0 }
+        let cardsToConsider = nonPointCards.isEmpty ? legalMoves : nonPointCards
+
+        let sorted = cardsToConsider.sorted { $0.rank.rawValue < $1.rank.rawValue }
         return sorted[0]
     }
 }
@@ -180,33 +228,66 @@ struct AdvancedAIStrategy: AIStrategy {
         return (cardsToPass[0], cardsToPass[1], cardsToPass[2])
     }
 
-    func selectCardToPlay(from hand: Hand) -> Card {
-        // Advanced strategy: Play smart based on hand composition
-        // Without game state, we focus on:
-        // 1. Prefer playing middle-value cards (not too high, not wasting low cards)
-        // 2. Avoid playing point cards if we have safe alternatives
-        // 3. Try to play from longest suit to maintain flexibility
+    func selectCardToPlay(context: TrickContext) -> Card {
+        // Advanced strategy: Play smart based on current trick and game state
+        let legalMoves = context.getLegalMoves()
 
+        // If following suit, try to duck under (play high but not highest)
+        if context.currentTrick.leadSuit != nil {
+            return selectCardToFollow(legalMoves: legalMoves, currentTrick: context.currentTrick)
+        }
+
+        // If leading, be strategic
+        return selectCardToLead(legalMoves: legalMoves, hand: context.hand, heartsBroken: context.heartsBroken)
+    }
+
+    private func selectCardToFollow(legalMoves: [Card], currentTrick: Trick) -> Card {
+        // Get the highest card played so far in the lead suit
+        let cardsInLeadSuit = currentTrick.cards.filter { $0.suit == currentTrick.leadSuit }
+        let highestSoFar = cardsInLeadSuit.max(by: { $0.rank.rawValue < $1.rank.rawValue })
+
+        let sorted = legalMoves.sorted { $0.rank.rawValue < $1.rank.rawValue }
+
+        // Try to duck under: play the highest card that won't win
+        if let highest = highestSoFar {
+            let safeCards = sorted.filter { $0.rank.rawValue < highest.rank.rawValue }
+            if !safeCards.isEmpty {
+                // Play highest safe card (duck under)
+                return safeCards.last!
+            }
+        }
+
+        // If we can't avoid winning or trick has points, play lowest
+        if currentTrick.points > 0 {
+            return sorted[0]
+        }
+
+        // No points in trick, play middle card
+        if sorted.count >= 3 {
+            return sorted[sorted.count / 2]
+        }
+        return sorted[0]
+    }
+
+    private func selectCardToLead(legalMoves: [Card], hand: Hand, heartsBroken: Bool) -> Card {
+        // When leading, prefer cards from our longest suit for flexibility
         let suitGroups = Dictionary(grouping: hand, by: { $0.suit })
-
-        // Find the longest suit (gives us most flexibility)
         let longestSuit = suitGroups.max(by: { $0.value.count < $1.value.count })
 
         if let longest = longestSuit {
-            // Play a middle card from longest suit
-            let sortedCards = longest.value.sorted { $0.rank.rawValue < $1.rank.rawValue }
-
-            // Prefer middle cards (not lowest, not highest)
-            if sortedCards.count >= 3 {
-                return sortedCards[sortedCards.count / 2]
-            } else if sortedCards.count == 2 {
-                return sortedCards[0] // Play lower card
-            } else {
-                return sortedCards[0]
+            let legalFromLongest = legalMoves.filter { $0.suit == longest.key }
+            if !legalFromLongest.isEmpty {
+                let sorted = legalFromLongest.sorted { $0.rank.rawValue < $1.rank.rawValue }
+                // Lead middle card from longest suit
+                if sorted.count >= 3 {
+                    return sorted[sorted.count / 2]
+                }
+                return sorted[0]
             }
         }
 
         // Fallback: play lowest card
-        return hand.min(by: { $0.rank.rawValue < $1.rank.rawValue })!
+        let sorted = legalMoves.sorted { $0.rank.rawValue < $1.rank.rawValue }
+        return sorted[0]
     }
 }

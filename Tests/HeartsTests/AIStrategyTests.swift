@@ -50,10 +50,17 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .clubs, rank: .two),
         ]
 
-        let selectedCard = strategy.selectCardToPlay(from: hand)
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false
+        )
 
-        // Should return a card from the hand
-        XCTAssertTrue(hand.contains(selectedCard))
+        let selectedCard = strategy.selectCardToPlay(context: context)
+
+        // Should return a legal card from the hand
+        XCTAssertTrue(context.getLegalMoves().contains(selectedCard))
     }
 
     // MARK: - BasicAIStrategy Tests
@@ -118,9 +125,16 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .spades, rank: .queen),
         ]
 
-        let selectedCard = strategy.selectCardToPlay(from: hand)
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: true,  // Hearts broken so we can lead hearts
+            isFirstTrick: false
+        )
 
-        // Should select the lowest card (2 of clubs)
+        let selectedCard = strategy.selectCardToPlay(context: context)
+
+        // Should select the lowest non-point card when leading
         XCTAssertEqual(selectedCard, Card(suit: .clubs, rank: .two))
     }
 
@@ -243,9 +257,16 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .hearts, rank: .ace),    // Highest
         ]
 
-        let selectedCard = strategy.selectCardToPlay(from: hand)
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: true,  // Hearts broken so we can lead hearts
+            isFirstTrick: false
+        )
 
-        // Should prefer middle card over lowest or highest
+        let selectedCard = strategy.selectCardToPlay(context: context)
+
+        // Should prefer middle card when leading from longest suit
         XCTAssertEqual(selectedCard, Card(suit: .hearts, rank: .seven))
     }
 
@@ -261,10 +282,17 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .spades, rank: .ace),   // 1 card
         ]
 
-        let selectedCard = strategy.selectCardToPlay(from: hand)
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: true,  // Hearts broken so we can lead hearts
+            isFirstTrick: false
+        )
+
+        let selectedCard = strategy.selectCardToPlay(context: context)
 
         // Should play from hearts (longest suit)
-        XCTAssertEqual(selectedCard.suit, .hearts)
+        XCTAssertEqual(selectedCard.suit, Card.Suit.hearts)
     }
 
     // MARK: - BotDifficulty Tests
