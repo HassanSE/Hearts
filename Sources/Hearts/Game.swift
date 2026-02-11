@@ -315,6 +315,111 @@ class Game {
         return capturedCards
     }
 
+    // MARK: - AI Integration
+
+    /// Select cards for a bot player to pass during card exchange
+    /// - Parameter player: The bot player
+    /// - Returns: Three cards selected by the bot's AI strategy
+    /// - Precondition: Player must be a bot
+    func selectCardsForBotExchange(player: Player) -> PassedCards {
+        precondition(player.type.isBot, "Player must be a bot to use AI selection")
+
+        guard let difficulty = player.type.botDifficulty else {
+            fatalError("Bot player must have difficulty level")
+        }
+
+        let strategy = difficulty.makeStrategy()
+        return strategy.selectCardsToPass(from: player.hand)
+    }
+
+    /// Select a card for a bot player to play
+    /// - Parameter player: The bot player
+    /// - Returns: A legal card selected by the bot's AI strategy
+    /// - Precondition: Player must be a bot
+    func selectCardForBotPlay(player: Player) -> Card {
+        precondition(player.type.isBot, "Player must be a bot to use AI selection")
+
+        guard let difficulty = player.type.botDifficulty else {
+            fatalError("Bot player must have difficulty level")
+        }
+
+        let strategy = difficulty.makeStrategy()
+        let context = TrickContext(
+            hand: player.hand,
+            currentTrick: currentTrick,
+            heartsBroken: heartsBroken,
+            isFirstTrick: completedTricks.isEmpty
+        )
+
+        return strategy.selectCardToPlay(context: context)
+    }
+
+    // MARK: - Game Orchestration
+
+    /// Play one complete trick with all 4 players (auto-plays bot cards)
+    /// - Throws: GameError if a human player's turn is encountered
+    /// - Returns: The player who won the trick
+    @discardableResult
+    func playCompleteTrick() throws -> Player {
+        precondition(!currentTrick.isComplete, "Cannot play trick - current trick is already complete")
+        precondition(!isHandComplete, "Cannot play trick - hand is complete")
+
+        let initialCompletedCount = completedTricks.count
+
+        // Play 4 cards to complete the trick
+        for _ in 0..<4 {
+            let player = currentPlayer
+
+            // If human player, we can't auto-play
+            if player.type.isHuman {
+                throw GameError.notPlayersTurn  // Reusing error for "need human input"
+            }
+
+            // Select card using AI
+            let card = selectCardForBotPlay(player: player)
+
+            // Play the card
+            try playCard(card, by: player)
+        }
+
+        // Return the winner of the just-completed trick
+        return completedTricks[initialCompletedCount].winner!
+    }
+
+    /// Play a complete hand (card exchange + 13 tricks)
+    /// - Throws: GameError if a human player is encountered
+    func playCompleteHand() throws {
+        precondition(!isHandComplete, "Hand is already complete")
+
+        // Play all 13 tricks
+        while !isHandComplete {
+            try playCompleteTrick()
+        }
+
+        // End the hand and calculate scores
+        endHand()
+    }
+
+    /// Play a complete game (multiple hands until someone reaches winning score)
+    /// - Throws: GameError if a human player is encountered
+    /// - Returns: The winning player
+    @discardableResult
+    func playCompleteGame() throws -> Player {
+        while !isGameOver {
+            // Check if we need to start a new hand
+            if isHandComplete {
+                startNewHand()
+            }
+
+            // Play the hand
+            try playCompleteHand()
+        }
+
+        return gameWinner!
+    }
+
+    // MARK: - Game Setup
+
     /// Start a new hand by dealing cards and performing exchange
     func startNewHand() {
         // Clear all hands first

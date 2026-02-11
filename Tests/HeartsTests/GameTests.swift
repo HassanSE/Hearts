@@ -138,4 +138,62 @@ final class GameTests: XCTestCase {
         XCTAssertEqual(passedCards4.count, passedCardCount)
         XCTAssertTrue(player1CardsAE.contains(passedCards4))
     }
+
+    // MARK: - AI Integration Tests
+
+    func test_selectCardsForBotExchange_returns_3_cards_from_hand() {
+        let game = Game()
+        let botPlayer = game.players[0]  // All players are bots in default init
+
+        let selectedCards = game.selectCardsForBotExchange(player: botPlayer)
+
+        // Should return 3 cards from the bot's hand
+        XCTAssertTrue(botPlayer.hand.contains(selectedCards.0))
+        XCTAssertTrue(botPlayer.hand.contains(selectedCards.1))
+        XCTAssertTrue(botPlayer.hand.contains(selectedCards.2))
+
+        // Should be unique cards
+        XCTAssertNotEqual(selectedCards.0, selectedCards.1)
+        XCTAssertNotEqual(selectedCards.0, selectedCards.2)
+        XCTAssertNotEqual(selectedCards.1, selectedCards.2)
+    }
+
+    func test_selectCardForBotPlay_returns_legal_card() {
+        let game = Game()
+        let botPlayer = game.players[game.currentPlayerIndex]
+
+        let selectedCard = game.selectCardForBotPlay(player: botPlayer)
+
+        // Should return a card from the bot's hand
+        XCTAssertTrue(botPlayer.hand.contains(selectedCard))
+
+        // Should be a legal move (2 of clubs on first play)
+        if game.completedTricks.isEmpty && game.currentTrick.cards.isEmpty {
+            XCTAssertEqual(selectedCard.suit, .clubs)
+            XCTAssertEqual(selectedCard.rank, .two)
+        }
+    }
+
+    func test_selectCardForBotPlay_respects_follow_suit_rule() {
+        let botPlayer1 = Player(name: "Bot1", type: .bot(difficulty: .medium))
+        let botPlayer2 = Player(name: "Bot2", type: .bot(difficulty: .medium))
+        let botPlayer3 = Player(name: "Bot3", type: .bot(difficulty: .medium))
+        let botPlayer4 = Player(name: "Bot4", type: .bot(difficulty: .medium))
+
+        let game = Game(player1: botPlayer1, player2: botPlayer2, player3: botPlayer3, player4: botPlayer4)
+
+        // Play first card (2 of clubs)
+        let firstCard = game.selectCardForBotPlay(player: game.currentPlayer)
+        try! game.playCard(firstCard, by: game.currentPlayer)
+
+        // Next player must follow suit if possible
+        let secondPlayer = game.currentPlayer
+        let secondCard = game.selectCardForBotPlay(player: secondPlayer)
+
+        // If player has clubs, they must play a club
+        let hasClubs = secondPlayer.hand.contains(where: { $0.suit == .clubs })
+        if hasClubs {
+            XCTAssertEqual(secondCard.suit, .clubs, "Bot should follow suit when possible")
+        }
+    }
 }

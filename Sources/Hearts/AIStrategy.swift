@@ -20,6 +20,14 @@ struct TrickContext {
     func getLegalMoves() -> [Card] {
         var legalMoves = hand
 
+        // Rule 0: First card of game must be 2 of clubs
+        if isFirstTrick && currentTrick.leadSuit == nil {
+            let twoOfClubs = hand.filter { $0.suit == .clubs && $0.rank == .two }
+            if !twoOfClubs.isEmpty {
+                return twoOfClubs
+            }
+        }
+
         // Rule 1: Must follow suit if possible
         if let leadSuit = currentTrick.leadSuit {
             let cardsOfLeadSuit = hand.filter { $0.suit == leadSuit }
