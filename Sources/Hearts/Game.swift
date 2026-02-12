@@ -39,6 +39,9 @@ class Game {
     // Game configuration
     let configuration: GameConfiguration
 
+    /// Delegate to receive game event notifications.
+    weak var delegate: GameEngineDelegate?
+
     var winningScore: Int {
         configuration.winningScore
     }
@@ -194,9 +197,15 @@ class Game {
         // 7. Remove card from player's hand
         players[playerIndex].hand.removeAll { $0 == card }
 
-        // 8. Update hearts broken state
+        // 8. Update hearts broken state and fire delegate events
+        let justBrokeHearts = !heartsBroken && card.suit == .hearts
         if card.suit == .hearts {
             heartsBroken = true
+        }
+
+        delegate?.game(self, didPlayCard: card, by: player)
+        if justBrokeHearts {
+            delegate?.game(self, didBreakHearts: card, by: player)
         }
 
         // 9. Check if trick is complete
@@ -218,12 +227,17 @@ class Game {
         let points = calculateTrickPoints(currentTrick)
         players[winnerIndex].roundScore += points
 
+        // Capture completed trick before resetting
+        let completedTrick = currentTrick
+
         // Store completed trick
         completedTricks.append(currentTrick)
 
         // Start new trick with winner leading
         currentTrick = Trick()
         currentPlayerIndex = winnerIndex
+
+        delegate?.game(self, didCompleteTrick: completedTrick, winner: winner, points: points)
     }
 
     /// Calculate points for a trick based on game configuration
@@ -253,8 +267,11 @@ class Game {
 
     /// End the current hand and transfer round scores to total scores
     func endHand() {
+        // Detect moon shooter before applying scores (uses completedTricks)
+        let moonShooter = detectMoonShooter()
+
         // Check for shooting the moon
-        if let moonShooter = detectMoonShooter() {
+        if let moonShooter = moonShooter {
             // Moon shooter gets special score, everyone else gets 26
             for i in 0..<players.count {
                 if players[i].id == moonShooter.id {
@@ -277,6 +294,13 @@ class Game {
 
         // Increment round number for next hand
         roundNumber += 1
+
+        // Fire end-of-hand delegate events
+        let scores = Dictionary(uniqueKeysWithValues: players.map { ($0, $0.totalScore) })
+        delegate?.game(self, didEndHand: scores, moonShooter: moonShooter)
+        if isGameOver, let winner = gameWinner {
+            delegate?.game(self, didEndGame: winner)
+        }
     }
 
     /// Detect if any player shot the moon (captured all 13 hearts + Queen of Spades)
@@ -352,6 +376,21 @@ class Game {
         )
 
         return strategy.selectCardToPlay(context: context)
+    }
+
+    /// Advances bot plays in the current trick until it's a human player's turn or the trick completes.
+    ///
+    /// Safe to call in mixed human/bot games. Stops when:
+    /// - The current player is human (waits for UI input via `playCard(_:by:)`)
+    /// - The current trick completes naturally
+    /// - The hand is already complete
+    func playBotTurnsUntilHumanTurn() throws {
+        while !currentTrick.isComplete && !isHandComplete {
+            let player = currentPlayer
+            guard player.type.isBot else { return }
+            let card = selectCardForBotPlay(player: player)
+            try playCard(card, by: player)
+        }
     }
 
     // MARK: - Game Orchestration
