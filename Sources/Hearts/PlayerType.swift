@@ -7,21 +7,21 @@
 
 import Foundation
 
-enum PlayerType: Equatable {
+public enum PlayerType: Equatable {
     case human
     case bot(difficulty: BotDifficulty)
 
-    var isBot: Bool {
+    public var isBot: Bool {
         if case .bot = self { return true }
         return false
     }
 
-    var isHuman: Bool {
+    public var isHuman: Bool {
         if case .human = self { return true }
         return false
     }
 
-    var botDifficulty: BotDifficulty? {
+    public var botDifficulty: BotDifficulty? {
         if case .bot(let difficulty) = self { return difficulty }
         return nil
     }

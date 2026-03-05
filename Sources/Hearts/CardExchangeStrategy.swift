@@ -7,7 +7,7 @@
 
 import Foundation
 
-typealias PassedCards = (first: Card, second: Card, third: Card)
+public typealias PassedCards = (first: Card, second: Card, third: Card)
 
 protocol CardExchangeStrategy {
     var hand: Hand { get set }

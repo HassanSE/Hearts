@@ -9,14 +9,14 @@ import Foundation
 
 typealias Hand = [Card]
 
-enum CardExchangeDirection {
+public enum CardExchangeDirection {
     case left
     case right
     case across
     case none
 }
 
-enum GameError: Error, Equatable {
+public enum GameError: Error, Equatable {
     case notPlayersTurn
     case cardNotInHand
     case mustLeadWithTwoOfClubs
@@ -25,58 +25,58 @@ enum GameError: Error, Equatable {
     case handComplete
 }
 
-class Game {
-    var players: [Player]
+public class Game {
+    public internal(set) var players: [Player]
     var deck: Deck
-    var roundNumber = 0
+    public internal(set) var roundNumber = 0
 
     // Trick-taking state
-    var currentTrick: Trick = Trick()
-    var completedTricks: [Trick] = []
-    var heartsBroken: Bool = false
-    var currentPlayerIndex: Int = 0
+    public internal(set) var currentTrick: Trick = Trick()
+    public internal(set) var completedTricks: [Trick] = []
+    public internal(set) var heartsBroken: Bool = false
+    public internal(set) var currentPlayerIndex: Int = 0
 
     // Game configuration
-    let configuration: GameConfiguration
+    public let configuration: GameConfiguration
 
     /// Tracks whether the card exchange has been performed for the current hand.
     /// Prevents double-exchange and lets the UI drive timing for human players.
     private var hasExchanged = false
 
     /// Delegate to receive game event notifications.
-    weak var delegate: GameEngineDelegate?
+    public weak var delegate: GameEngineDelegate?
 
-    var winningScore: Int {
+    public var winningScore: Int {
         configuration.winningScore
     }
-    
-    convenience init(configuration: GameConfiguration = .standard) {
+
+    public convenience init(configuration: GameConfiguration = .standard) {
         let players = Player.makeBotPlayers()
         self.init(player1: players[0], player2: players[1], player3: players[2], player4: players[3], configuration: configuration)
     }
-    
-    var leader: Player? {
+
+    public var leader: Player? {
         players.filter{ $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }.first
     }
 
-    var currentPlayer: Player {
+    public var currentPlayer: Player {
         players[currentPlayerIndex]
     }
 
-    var isHandComplete: Bool {
+    public var isHandComplete: Bool {
         completedTricks.count == 13
     }
 
-    var isGameOver: Bool {
+    public var isGameOver: Bool {
         players.contains(where: { $0.totalScore >= winningScore })
     }
 
-    var gameWinner: Player? {
+    public var gameWinner: Player? {
         guard isGameOver else { return nil }
         return players.min(by: { $0.totalScore < $1.totalScore })
     }
-    
-    var exchangeDirection: CardExchangeDirection {
+
+    public var exchangeDirection: CardExchangeDirection {
         switch roundNumber % 4 {
         case 0: return .left
         case 1: return .right
@@ -84,8 +84,8 @@ class Game {
         default: return .none
         }
     }
-    
-    init(player1: Player,
+
+    public init(player1: Player,
          player2: Player,
          player3: Player,
          player4: Player,
@@ -100,13 +100,13 @@ class Game {
             currentPlayerIndex = leaderIndex
         }
     }
-    
+
     func getOpponent(_ player: Player, direction: Direction) -> Player? {
         guard let index = players.firstIndex(where: { $0.id == player.id }) else { return nil }
         let offset = direction == .left ? 1 : direction == .right ? 3 : 2
         return players[(index + offset) % 4]
     }
-    
+
     private func deal() {
         let numberOfCardsPerHand = 13
         deck.shuffle()
@@ -117,7 +117,7 @@ class Game {
             players[3].hand.append(deck.deal()!)
         }
     }
-    
+
     /// Perform the card exchange for the current round.
     ///
     /// - Parameter humanCards: The 3 cards the human player wants to pass.
@@ -132,7 +132,7 @@ class Game {
     /// // show human game.players[humanIndex].hand, get selection…
     /// game.performExchange(humanCards: selected)
     /// ```
-    func performExchange(humanCards: PassedCards? = nil) {
+    public func performExchange(humanCards: PassedCards? = nil) {
         guard !hasExchanged else { return }
         hasExchanged = true
 
@@ -186,7 +186,7 @@ class Game {
     ///   - card: The card to play
     ///   - player: The player playing the card
     /// - Throws: GameError or TrickError if the play is invalid
-    func playCard(_ card: Card, by player: Player) throws {
+    public func playCard(_ card: Card, by player: Player) throws {
         // 1. Validate it's this player's turn
         guard player == currentPlayer else {
             throw GameError.notPlayersTurn
@@ -310,7 +310,7 @@ class Game {
     // MARK: - Multi-Round Management
 
     /// End the current hand and transfer round scores to total scores
-    func endHand() {
+    public func endHand() {
         // Detect moon shooter before applying scores (uses completedTricks)
         let moonShooter = detectMoonShooter()
 
@@ -428,7 +428,7 @@ class Game {
     /// - The current player is human (waits for UI input via `playCard(_:by:)`)
     /// - The current trick completes naturally
     /// - The hand is already complete
-    func playBotTurnsUntilHumanTurn() throws {
+    public func playBotTurnsUntilHumanTurn() throws {
         while !currentTrick.isComplete && !isHandComplete {
             let player = currentPlayer
             guard player.type.isBot else { return }
@@ -471,7 +471,7 @@ class Game {
 
     /// Play a complete hand (card exchange + 13 tricks)
     /// - Throws: GameError if a human player is encountered
-    func playCompleteHand() throws {
+    public func playCompleteHand() throws {
         precondition(!isHandComplete, "Hand is already complete")
 
         // Perform exchange for bots (no-op if already done or direction is .none)
@@ -490,7 +490,7 @@ class Game {
     /// - Throws: GameError if a human player is encountered
     /// - Returns: The winning player
     @discardableResult
-    func playCompleteGame() throws -> Player {
+    public func playCompleteGame() throws -> Player {
         while !isGameOver {
             // Check if we need to start a new hand
             if isHandComplete {
@@ -507,7 +507,7 @@ class Game {
     // MARK: - Game Setup
 
     /// Start a new hand by dealing cards and performing exchange
-    func startNewHand() {
+    public func startNewHand() {
         // Clear all hands first
         for i in 0..<players.count {
             players[i].hand = []

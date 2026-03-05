@@ -23,7 +23,7 @@ import Foundation
 /// let customConfig = GameConfiguration(jackOfDiamondsBonus: true, winningScore: 50)
 /// let game = Game(player1: p1, player2: p2, player3: p3, player4: p4, configuration: customConfig)
 /// ```
-struct GameConfiguration {
+public struct GameConfiguration {
     /// When true, the Jack of Diamonds reduces the trick winner's score by 10 points.
     ///
     /// This is a popular Hearts variant. When combined with shooting the moon:
@@ -32,20 +32,25 @@ struct GameConfiguration {
     /// - Other players still get 26 points each
     ///
     /// Example: Player captures all hearts, Q♠, and J♦ = shooter gets -10, others get 26 each
-    let jackOfDiamondsBonus: Bool
+    public let jackOfDiamondsBonus: Bool
 
     /// Target score to end the game. First player to reach or exceed this score loses.
     /// The player with the lowest total score at game end wins.
-    let winningScore: Int
+    public let winningScore: Int
+
+    public init(jackOfDiamondsBonus: Bool = false, winningScore: Int = 100) {
+        self.jackOfDiamondsBonus = jackOfDiamondsBonus
+        self.winningScore = winningScore
+    }
 
     /// Standard Hearts rules (no Jack of Diamonds bonus, game ends at 100 points)
-    static let standard = GameConfiguration(
+    public static let standard = GameConfiguration(
         jackOfDiamondsBonus: false,
         winningScore: 100
     )
 
     /// Hearts variant with Jack of Diamonds bonus rule (game ends at 100 points)
-    static let withJackBonus = GameConfiguration(
+    public static let withJackBonus = GameConfiguration(
         jackOfDiamondsBonus: true,
         winningScore: 100
     )

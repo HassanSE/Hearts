@@ -9,7 +9,7 @@
 ///
 /// All methods have default no-op implementations — conformers only need to
 /// implement the events they care about.
-protocol GameEngineDelegate: AnyObject {
+public protocol GameEngineDelegate: AnyObject {
     /// Called after each card is played.
     func game(_ game: Game, didPlayCard card: Card, by player: Player)
 
@@ -26,7 +26,7 @@ protocol GameEngineDelegate: AnyObject {
     func game(_ game: Game, didEndGame winner: Player)
 }
 
-extension GameEngineDelegate {
+public extension GameEngineDelegate {
     func game(_ game: Game, didPlayCard card: Card, by player: Player) {}
     func game(_ game: Game, didCompleteTrick trick: Trick, winner: Player, points: Int) {}
     func game(_ game: Game, didBreakHearts card: Card, by player: Player) {}

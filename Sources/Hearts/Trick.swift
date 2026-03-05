@@ -14,26 +14,26 @@ enum TrickError: Error, Equatable {
     case cardNotInHand
 }
 
-struct Trick {
-    private(set) var plays: [(player: Player, card: Card)] = []
+public struct Trick {
+    public private(set) var plays: [(player: Player, card: Card)] = []
 
     /// The suit of the first card played in this trick
-    var leadSuit: Card.Suit? {
+    public var leadSuit: Card.Suit? {
         plays.first?.card.suit
     }
 
     /// Whether all 4 players have played a card
-    var isComplete: Bool {
+    public var isComplete: Bool {
         plays.count == 4
     }
 
     /// Total points in this trick (hearts = 1 each, Q♠ = 13)
-    var points: Int {
+    public var points: Int {
         plays.reduce(0) { $0 + $1.card.points }
     }
 
     /// The player who won this trick (highest card of lead suit)
-    var winner: Player? {
+    public var winner: Player? {
         guard isComplete, let leadSuit = leadSuit else { return nil }
         return plays
             .filter { $0.card.suit == leadSuit }
@@ -42,17 +42,17 @@ struct Trick {
     }
 
     /// All cards played in this trick
-    var cards: [Card] {
+    public var cards: [Card] {
         plays.map { $0.card }
     }
 
     /// All players who have played in this trick
-    var players: [Player] {
+    public var players: [Player] {
         plays.map { $0.player }
     }
 
     /// Check if a specific player has already played in this trick
-    func hasPlayed(_ player: Player) -> Bool {
+    public func hasPlayed(_ player: Player) -> Bool {
         plays.contains(where: { $0.player == player })
     }
 
@@ -91,7 +91,7 @@ struct Trick {
 }
 
 extension Trick: CustomDebugStringConvertible {
-    var debugDescription: String {
+    public var debugDescription: String {
         let playsDesc = plays.map { "\($0.player.name): \($0.card)" }.joined(separator: ", ")
         let winnerDesc = winner.map { " | Winner: \($0.name)" } ?? ""
         return "Trick[\(playsDesc)\(winnerDesc)]"

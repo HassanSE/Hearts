@@ -13,15 +13,15 @@ enum Direction {
     case across
 }
 
-struct Player {
-    let id: UUID
-    let name: String
-    let type: PlayerType
-    var hand: [Card]
-    var roundScore: Int
-    var totalScore: Int
+public struct Player {
+    public let id: UUID
+    public let name: String
+    public let type: PlayerType
+    public internal(set) var hand: [Card]
+    public internal(set) var roundScore: Int
+    public internal(set) var totalScore: Int
 
-    init(name: String, type: PlayerType = .human, hand: [Card] = [], roundScore: Int = 0, totalScore: Int = 0) {
+    public init(name: String, type: PlayerType = .human, hand: [Card] = [], roundScore: Int = 0, totalScore: Int = 0) {
         self.id = UUID()
         self.name = name
         self.type = type
@@ -49,13 +49,13 @@ extension Player {
 }
 
 extension Player: Equatable {
-    static func ==(lhs: Player, rhs: Player) -> Bool {
+    public static func ==(lhs: Player, rhs: Player) -> Bool {
         lhs.id == rhs.id
     }
 }
 
 extension Player: Hashable {
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 }
@@ -63,7 +63,7 @@ extension Player: Hashable {
 extension Player: CardExchangeStrategy { }
 
 extension Player: CustomDebugStringConvertible {
-    var debugDescription: String {
+    public var debugDescription: String {
         let typeDescription: String
         switch type {
         case .human:
