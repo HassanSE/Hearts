@@ -39,6 +39,10 @@ class Game {
     // Game configuration
     let configuration: GameConfiguration
 
+    /// Tracks whether the card exchange has been performed for the current hand.
+    /// Prevents double-exchange and lets the UI drive timing for human players.
+    private var hasExchanged = false
+
     /// Delegate to receive game event notifications.
     weak var delegate: GameEngineDelegate?
 
@@ -90,7 +94,6 @@ class Game {
         self.players = [player1, player2, player3, player4]
         self.deck = Deck()
         deal()
-        performExchange()
 
         // Set current player to whoever has 2 of clubs
         if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
@@ -115,23 +118,64 @@ class Game {
         }
     }
     
-    func performExchange() {
+    /// Perform the card exchange for the current round.
+    ///
+    /// - Parameter humanCards: The 3 cards the human player wants to pass.
+    ///   If `nil` and a human player is in the game, their first 3 cards are passed as a fallback.
+    ///   Ignored when `exchangeDirection` is `.none`.
+    ///
+    /// Call this once per hand. Subsequent calls are no-ops until `startNewHand()` resets the state.
+    /// For all-bot games this is called automatically by `playCompleteHand()`.
+    /// For human games, call it explicitly after showing the human their hand:
+    /// ```swift
+    /// game.startNewHand()
+    /// // show human game.players[humanIndex].hand, get selection…
+    /// game.performExchange(humanCards: selected)
+    /// ```
+    func performExchange(humanCards: PassedCards? = nil) {
+        guard !hasExchanged else { return }
+        hasExchanged = true
+
         guard exchangeDirection != .none else { return }
 
-        let direction: Direction = exchangeDirection == .left ? .left : exchangeDirection == .right ? .right : .across
-        let offset = direction == .left ? 1 : direction == .right ? 3 : 2
-
-        // Collect cards from all players first
-        var cardsToPass: [(fromIndex: Int, toIndex: Int, cards: PassedCards)] = []
-        for i in 0..<players.count {
-            let passingCards = players[i].pickCards()
-            let toIndex = (i + offset) % 4
-            cardsToPass.append((fromIndex: i, toIndex: toIndex, cards: passingCards))
+        let offset: Int
+        switch exchangeDirection {
+        case .left:   offset = 1
+        case .right:  offset = 3
+        case .across: offset = 2
+        case .none:   return
         }
 
-        // Then distribute them
+        // Phase 1: collect each player's 3 cards to pass (and remove them from their hand)
+        var cardsToPass: [(toIndex: Int, cards: PassedCards)] = []
+        for i in 0..<players.count {
+            let toIndex = (i + offset) % 4
+            let passingCards: PassedCards
+
+            if players[i].type.isHuman, let selected = humanCards {
+                // Human explicitly chose these 3 cards
+                players[i].hand.removeAll { $0 == selected.first || $0 == selected.second || $0 == selected.third }
+                passingCards = selected
+            } else if players[i].type.isBot {
+                // Bot uses its AI strategy to select 3 cards
+                passingCards = selectCardsForBotExchange(player: players[i])
+                players[i].hand.removeAll { $0 == passingCards.first || $0 == passingCards.second || $0 == passingCards.third }
+            } else {
+                // Human with no selection provided — fall back to first 3 cards
+                passingCards = players[i].pickCards()
+            }
+
+            cardsToPass.append((toIndex: toIndex, cards: passingCards))
+        }
+
+        // Phase 2: distribute the collected cards
         for exchange in cardsToPass {
             players[exchange.toIndex].acceptExchange(cards: exchange.cards)
+        }
+
+        // Re-identify who holds 2♣ — exchange may have moved it to a different player
+        if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
+            currentPlayerIndex = leaderIndex
         }
     }
 
@@ -430,6 +474,9 @@ class Game {
     func playCompleteHand() throws {
         precondition(!isHandComplete, "Hand is already complete")
 
+        // Perform exchange for bots (no-op if already done or direction is .none)
+        performExchange()
+
         // Play all 13 tricks
         while !isHandComplete {
             try playCompleteTrick()
@@ -470,8 +517,10 @@ class Game {
         deck = Deck()
         deal()
 
-        // Perform card exchange based on round number
-        performExchange()
+        // Reset exchange flag so performExchange() can run for the new hand.
+        // For all-bot games playCompleteHand() calls it automatically.
+        // For human games the UI calls performExchange(humanCards:) after showing the hand.
+        hasExchanged = false
 
         // Reset game state
         currentTrick = Trick()

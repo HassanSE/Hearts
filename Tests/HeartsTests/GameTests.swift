@@ -120,23 +120,23 @@ final class GameTests: XCTestCase {
         XCTAssertEqual(passedCards.count, passedCardCount)
         
         // Player 2 Assertions
-        XCTAssertTrue(player2CardsAE.contains(passedCards))
+        XCTAssertTrue(passedCards.allSatisfy { player2CardsAE.contains($0) })
         XCTAssertEqual(player2CardsAE.count, playerHandCount)
         let passedCards2 = player2CardsBE.filter { !player2CardsAE.contains($0) }
         XCTAssertEqual(passedCards2.count, passedCardCount)
-        
+
         // Player 3 Assertions
-        XCTAssertTrue(player3CardsAE.contains(passedCards2))
+        XCTAssertTrue(passedCards2.allSatisfy { player3CardsAE.contains($0) })
         XCTAssertEqual(player3CardsAE.count, playerHandCount)
         let passedCards3 = player3CardsBE.filter { !player3CardsAE.contains($0) }
         XCTAssertEqual(passedCards3.count, passedCardCount)
-        
+
         // Player 4 Assertions
-        XCTAssertTrue(player4CardsAE.contains(passedCards3))
+        XCTAssertTrue(passedCards3.allSatisfy { player4CardsAE.contains($0) })
         XCTAssertEqual(player4CardsAE.count, playerHandCount)
         let passedCards4 = player4CardsBE.filter { !player4CardsAE.contains($0) }
         XCTAssertEqual(passedCards4.count, passedCardCount)
-        XCTAssertTrue(player1CardsAE.contains(passedCards4))
+        XCTAssertTrue(passedCards4.allSatisfy { player1CardsAE.contains($0) })
     }
 
     // MARK: - AI Integration Tests

@@ -359,4 +359,121 @@ final class HumanPlayerTests: XCTestCase {
         XCTAssertFalse(game.isGameOver)
         XCTAssertEqual(delegate.didEndGameCalls.count, 0)
     }
+
+    // MARK: - performExchange
+
+    func test_performExchange_humanCards_usesSpecifiedCards() {
+        let game = makeHumanBotGame()
+        // Give the human a 13-card hand so exchange precondition is satisfied
+        game.players[0].hand = [
+            Card(suit: .clubs, rank: .two),
+            Card(suit: .clubs, rank: .three),
+            Card(suit: .clubs, rank: .four),
+            Card(suit: .clubs, rank: .five),
+            Card(suit: .clubs, rank: .six),
+            Card(suit: .clubs, rank: .seven),
+            Card(suit: .clubs, rank: .eight),
+            Card(suit: .clubs, rank: .nine),
+            Card(suit: .clubs, rank: .ten),
+            Card(suit: .clubs, rank: .jack),
+            Card(suit: .clubs, rank: .queen),
+            Card(suit: .clubs, rank: .king),
+            Card(suit: .clubs, rank: .ace)
+        ]
+        game.players[1].hand = Array(repeating: Card(suit: .diamonds, rank: .two), count: 0)
+        // Give bots valid 13-card hands
+        let botCards: [[Card]] = [
+            [Card(suit: .diamonds, rank: .two), Card(suit: .diamonds, rank: .three),
+             Card(suit: .diamonds, rank: .four), Card(suit: .diamonds, rank: .five),
+             Card(suit: .diamonds, rank: .six), Card(suit: .diamonds, rank: .seven),
+             Card(suit: .diamonds, rank: .eight), Card(suit: .diamonds, rank: .nine),
+             Card(suit: .diamonds, rank: .ten), Card(suit: .diamonds, rank: .jack),
+             Card(suit: .diamonds, rank: .queen), Card(suit: .diamonds, rank: .king),
+             Card(suit: .diamonds, rank: .ace)],
+            [Card(suit: .hearts, rank: .two), Card(suit: .hearts, rank: .three),
+             Card(suit: .hearts, rank: .four), Card(suit: .hearts, rank: .five),
+             Card(suit: .hearts, rank: .six), Card(suit: .hearts, rank: .seven),
+             Card(suit: .hearts, rank: .eight), Card(suit: .hearts, rank: .nine),
+             Card(suit: .hearts, rank: .ten), Card(suit: .hearts, rank: .jack),
+             Card(suit: .hearts, rank: .queen), Card(suit: .hearts, rank: .king),
+             Card(suit: .hearts, rank: .ace)],
+            [Card(suit: .spades, rank: .two), Card(suit: .spades, rank: .three),
+             Card(suit: .spades, rank: .four), Card(suit: .spades, rank: .five),
+             Card(suit: .spades, rank: .six), Card(suit: .spades, rank: .seven),
+             Card(suit: .spades, rank: .eight), Card(suit: .spades, rank: .nine),
+             Card(suit: .spades, rank: .ten), Card(suit: .spades, rank: .jack),
+             Card(suit: .spades, rank: .queen), Card(suit: .spades, rank: .king),
+             Card(suit: .spades, rank: .ace)]
+        ]
+        game.players[1].hand = botCards[0]
+        game.players[2].hand = botCards[1]
+        game.players[3].hand = botCards[2]
+
+        let card1 = Card(suit: .clubs, rank: .ace)
+        let card2 = Card(suit: .clubs, rank: .king)
+        let card3 = Card(suit: .clubs, rank: .queen)
+        let humanCards = PassedCards(first: card1, second: card2, third: card3)
+
+        // roundNumber=0 → .left exchange (human passes to player at index 1)
+        game.performExchange(humanCards: humanCards)
+
+        XCTAssertFalse(game.players[0].hand.contains(card1), "Human should no longer hold the passed card1")
+        XCTAssertFalse(game.players[0].hand.contains(card2), "Human should no longer hold the passed card2")
+        XCTAssertFalse(game.players[0].hand.contains(card3), "Human should no longer hold the passed card3")
+        XCTAssertTrue(game.players[1].hand.contains(card1), "Bot1 should have received card1 from human")
+        XCTAssertTrue(game.players[1].hand.contains(card2), "Bot1 should have received card2 from human")
+        XCTAssertTrue(game.players[1].hand.contains(card3), "Bot1 should have received card3 from human")
+        XCTAssertEqual(game.players[0].hand.count, 13)
+        XCTAssertEqual(game.players[1].hand.count, 13)
+    }
+
+    func test_performExchange_preventedOnSecondCall() {
+        let game = Game()  // all bots
+        let handsBefore = game.players.map { $0.hand }
+
+        game.performExchange()
+        let handsAfterFirst = game.players.map { $0.hand }
+
+        // Second call should be a no-op — hands must not change further
+        game.performExchange()
+
+        XCTAssertEqual(game.players[0].hand, handsAfterFirst[0], "Second exchange call should be a no-op")
+        XCTAssertEqual(game.players[1].hand, handsAfterFirst[1])
+        XCTAssertEqual(game.players[2].hand, handsAfterFirst[2])
+        XCTAssertEqual(game.players[3].hand, handsAfterFirst[3])
+        // First exchange should have changed hands
+        let anyHandChanged = zip(handsBefore, handsAfterFirst).contains { $0 != $1 }
+        XCTAssertTrue(anyHandChanged, "First exchange should change hands")
+    }
+
+    func test_performExchange_allowedAfterStartNewHand() {
+        let game = Game()  // all bots
+
+        game.performExchange()
+
+        // Start a new hand — exchange flag resets
+        game.startNewHand()
+        let handsAfterNewHand = game.players.map { $0.hand }
+
+        // Exchange again should work (hands change from fresh deal)
+        game.performExchange()
+        let handsAfterSecondExchange = game.players.map { $0.hand }
+
+        // After startNewHand the hands are re-dealt (not the same as before)
+        // After the second exchange, some cards should have moved again
+        let anyHandChanged = zip(handsAfterNewHand, handsAfterSecondExchange).contains { $0 != $1 }
+        XCTAssertTrue(anyHandChanged, "Exchange after startNewHand should change hands")
+    }
+
+    func test_performExchange_noPassRound_doesNothing() {
+        let game = Game()  // all bots
+        game.roundNumber = 3  // .none direction
+        let handsBefore = game.players.map { $0.hand }
+
+        game.performExchange()  // should be a no-op (direction is .none)
+
+        for i in 0..<4 {
+            XCTAssertEqual(game.players[i].hand, handsBefore[i], "Hands should not change when direction is .none")
+        }
+    }
 }

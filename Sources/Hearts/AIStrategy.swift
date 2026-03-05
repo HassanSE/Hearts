@@ -94,7 +94,10 @@ struct RandomAIStrategy: AIStrategy {
     func selectCardToPlay(context: TrickContext) -> Card {
         // Random strategy: randomly select from legal moves
         let legalMoves = context.getLegalMoves()
-        return legalMoves.randomElement()!
+        guard let card = legalMoves.randomElement() else {
+            fatalError("No legal moves available — hand is empty or game state is corrupted")
+        }
+        return card
     }
 }
 
