@@ -15,6 +15,20 @@ struct TrickContext {
     let currentTrick: Trick
     let heartsBroken: Bool
     let isFirstTrick: Bool
+    let completedTricks: [Trick]
+
+    init(hand: Hand, currentTrick: Trick, heartsBroken: Bool, isFirstTrick: Bool, completedTricks: [Trick] = []) {
+        self.hand = hand
+        self.currentTrick = currentTrick
+        self.heartsBroken = heartsBroken
+        self.isFirstTrick = isFirstTrick
+        self.completedTricks = completedTricks
+    }
+
+    /// All cards played in previous completed tricks
+    var playedCards: [Card] {
+        completedTricks.flatMap { $0.cards }
+    }
 
     /// Returns only the cards from hand that are legal to play given the current game state
     func getLegalMoves() -> [Card] {
@@ -59,7 +73,7 @@ struct TrickContext {
 // MARK: - AI Strategy Protocol
 
 protocol AIStrategy {
-    func selectCardsToPass(from hand: Hand) -> PassedCards
+    func selectCardsToPass(from hand: Hand, direction: CardExchangeDirection) -> PassedCards
     func selectCardToPlay(context: TrickContext) -> Card
 }
 
@@ -85,7 +99,7 @@ public enum BotDifficulty {
 // MARK: - AI Strategy Implementations
 
 struct RandomAIStrategy: AIStrategy {
-    func selectCardsToPass(from hand: Hand) -> PassedCards {
+    func selectCardsToPass(from hand: Hand, direction: CardExchangeDirection) -> PassedCards {
         // Random strategy: randomly select 3 cards from hand
         let shuffled = hand.shuffled()
         return (shuffled[0], shuffled[1], shuffled[2])
@@ -102,7 +116,7 @@ struct RandomAIStrategy: AIStrategy {
 }
 
 struct BasicAIStrategy: AIStrategy {
-    func selectCardsToPass(from hand: Hand) -> PassedCards {
+    func selectCardsToPass(from hand: Hand, direction: CardExchangeDirection) -> PassedCards {
         // Basic strategy: Pass high dangerous cards
         // Priority: Queen of Spades > High Hearts > High Spades > Other high cards
 
@@ -146,7 +160,7 @@ struct BasicAIStrategy: AIStrategy {
 }
 
 struct AdvancedAIStrategy: AIStrategy {
-    func selectCardsToPass(from hand: Hand) -> PassedCards {
+    func selectCardsToPass(from hand: Hand, direction: CardExchangeDirection) -> PassedCards {
         // Advanced strategy: Try to void a suit or minimize dangerous cards
         // 1. Check if we can void a suit (pass all cards of shortest suit)
         // 2. Otherwise, pass high dangerous cards strategically
@@ -243,13 +257,36 @@ struct AdvancedAIStrategy: AIStrategy {
         // Advanced strategy: Play smart based on current trick and game state
         let legalMoves = context.getLegalMoves()
 
+        // Moon-shot pursuit: if we hold a dominant heart hand + Q♠, try to capture everything
+        if shouldAttemptMoonShot(context: context) {
+            if context.currentTrick.leadSuit != nil {
+                // Following: play highest card to win the trick and capture points
+                return legalMoves.max(by: { $0.rank.rawValue < $1.rank.rawValue })!
+            } else {
+                // Leading: lead highest heart to force opponents to give up points
+                let hearts = legalMoves.filter { $0.suit == .hearts }
+                if !hearts.isEmpty {
+                    return hearts.max(by: { $0.rank.rawValue < $1.rank.rawValue })!
+                }
+                if let queenOfSpades = legalMoves.first(where: { $0.suit == .spades && $0.rank == .queen }) {
+                    return queenOfSpades
+                }
+            }
+        }
+
         // If following suit, try to duck under (play high but not highest)
         if context.currentTrick.leadSuit != nil {
             return selectCardToFollow(legalMoves: legalMoves, currentTrick: context.currentTrick)
         }
 
         // If leading, be strategic
-        return selectCardToLead(legalMoves: legalMoves, hand: context.hand, heartsBroken: context.heartsBroken)
+        return selectCardToLead(legalMoves: legalMoves, hand: context.hand, heartsBroken: context.heartsBroken, playedCards: context.playedCards)
+    }
+
+    private func shouldAttemptMoonShot(context: TrickContext) -> Bool {
+        let heartsInHand = context.hand.filter { $0.suit == .hearts }.count
+        let hasQueenOfSpades = context.hand.contains { $0.suit == .spades && $0.rank == .queen }
+        return heartsInHand >= 7 && hasQueenOfSpades
     }
 
     private func selectCardToFollow(legalMoves: [Card], currentTrick: Trick) -> Card {
@@ -280,7 +317,16 @@ struct AdvancedAIStrategy: AIStrategy {
         return sorted[0]
     }
 
-    private func selectCardToLead(legalMoves: [Card], hand: Hand, heartsBroken: Bool) -> Card {
+    private func selectCardToLead(legalMoves: [Card], hand: Hand, heartsBroken: Bool, playedCards: [Card]) -> Card {
+        // Card counting: if A♠ and K♠ have both been played, Q♠ is safe to lead
+        if let queenOfSpades = legalMoves.first(where: { $0.suit == .spades && $0.rank == .queen }) {
+            let aceOfSpadesPlayed = playedCards.contains { $0.suit == .spades && $0.rank == .ace }
+            let kingOfSpadesPlayed = playedCards.contains { $0.suit == .spades && $0.rank == .king }
+            if aceOfSpadesPlayed && kingOfSpadesPlayed {
+                return queenOfSpades
+            }
+        }
+
         // When leading, prefer cards from our longest suit for flexibility
         let suitGroups = Dictionary(grouping: hand, by: { $0.suit })
         let longestSuit = suitGroups.max(by: { $0.value.count < $1.value.count })

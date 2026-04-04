@@ -92,6 +92,16 @@ final class GameTests: XCTestCase {
 
         game.roundNumber = 4
         XCTAssertEqual(game.exchangeDirection, .left)
+
+        // Full wraparound: round 4 should behave identically to round 0
+        game.roundNumber = 8
+        XCTAssertEqual(game.exchangeDirection, .left, "Round 8 should wrap back to .left")
+        game.roundNumber = 5
+        XCTAssertEqual(game.exchangeDirection, .right, "Round 5 should wrap to .right")
+        game.roundNumber = 6
+        XCTAssertEqual(game.exchangeDirection, .across, "Round 6 should wrap to .across")
+        game.roundNumber = 7
+        XCTAssertEqual(game.exchangeDirection, .none, "Round 7 should wrap to .none")
     }
     
     func test_exchange_cards() {

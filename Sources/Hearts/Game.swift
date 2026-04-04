@@ -332,17 +332,28 @@ public class Game {
 
         // Check for shooting the moon
         if let moonShooter = moonShooter {
-            // Moon shooter gets special score, everyone else gets 26
-            for i in 0..<players.count {
-                if players[i].id == moonShooter.id {
-                    // If Jack of Diamonds bonus is enabled, shooter gets -10
-                    // Otherwise, shooter gets 0
-                    let moonShooterScore = configuration.jackOfDiamondsBonus ? -10 : 0
-                    players[i].totalScore += moonShooterScore
-                } else {
-                    players[i].totalScore += 26
+            switch configuration.moonShotVariant {
+            case .addToOthers:
+                // Shooter gets 0 (or -10 with Jack bonus); all opponents receive 26
+                for i in 0..<players.count {
+                    if players[i].id == moonShooter.id {
+                        let moonShooterScore = configuration.jackOfDiamondsBonus ? -10 : 0
+                        players[i].totalScore += moonShooterScore
+                    } else {
+                        players[i].totalScore += 26
+                    }
+                    players[i].roundScore = 0
                 }
-                players[i].roundScore = 0
+            case .subtractFromSelf:
+                // Shooter's score is reduced by 26; opponents are unaffected
+                for i in 0..<players.count {
+                    if players[i].id == moonShooter.id {
+                        players[i].totalScore -= 26
+                    } else {
+                        players[i].totalScore += players[i].roundScore
+                    }
+                    players[i].roundScore = 0
+                }
             }
         } else {
             // Normal scoring: transfer round scores to total scores
@@ -413,7 +424,7 @@ public class Game {
         }
 
         let strategy = difficulty.makeStrategy()
-        return strategy.selectCardsToPass(from: player.hand)
+        return strategy.selectCardsToPass(from: player.hand, direction: exchangeDirection)
     }
 
     /// Select a card for a bot player to play
@@ -432,7 +443,8 @@ public class Game {
             hand: player.hand,
             currentTrick: currentTrick,
             heartsBroken: heartsBroken,
-            isFirstTrick: completedTricks.isEmpty
+            isFirstTrick: completedTricks.isEmpty,
+            completedTricks: completedTricks
         )
 
         return strategy.selectCardToPlay(context: context)

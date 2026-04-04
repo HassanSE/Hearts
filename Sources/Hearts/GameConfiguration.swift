@@ -7,6 +7,14 @@
 
 import Foundation
 
+/// Determines how the moon-shooter's score is handled when someone shoots the moon.
+public enum MoonShotVariant {
+    /// All opponents receive 26 points. The shooter receives 0 (or -10 with Jack bonus). Default.
+    case addToOthers
+    /// The shooter's total score is reduced by 26. Opponents' scores are unchanged.
+    case subtractFromSelf
+}
+
 /// Configuration options for Hearts game variants
 ///
 /// Use this to customize game rules when initializing a Game instance.
@@ -38,9 +46,13 @@ public struct GameConfiguration {
     /// The player with the lowest total score at game end wins.
     public let winningScore: Int
 
-    public init(jackOfDiamondsBonus: Bool = false, winningScore: Int = 100) {
+    /// Determines how the moon-shooter's score is adjusted when someone shoots the moon.
+    public let moonShotVariant: MoonShotVariant
+
+    public init(jackOfDiamondsBonus: Bool = false, winningScore: Int = 100, moonShotVariant: MoonShotVariant = .addToOthers) {
         self.jackOfDiamondsBonus = jackOfDiamondsBonus
         self.winningScore = winningScore
+        self.moonShotVariant = moonShotVariant
     }
 
     /// Standard Hearts rules (no Jack of Diamonds bonus, game ends at 100 points)
@@ -53,5 +65,12 @@ public struct GameConfiguration {
     public static let withJackBonus = GameConfiguration(
         jackOfDiamondsBonus: true,
         winningScore: 100
+    )
+
+    /// Hearts variant where moon shooter subtracts 26 from their own score instead of adding to opponents.
+    public static let withSubtractMoonShot = GameConfiguration(
+        jackOfDiamondsBonus: false,
+        winningScore: 100,
+        moonShotVariant: .subtractFromSelf
     )
 }

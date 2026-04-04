@@ -142,6 +142,21 @@ final class HumanPlayerTests: XCTestCase {
         XCTAssertTrue(game.isHandComplete)
     }
 
+    func test_humanPlayer_playBotTurnsUntilHumanTurn_isNoopWhenHandComplete() throws {
+        let game = makeMinimalBotGame()
+        try game.playCompleteHand()
+
+        XCTAssertTrue(game.isHandComplete)
+        let completedCount = game.completedTricks.count
+        let trickPlaysCount = game.currentTrick.plays.count
+
+        // Should be a no-op — no crash, no state mutation
+        XCTAssertNoThrow(try game.playBotTurnsUntilHumanTurn())
+
+        XCTAssertEqual(game.completedTricks.count, completedCount, "No new tricks should be added after hand is complete")
+        XCTAssertEqual(game.currentTrick.plays.count, trickPlaysCount, "Current trick should not change")
+    }
+
     // MARK: - Delegate: didPlayCard
 
     func test_delegate_didPlayCard_isCalledAfterEachPlay() throws {

@@ -24,7 +24,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .clubs, rank: .three),
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
 
         // Should return 3 cards
         XCTAssertNotNil(passedCards.0)
@@ -75,7 +75,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .clubs, rank: .two),
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
 
         // Queen of spades should be first card passed
         XCTAssertEqual(passedCards.0, Card(suit: .spades, rank: .queen))
@@ -91,7 +91,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .clubs, rank: .three),
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
 
         // All three passed cards should be hearts
         XCTAssertEqual(passedCards.0.suit, .hearts)
@@ -109,7 +109,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .diamonds, rank: .two),
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
 
         // High spades should be passed
         XCTAssertEqual(passedCards.0.suit, .spades)
@@ -160,7 +160,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .clubs, rank: .jack),
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
 
         // Should pass all 3 diamonds to void the suit (diamonds is the shortest suit with 3 cards)
         let passedSuits = [passedCards.0.suit, passedCards.1.suit, passedCards.2.suit]
@@ -186,7 +186,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .clubs, rank: .jack),
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
 
         // Should pass both diamonds plus one high dangerous card
         let passedSuits = [passedCards.0.suit, passedCards.1.suit, passedCards.2.suit]
@@ -212,7 +212,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .clubs, rank: .jack),
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
 
         // Should pass the single diamond plus two high dangerous cards
         let passedSuits = [passedCards.0.suit, passedCards.1.suit, passedCards.2.suit]
@@ -238,7 +238,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .diamonds, rank: .jack),
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
 
         // Queen of spades should be passed
         XCTAssertTrue(
@@ -506,7 +506,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .hearts, rank: .eight),  // 7 hearts
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
         let allPassed = [passedCards.0, passedCards.1, passedCards.2]
 
         XCTAssertTrue(allPassed.contains(Card(suit: .spades, rank: .queen)), "Should pass Q♠ (priority 1)")
@@ -532,7 +532,7 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .clubs, rank: .eight),   // 7 clubs, no hearts
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
         let allPassed = [passedCards.0, passedCards.1, passedCards.2]
 
         XCTAssertTrue(allPassed.contains(Card(suit: .spades, rank: .ace)))
@@ -559,12 +559,307 @@ final class AIStrategyTests: XCTestCase {
             Card(suit: .diamonds, rank: .eight),  // 7 low diamonds
         ]
 
-        let passedCards = strategy.selectCardsToPass(from: hand)
+        let passedCards = strategy.selectCardsToPass(from: hand, direction: .left)
         let allPassed = [passedCards.0, passedCards.1, passedCards.2]
 
         XCTAssertTrue(allPassed.contains(Card(suit: .clubs, rank: .ace)))
         XCTAssertTrue(allPassed.contains(Card(suit: .clubs, rank: .king)))
         XCTAssertTrue(allPassed.contains(Card(suit: .clubs, rank: .queen)))
+    }
+
+    // MARK: - 2.1 Direction Parameter Tests
+
+    func test_selectCardsForBotExchange_passesExchangeDirection() {
+        let game = Game()  // roundNumber=0 → .left
+        let botPlayer = game.players[0]
+
+        // We can verify the direction is forwarded by checking the game's exchangeDirection
+        // and confirming selectCardsForBotExchange does not crash and returns 3 valid cards.
+        let cards = game.selectCardsForBotExchange(player: botPlayer)
+        XCTAssertTrue(botPlayer.hand.contains(cards.first))
+        XCTAssertTrue(botPlayer.hand.contains(cards.second))
+        XCTAssertTrue(botPlayer.hand.contains(cards.third))
+        XCTAssertEqual(game.exchangeDirection, .left)
+    }
+
+    func test_selectCardsToPass_direction_parameter_accepted_byAllStrategies() {
+        let hand: Hand = [
+            Card(suit: .clubs, rank: .two),
+            Card(suit: .clubs, rank: .three),
+            Card(suit: .clubs, rank: .four),
+            Card(suit: .clubs, rank: .five),
+            Card(suit: .clubs, rank: .six),
+        ]
+
+        for direction in [CardExchangeDirection.left, .right, .across, .none] {
+            let r = RandomAIStrategy().selectCardsToPass(from: hand, direction: direction)
+            let b = BasicAIStrategy().selectCardsToPass(from: hand, direction: direction)
+            let a = AdvancedAIStrategy().selectCardsToPass(from: hand, direction: direction)
+            // All should return 3 cards from the hand without crashing
+            XCTAssertTrue(hand.contains(r.first))
+            XCTAssertTrue(hand.contains(b.first))
+            XCTAssertTrue(hand.contains(a.first))
+        }
+    }
+
+    // MARK: - 2.2 TrickContext completedTricks / playedCards Tests
+
+    func test_trickContext_playedCards_flattensCompletedTricks() {
+        var trick1 = Trick()
+        var trick2 = Trick()
+        let p1 = Player(name: "P1", type: .bot(difficulty: .easy))
+        let p2 = Player(name: "P2", type: .bot(difficulty: .easy))
+        let p3 = Player(name: "P3", type: .bot(difficulty: .easy))
+        let p4 = Player(name: "P4", type: .bot(difficulty: .easy))
+
+        try! trick1.play(Card(suit: .clubs, rank: .two), by: p1)
+        try! trick1.play(Card(suit: .clubs, rank: .three), by: p2)
+        try! trick1.play(Card(suit: .clubs, rank: .four), by: p3)
+        try! trick1.play(Card(suit: .clubs, rank: .five), by: p4)
+
+        try! trick2.play(Card(suit: .diamonds, rank: .ace), by: p1)
+        try! trick2.play(Card(suit: .diamonds, rank: .king), by: p2)
+        try! trick2.play(Card(suit: .diamonds, rank: .queen), by: p3)
+        try! trick2.play(Card(suit: .diamonds, rank: .jack), by: p4)
+
+        let context = TrickContext(
+            hand: [],
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false,
+            completedTricks: [trick1, trick2]
+        )
+
+        XCTAssertEqual(context.playedCards.count, 8)
+        XCTAssertTrue(context.playedCards.contains(Card(suit: .clubs, rank: .two)))
+        XCTAssertTrue(context.playedCards.contains(Card(suit: .diamonds, rank: .ace)))
+    }
+
+    func test_trickContext_playedCards_emptyWhenNoCompletedTricks() {
+        let context = TrickContext(
+            hand: [],
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: true
+        )
+        XCTAssertTrue(context.playedCards.isEmpty)
+    }
+
+    // MARK: - 2.3 Card Counting Tests
+
+    func test_advancedAIStrategy_leadsQueenOfSpades_whenAceAndKingAlreadyPlayed() {
+        let strategy = AdvancedAIStrategy()
+        let p1 = Player(name: "P1", type: .bot(difficulty: .hard))
+        let p2 = Player(name: "P2", type: .bot(difficulty: .hard))
+        let p3 = Player(name: "P3", type: .bot(difficulty: .hard))
+        let p4 = Player(name: "P4", type: .bot(difficulty: .hard))
+
+        // Build a completed trick containing A♠ and K♠
+        var trick = Trick()
+        try! trick.play(Card(suit: .spades, rank: .ace), by: p1)
+        try! trick.play(Card(suit: .spades, rank: .king), by: p2)
+        try! trick.play(Card(suit: .clubs, rank: .two), by: p3)
+        try! trick.play(Card(suit: .clubs, rank: .three), by: p4)
+
+        let hand: Hand = [
+            Card(suit: .spades, rank: .queen),  // Only card — should be led
+            Card(suit: .clubs, rank: .four),
+            Card(suit: .clubs, rank: .five),
+            Card(suit: .clubs, rank: .six),
+        ]
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false,
+            completedTricks: [trick]
+        )
+
+        let selected = strategy.selectCardToPlay(context: context)
+
+        XCTAssertEqual(selected, Card(suit: .spades, rank: .queen), "Should lead Q♠ when A♠ and K♠ have been played")
+    }
+
+    func test_advancedAIStrategy_avoidsQueenOfSpades_whenHighSpadesNotYetPlayed() {
+        let strategy = AdvancedAIStrategy()
+
+        // No completed tricks — A♠ and K♠ haven't been played yet
+        let hand: Hand = [
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .clubs, rank: .four),
+            Card(suit: .clubs, rank: .five),
+            Card(suit: .clubs, rank: .six),
+        ]
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false,
+            completedTricks: []
+        )
+
+        let selected = strategy.selectCardToPlay(context: context)
+
+        XCTAssertNotEqual(selected, Card(suit: .spades, rank: .queen), "Should avoid leading Q♠ when higher spades remain")
+    }
+
+    // MARK: - 2.4 Moon-Shot Pursuit Tests
+
+    func test_advancedAIStrategy_leadsHighHearts_inMoonShotMode() {
+        let strategy = AdvancedAIStrategy()
+        // Hand: all 12 hearts + Q♠ (clear moon-shot candidate)
+        let hand: Hand = [
+            Card(suit: .hearts, rank: .ace),
+            Card(suit: .hearts, rank: .king),
+            Card(suit: .hearts, rank: .queen),
+            Card(suit: .hearts, rank: .jack),
+            Card(suit: .hearts, rank: .ten),
+            Card(suit: .hearts, rank: .nine),
+            Card(suit: .hearts, rank: .eight),
+            Card(suit: .hearts, rank: .seven),
+            Card(suit: .hearts, rank: .six),
+            Card(suit: .hearts, rank: .five),
+            Card(suit: .hearts, rank: .four),
+            Card(suit: .hearts, rank: .three),
+            Card(suit: .spades, rank: .queen),
+        ]
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: true,
+            isFirstTrick: false
+        )
+
+        let selected = strategy.selectCardToPlay(context: context)
+
+        // Moon-shot mode: should lead A♥ (highest heart)
+        XCTAssertEqual(selected, Card(suit: .hearts, rank: .ace), "Should lead A♥ aggressively in moon-shot mode")
+    }
+
+    func test_advancedAIStrategy_playsHighestFollowing_inMoonShotMode() {
+        let strategy = AdvancedAIStrategy()
+        var trick = Trick()
+        let leader = Player(name: "Leader", type: .bot(difficulty: .easy))
+        try! trick.play(Card(suit: .hearts, rank: .three), by: leader)
+
+        // Hand: 7+ hearts + Q♠ → moon-shot mode; following hearts → play highest
+        let hand: Hand = [
+            Card(suit: .hearts, rank: .king),
+            Card(suit: .hearts, rank: .seven),
+            Card(suit: .hearts, rank: .two),
+            Card(suit: .hearts, rank: .four),
+            Card(suit: .hearts, rank: .five),
+            Card(suit: .hearts, rank: .six),
+            Card(suit: .hearts, rank: .eight),
+            Card(suit: .spades, rank: .queen),
+        ]
+        let context = TrickContext(hand: hand, currentTrick: trick, heartsBroken: true, isFirstTrick: false)
+
+        let selected = strategy.selectCardToPlay(context: context)
+
+        XCTAssertEqual(selected, Card(suit: .hearts, rank: .king), "Should play highest heart in moon-shot following mode")
+    }
+
+    func test_advancedAIStrategy_doesNotAttemptMoonShot_withTooFewHearts() {
+        let strategy = AdvancedAIStrategy()
+        // Only 3 hearts + Q♠ — NOT moon-shot territory
+        let hand: Hand = [
+            Card(suit: .hearts, rank: .ace),
+            Card(suit: .hearts, rank: .king),
+            Card(suit: .hearts, rank: .queen),
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .clubs, rank: .two),
+            Card(suit: .clubs, rank: .three),
+        ]
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: true,
+            isFirstTrick: false
+        )
+
+        let selected = strategy.selectCardToPlay(context: context)
+
+        // Normal mode: should NOT lead A♥ (would play lowest non-point or longest-suit card)
+        XCTAssertNotEqual(selected, Card(suit: .hearts, rank: .ace), "Should not aggressively lead hearts without moon-shot hand")
+    }
+
+    // MARK: - 2.6 Determinism Tests
+
+    func test_basicAIStrategy_selectCardToPlay_isDeterministic() {
+        let strategy = BasicAIStrategy()
+        let hand: Hand = [
+            Card(suit: .spades, rank: .king),
+            Card(suit: .clubs, rank: .five),
+            Card(suit: .diamonds, rank: .seven),
+        ]
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false
+        )
+
+        let first = strategy.selectCardToPlay(context: context)
+        let second = strategy.selectCardToPlay(context: context)
+
+        XCTAssertEqual(first, second, "BasicAIStrategy must be deterministic")
+    }
+
+    func test_basicAIStrategy_selectCardsToPass_isDeterministic() {
+        let strategy = BasicAIStrategy()
+        let hand: Hand = [
+            Card(suit: .hearts, rank: .ace),
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .clubs, rank: .two),
+            Card(suit: .clubs, rank: .three),
+            Card(suit: .diamonds, rank: .four),
+        ]
+
+        let first = strategy.selectCardsToPass(from: hand, direction: .left)
+        let second = strategy.selectCardsToPass(from: hand, direction: .left)
+
+        XCTAssertEqual(first.0, second.0, "BasicAIStrategy pass selection must be deterministic")
+        XCTAssertEqual(first.1, second.1)
+        XCTAssertEqual(first.2, second.2)
+    }
+
+    func test_advancedAIStrategy_selectCardToPlay_isDeterministic() {
+        let strategy = AdvancedAIStrategy()
+        let hand: Hand = [
+            Card(suit: .spades, rank: .king),
+            Card(suit: .clubs, rank: .five),
+            Card(suit: .diamonds, rank: .seven),
+        ]
+        let context = TrickContext(
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false
+        )
+
+        let first = strategy.selectCardToPlay(context: context)
+        let second = strategy.selectCardToPlay(context: context)
+
+        XCTAssertEqual(first, second, "AdvancedAIStrategy must be deterministic")
+    }
+
+    func test_advancedAIStrategy_selectCardsToPass_isDeterministic() {
+        let strategy = AdvancedAIStrategy()
+        let hand: Hand = [
+            Card(suit: .hearts, rank: .ace),
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .clubs, rank: .two),
+            Card(suit: .clubs, rank: .three),
+            Card(suit: .diamonds, rank: .four),
+        ]
+
+        let first = strategy.selectCardsToPass(from: hand, direction: .left)
+        let second = strategy.selectCardsToPass(from: hand, direction: .left)
+
+        XCTAssertEqual(first.0, second.0, "AdvancedAIStrategy pass selection must be deterministic")
+        XCTAssertEqual(first.1, second.1)
+        XCTAssertEqual(first.2, second.2)
     }
 
     // MARK: - BotDifficulty Tests

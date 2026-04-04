@@ -913,4 +913,79 @@ final class GameplayTests: XCTestCase {
         XCTAssertEqual(game.players[2].totalScore, 13)  // Gets Q♠
         XCTAssertEqual(game.players[3].totalScore, 0)
     }
+
+    // MARK: - Moon-Shot Variant: subtractFromSelf
+
+    func test_shootTheMoon_subtractFromSelf_shooterScoreDecreasesByTwentySix() {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .withSubtractMoonShot
+        )
+
+        game.players[0].totalScore = 50  // Shooter's existing score
+
+        simulateMoonShot(by: game.players[0], in: game, includeJackOfDiamonds: false)
+        game.endHand()
+
+        XCTAssertEqual(game.players[0].totalScore, 24, "Shooter's score should decrease by 26: 50 - 26 = 24")
+    }
+
+    func test_shootTheMoon_subtractFromSelf_opponentsScoresAreUnchanged() {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .withSubtractMoonShot
+        )
+
+        game.players[1].totalScore = 10
+        game.players[2].totalScore = 20
+        game.players[3].totalScore = 30
+
+        simulateMoonShot(by: game.players[0], in: game, includeJackOfDiamonds: false)
+        game.endHand()
+
+        // Opponents' scores are unchanged (no 26 added)
+        XCTAssertEqual(game.players[1].totalScore, 10, "Opponent scores should not change")
+        XCTAssertEqual(game.players[2].totalScore, 20)
+        XCTAssertEqual(game.players[3].totalScore, 30)
+    }
+
+    func test_shootTheMoon_subtractFromSelf_canGoNegative() {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .withSubtractMoonShot
+        )
+
+        game.players[0].totalScore = 10  // Will go to -16
+
+        simulateMoonShot(by: game.players[0], in: game, includeJackOfDiamonds: false)
+        game.endHand()
+
+        XCTAssertEqual(game.players[0].totalScore, -16, "Score can go negative with subtractFromSelf variant")
+    }
+
+    func test_shootTheMoon_subtractFromSelf_roundScoresAreReset() {
+        let game = Game(
+            player1: Player(name: "Alice"),
+            player2: Player(name: "Bob"),
+            player3: Player(name: "Charlie"),
+            player4: Player(name: "Diana"),
+            configuration: .withSubtractMoonShot
+        )
+
+        simulateMoonShot(by: game.players[1], in: game, includeJackOfDiamonds: false)
+        game.endHand()
+
+        for player in game.players {
+            XCTAssertEqual(player.roundScore, 0, "Round scores should be reset to 0 after endHand")
+        }
+    }
 }
