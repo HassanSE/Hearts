@@ -319,7 +319,7 @@ final class AIStrategyTests: XCTestCase {
         // On the first trick, a player following suit cannot dump point cards if non-point cards are available
         var trick = Trick()
         let leader = Player(name: "Leader", type: .bot(difficulty: .easy))
-        try! trick.play(Card(suit: .clubs, rank: .ace), by: leader, from: [Card(suit: .clubs, rank: .ace)])
+        try! trick.play(Card(suit: .clubs, rank: .ace), by: leader)
 
         // No clubs in hand - all cards are initially legal after the follow-suit check
         let hand: Hand = [
@@ -345,7 +345,7 @@ final class AIStrategyTests: XCTestCase {
         let strategy = BasicAIStrategy()
         var trick = Trick()
         let leader = Player(name: "Leader", type: .bot(difficulty: .easy))
-        try! trick.play(Card(suit: .spades, rank: .ace), by: leader, from: [Card(suit: .spades, rank: .ace)])
+        try! trick.play(Card(suit: .spades, rank: .ace), by: leader)
 
         let hand: Hand = [
             Card(suit: .spades, rank: .king),
@@ -380,7 +380,7 @@ final class AIStrategyTests: XCTestCase {
         let strategy = AdvancedAIStrategy()
         var trick = Trick()
         let leader = Player(name: "Leader", type: .bot(difficulty: .hard))
-        try! trick.play(Card(suit: .clubs, rank: .king), by: leader, from: [Card(suit: .clubs, rank: .king)])
+        try! trick.play(Card(suit: .clubs, rank: .king), by: leader)
 
         let hand: Hand = [
             Card(suit: .clubs, rank: .ace),    // Would win
@@ -399,7 +399,7 @@ final class AIStrategyTests: XCTestCase {
         var trick = Trick()
         let leader = Player(name: "Leader", type: .bot(difficulty: .hard))
         // Lead with Q♠ (13 pts) - any spade follower must win it
-        try! trick.play(Card(suit: .spades, rank: .queen), by: leader, from: [Card(suit: .spades, rank: .queen)])
+        try! trick.play(Card(suit: .spades, rank: .queen), by: leader)
 
         let hand: Hand = [
             Card(suit: .spades, rank: .ace),   // Both beat Q♠ — can't duck
@@ -417,7 +417,7 @@ final class AIStrategyTests: XCTestCase {
         let strategy = AdvancedAIStrategy()
         var trick = Trick()
         let leader = Player(name: "Leader", type: .bot(difficulty: .hard))
-        try! trick.play(Card(suit: .clubs, rank: .two), by: leader, from: [Card(suit: .clubs, rank: .two)])
+        try! trick.play(Card(suit: .clubs, rank: .two), by: leader)
 
         // All three cards beat the 2♣ lead — can't duck, no points in trick
         let hand: Hand = [
@@ -437,7 +437,7 @@ final class AIStrategyTests: XCTestCase {
         let strategy = AdvancedAIStrategy()
         var trick = Trick()
         let leader = Player(name: "Leader", type: .bot(difficulty: .hard))
-        try! trick.play(Card(suit: .clubs, rank: .two), by: leader, from: [Card(suit: .clubs, rank: .two)])
+        try! trick.play(Card(suit: .clubs, rank: .two), by: leader)
 
         // Only 2 clubs — can't duck, no points, < 3 legal cards → play lowest
         let hand: Hand = [

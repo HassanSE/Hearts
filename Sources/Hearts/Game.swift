@@ -20,6 +20,7 @@ public enum GameError: Error, Equatable {
     case notPlayersTurn
     case cardNotInHand
     case mustLeadWithTwoOfClubs
+    case mustFollowSuit(required: Card.Suit)
     case cannotPlayPointsOnFirstTrick
     case heartsNotBroken
     case handComplete
@@ -235,13 +236,21 @@ public class Game {
             }
         }
 
-        // 6. Play the card (Trick will validate follow-suit rules)
-        try currentTrick.play(card, by: player, from: players[playerIndex].hand)
+        // 6. Validate follow-suit rule
+        if let leadSuit = currentTrick.leadSuit {
+            let hasLeadSuit = players[playerIndex].hand.contains(where: { $0.suit == leadSuit })
+            if hasLeadSuit && card.suit != leadSuit {
+                throw GameError.mustFollowSuit(required: leadSuit)
+            }
+        }
 
-        // 7. Remove card from player's hand
+        // 7. Record the play (Trick enforces only structural rules)
+        try currentTrick.play(card, by: player)
+
+        // 8. Remove card from player's hand
         players[playerIndex].hand.removeAll { $0 == card }
 
-        // 8. Update hearts broken state and fire delegate events
+        // 9. Update hearts broken state and fire delegate events
         let justBrokeHearts = !heartsBroken && card.suit == .hearts
         if card.suit == .hearts {
             heartsBroken = true
@@ -252,7 +261,7 @@ public class Game {
             delegate?.game(self, didBreakHearts: card, by: player)
         }
 
-        // 9. Check if trick is complete
+        // 10. Check if trick is complete
         if currentTrick.isComplete {
             completeTrick()
         } else {

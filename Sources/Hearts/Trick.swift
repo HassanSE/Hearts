@@ -10,8 +10,6 @@ import Foundation
 enum TrickError: Error, Equatable {
     case trickAlreadyComplete
     case playerAlreadyPlayed
-    case mustFollowSuit(required: Card.Suit)
-    case cardNotInHand
 }
 
 public struct Trick {
@@ -56,34 +54,20 @@ public struct Trick {
         plays.contains(where: { $0.player == player })
     }
 
-    /// Play a card in this trick
+    /// Play a card in this trick.
+    /// Enforces only structural rules (trick completeness, duplicate plays).
+    /// Card legality (card-in-hand, follow-suit) is validated by `Game` before this is called.
     /// - Parameters:
     ///   - card: The card to play
     ///   - player: The player playing the card
-    ///   - playerHand: The player's current hand (for validation)
-    /// - Throws: TrickError if the play is invalid
-    mutating func play(_ card: Card, by player: Player, from playerHand: [Card]) throws {
-        // Validate trick is not complete
+    /// - Throws: `TrickError.trickAlreadyComplete` or `TrickError.playerAlreadyPlayed`
+    mutating func play(_ card: Card, by player: Player) throws {
         guard !isComplete else {
             throw TrickError.trickAlreadyComplete
         }
 
-        // Validate player hasn't already played
         guard !hasPlayed(player) else {
             throw TrickError.playerAlreadyPlayed
-        }
-
-        // Validate card is in player's hand
-        guard playerHand.contains(card) else {
-            throw TrickError.cardNotInHand
-        }
-
-        // Validate following suit if not leading
-        if let leadSuit = leadSuit {
-            let hasLeadSuit = playerHand.contains(where: { $0.suit == leadSuit })
-            if hasLeadSuit && card.suit != leadSuit {
-                throw TrickError.mustFollowSuit(required: leadSuit)
-            }
         }
 
         plays.append((player: player, card: card))

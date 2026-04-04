@@ -35,7 +35,7 @@ final class TrickTests: XCTestCase {
     let player = Player(name: "Alice")
     let card = Card(suit: .clubs, rank: .five)
     
-    try trick.play(card, by: player, from: [card])
+    try trick.play(card, by: player)
     
     XCTAssertEqual(trick.leadSuit, .clubs)
   }
@@ -52,7 +52,7 @@ final class TrickTests: XCTestCase {
     ]
     
     for (player, card) in zip(players, cards) {
-      try trick.play(card, by: player, from: [card])
+      try trick.play(card, by: player)
       if trick.plays.count < 4 {
         XCTAssertFalse(trick.isComplete)
       }
@@ -70,7 +70,7 @@ final class TrickTests: XCTestCase {
     ]
     
     for (player, card) in zip(players, cards) {
-      try trick.play(card, by: player, from: [card])
+      try trick.play(card, by: player)
     }
     
     XCTAssertTrue(trick.isComplete)
@@ -83,7 +83,7 @@ final class TrickTests: XCTestCase {
     let player = Player(name: "Alice")
     let card = Card(suit: .clubs, rank: .ace)
     
-    try trick.play(card, by: player, from: [card])
+    try trick.play(card, by: player)
     
     XCTAssertNil(trick.winner, "Winner should be nil until trick is complete")
   }
@@ -100,10 +100,10 @@ final class TrickTests: XCTestCase {
     let card3 = Card(suit: .hearts, rank: .king) // Different suit
     let card4 = Card(suit: .clubs, rank: .ten)
     
-    try trick.play(card1, by: player1, from: [card1])
-    try trick.play(card2, by: player2, from: [card2])
-    try trick.play(card3, by: player3, from: [card3])
-    try trick.play(card4, by: player4, from: [card4])
+    try trick.play(card1, by: player1)
+    try trick.play(card2, by: player2)
+    try trick.play(card3, by: player3)
+    try trick.play(card4, by: player4)
     
     XCTAssertEqual(trick.winner, player2, "Player with highest card of lead suit should win")
   }
@@ -120,10 +120,10 @@ final class TrickTests: XCTestCase {
     let card3 = Card(suit: .diamonds, rank: .five) // Should win (highest diamonds)
     let card4 = Card(suit: .spades, rank: .king)   // King but wrong suit
     
-    try trick.play(card1, by: player1, from: [card1])
-    try trick.play(card2, by: player2, from: [card2])
-    try trick.play(card3, by: player3, from: [card3])
-    try trick.play(card4, by: player4, from: [card4])
+    try trick.play(card1, by: player1)
+    try trick.play(card2, by: player2)
+    try trick.play(card3, by: player3)
+    try trick.play(card4, by: player4)
     
     XCTAssertEqual(trick.winner, player3, "Only cards of lead suit can win")
   }
@@ -141,7 +141,7 @@ final class TrickTests: XCTestCase {
     ]
     
     for (player, card) in zip(players, cards) {
-      try trick.play(card, by: player, from: [card])
+      try trick.play(card, by: player)
     }
     
     XCTAssertEqual(trick.points, 0)
@@ -158,7 +158,7 @@ final class TrickTests: XCTestCase {
     ]
     
     for (player, card) in zip(players, cards) {
-      try trick.play(card, by: player, from: [card])
+      try trick.play(card, by: player)
     }
     
     XCTAssertEqual(trick.points, 2, "Should count 2 hearts as 2 points")
@@ -175,7 +175,7 @@ final class TrickTests: XCTestCase {
     ]
     
     for (player, card) in zip(players, cards) {
-      try trick.play(card, by: player, from: [card])
+      try trick.play(card, by: player)
     }
     
     XCTAssertEqual(trick.points, 13, "Queen of spades should be worth 13 points")
@@ -192,7 +192,7 @@ final class TrickTests: XCTestCase {
     ]
     
     for (player, card) in zip(players, cards) {
-      try trick.play(card, by: player, from: [card])
+      try trick.play(card, by: player)
     }
     
     XCTAssertEqual(trick.points, 15, "Should count 2 hearts + Q♠ = 15 points")
@@ -213,74 +213,64 @@ final class TrickTests: XCTestCase {
     
     // Play 4 cards
     for i in 0..<4 {
-      try trick.play(cards[i], by: players[i], from: [cards[i]])
+      try trick.play(cards[i], by: players[i])
     }
     
     // Try to play 5th card
-    XCTAssertThrowsError(try trick.play(cards[4], by: players[4], from: [cards[4]])) { error in
+    XCTAssertThrowsError(try trick.play(cards[4], by: players[4])) { error in
       XCTAssertEqual(error as? TrickError, TrickError.trickAlreadyComplete)
     }
   }
-  
+
   func test_play_throws_when_player_already_played() throws {
     var trick = Trick()
     let player = Player(name: "Alice")
     let card1 = Card(suit: .clubs, rank: .two)
     let card2 = Card(suit: .clubs, rank: .three)
-    
-    try trick.play(card1, by: player, from: [card1, card2])
-    
+
+    try trick.play(card1, by: player)
+
     // Same player tries to play again
-    XCTAssertThrowsError(try trick.play(card2, by: player, from: [card1, card2])) { error in
+    XCTAssertThrowsError(try trick.play(card2, by: player)) { error in
       XCTAssertEqual(error as? TrickError, TrickError.playerAlreadyPlayed)
     }
   }
-  
-  func test_play_throws_when_card_not_in_hand() throws {
+
+  // Trick no longer validates card-in-hand; Game does before calling Trick.
+  func test_play_does_not_enforce_card_in_hand() throws {
     var trick = Trick()
     let player = Player(name: "Alice")
     let card = Card(suit: .clubs, rank: .two)
-    let otherCard = Card(suit: .hearts, rank: .ace)
-    
-    XCTAssertThrowsError(try trick.play(card, by: player, from: [otherCard])) { error in
-      XCTAssertEqual(error as? TrickError, TrickError.cardNotInHand)
-    }
+
+    // Trick accepts the play regardless — caller (Game) is responsible for the hand check
+    XCTAssertNoThrow(try trick.play(card, by: player))
   }
-  
-  func test_play_throws_when_not_following_suit() throws {
+
+  // Trick no longer validates follow-suit; Game does before calling Trick.
+  func test_play_does_not_enforce_follow_suit() throws {
     var trick = Trick()
     let player1 = Player(name: "Alice")
     let player2 = Player(name: "Bob")
-    
+
     let leadCard = Card(suit: .clubs, rank: .two)
-    let clubCard = Card(suit: .clubs, rank: .three)
     let heartCard = Card(suit: .hearts, rank: .ace)
-    
-    // Player 1 leads with clubs
-    try trick.play(leadCard, by: player1, from: [leadCard])
-    
-    // Player 2 has clubs but plays hearts
-    XCTAssertThrowsError(try trick.play(heartCard, by: player2, from: [clubCard, heartCard])) { error in
-      if case TrickError.mustFollowSuit(let required) = error {
-        XCTAssertEqual(required, .clubs)
-      } else {
-        XCTFail("Expected mustFollowSuit error")
-      }
-    }
+
+    try trick.play(leadCard, by: player1)
+
+    // Even though player2 "has clubs", Trick does not enforce follow-suit — Game does.
+    XCTAssertNoThrow(try trick.play(heartCard, by: player2))
   }
-  
+
   func test_play_allows_different_suit_when_player_has_no_lead_suit() throws {
     var trick = Trick()
     let player1 = Player(name: "Alice")
     let player2 = Player(name: "Bob")
-    
+
     let leadCard = Card(suit: .clubs, rank: .two)
     let heartCard = Card(suit: .hearts, rank: .ace)
-    
-    try trick.play(leadCard, by: player1, from: [leadCard])
-    
-    // Player 2 has no clubs, should be allowed to play hearts
-    XCTAssertNoThrow(try trick.play(heartCard, by: player2, from: [heartCard]))
+
+    try trick.play(leadCard, by: player1)
+    XCTAssertNoThrow(try trick.play(heartCard, by: player2))
   }
   
   // MARK: - Helper Property Tests
@@ -294,7 +284,7 @@ final class TrickTests: XCTestCase {
     ]
     
     for (player, card) in zip(players, cards) {
-      try trick.play(card, by: player, from: [card])
+      try trick.play(card, by: player)
     }
     
     XCTAssertEqual(trick.cards, cards)
@@ -309,7 +299,7 @@ final class TrickTests: XCTestCase {
     ]
     
     for (player, card) in zip(players, cards) {
-      try trick.play(card, by: player, from: [card])
+      try trick.play(card, by: player)
     }
     
     XCTAssertEqual(trick.players, players)
@@ -320,7 +310,7 @@ final class TrickTests: XCTestCase {
     let player = Player(name: "Alice")
     let card = Card(suit: .clubs, rank: .two)
     
-    try trick.play(card, by: player, from: [card])
+    try trick.play(card, by: player)
     
     XCTAssertTrue(trick.hasPlayed(player))
   }
@@ -341,8 +331,8 @@ final class TrickTests: XCTestCase {
     let card1 = Card(suit: .clubs, rank: .two)
     let card2 = Card(suit: .clubs, rank: .three)
     
-    try trick.play(card1, by: player1, from: [card1])
-    try trick.play(card2, by: player2, from: [card2])
+    try trick.play(card1, by: player1)
+    try trick.play(card2, by: player2)
     
     let description = trick.debugDescription
     

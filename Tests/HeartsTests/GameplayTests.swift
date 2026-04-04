@@ -66,26 +66,26 @@ final class GameplayTests: XCTestCase {
 
             // Moon shooter leads and wins with the heart
             // Other players play non-hearts (lower rank cards)
-            try! trick.play(Card(suit: .hearts, rank: rank), by: moonShooter, from: [Card(suit: .hearts, rank: rank)])
-            try! trick.play(Card(suit: .clubs, rank: .two), by: otherPlayers[0], from: [Card(suit: .clubs, rank: .two)])
-            try! trick.play(Card(suit: .clubs, rank: .three), by: otherPlayers[1], from: [Card(suit: .clubs, rank: .three)])
-            try! trick.play(Card(suit: .clubs, rank: .four), by: otherPlayers[2], from: [Card(suit: .clubs, rank: .four)])
+            try! trick.play(Card(suit: .hearts, rank: rank), by: moonShooter)
+            try! trick.play(Card(suit: .clubs, rank: .two), by: otherPlayers[0])
+            try! trick.play(Card(suit: .clubs, rank: .three), by: otherPlayers[1])
+            try! trick.play(Card(suit: .clubs, rank: .four), by: otherPlayers[2])
 
             game.completedTricks.append(trick)
         }
 
         // Create trick with Q♠ and optionally J♦ where moon shooter wins
         var queenTrick = Trick()
-        try! queenTrick.play(Card(suit: .spades, rank: .two), by: otherPlayers[0], from: [Card(suit: .spades, rank: .two)])
-        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: otherPlayers[1], from: [Card(suit: .spades, rank: .queen)])
+        try! queenTrick.play(Card(suit: .spades, rank: .two), by: otherPlayers[0])
+        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: otherPlayers[1])
 
         if includeJackOfDiamonds {
-            try! queenTrick.play(Card(suit: .diamonds, rank: .jack), by: otherPlayers[2], from: [Card(suit: .diamonds, rank: .jack)])
+            try! queenTrick.play(Card(suit: .diamonds, rank: .jack), by: otherPlayers[2])
         } else {
-            try! queenTrick.play(Card(suit: .spades, rank: .three), by: otherPlayers[2], from: [Card(suit: .spades, rank: .three)])
+            try! queenTrick.play(Card(suit: .spades, rank: .three), by: otherPlayers[2])
         }
 
-        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: moonShooter, from: [Card(suit: .spades, rank: .ace)])
+        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: moonShooter)
         game.completedTricks.append(queenTrick)
 
         // Calculate and set round scores (points were awarded during tricks in real game)
@@ -772,16 +772,16 @@ final class GameplayTests: XCTestCase {
 
         // Player 0 has Q♠ and only 2 hearts (missing 11)
         var heartTrick = Trick()
-        try! heartTrick.play(Card(suit: .hearts, rank: .two), by: game.players[1], from: [Card(suit: .hearts, rank: .two)])
-        try! heartTrick.play(Card(suit: .hearts, rank: .three), by: game.players[2], from: [Card(suit: .hearts, rank: .three)])
-        try! heartTrick.play(Card(suit: .clubs, rank: .two), by: game.players[3], from: [Card(suit: .clubs, rank: .two)])
-        try! heartTrick.play(Card(suit: .hearts, rank: .ace), by: game.players[0], from: [Card(suit: .hearts, rank: .ace)])  // Wins
+        try! heartTrick.play(Card(suit: .hearts, rank: .two), by: game.players[1])
+        try! heartTrick.play(Card(suit: .hearts, rank: .three), by: game.players[2])
+        try! heartTrick.play(Card(suit: .clubs, rank: .two), by: game.players[3])
+        try! heartTrick.play(Card(suit: .hearts, rank: .ace), by: game.players[0])  // Wins
 
         var queenTrick = Trick()
-        try! queenTrick.play(Card(suit: .spades, rank: .two), by: game.players[1], from: [Card(suit: .spades, rank: .two)])
-        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: game.players[2], from: [Card(suit: .spades, rank: .queen)])
-        try! queenTrick.play(Card(suit: .clubs, rank: .four), by: game.players[3], from: [Card(suit: .clubs, rank: .four)])
-        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[0], from: [Card(suit: .spades, rank: .ace)])  // Wins
+        try! queenTrick.play(Card(suit: .spades, rank: .two), by: game.players[1])
+        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: game.players[2])
+        try! queenTrick.play(Card(suit: .clubs, rank: .four), by: game.players[3])
+        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[0])  // Wins
 
         game.completedTricks = [heartTrick, queenTrick]
         game.players[0].roundScore = 15  // 2 hearts + Q♠ = 15, but missing 11 hearts
@@ -803,19 +803,19 @@ final class GameplayTests: XCTestCase {
         for rank in Card.Rank.allCases {
             var trick = Trick()
             let heartCard = Card(suit: .hearts, rank: rank)
-            try! trick.play(heartCard, by: game.players[0], from: [heartCard])
-            try! trick.play(Card(suit: .clubs, rank: .two), by: game.players[2], from: [Card(suit: .clubs, rank: .two)])
-            try! trick.play(Card(suit: .clubs, rank: .three), by: game.players[3], from: [Card(suit: .clubs, rank: .three)])
-            try! trick.play(Card(suit: .hearts, rank: .ace), by: game.players[1], from: [Card(suit: .hearts, rank: .ace)])  // Wins
+            try! trick.play(heartCard, by: game.players[0])
+            try! trick.play(Card(suit: .clubs, rank: .two), by: game.players[2])
+            try! trick.play(Card(suit: .clubs, rank: .three), by: game.players[3])
+            try! trick.play(Card(suit: .hearts, rank: .ace), by: game.players[1])  // Wins
             game.completedTricks.append(trick)
         }
 
         // Q♠ goes to someone else (player 2)
         var queenTrick = Trick()
-        try! queenTrick.play(Card(suit: .spades, rank: .two), by: game.players[0], from: [Card(suit: .spades, rank: .two)])
-        try! queenTrick.play(Card(suit: .spades, rank: .three), by: game.players[1], from: [Card(suit: .spades, rank: .three)])
-        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: game.players[3], from: [Card(suit: .spades, rank: .queen)])
-        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[2], from: [Card(suit: .spades, rank: .ace)])  // Wins Q♠
+        try! queenTrick.play(Card(suit: .spades, rank: .two), by: game.players[0])
+        try! queenTrick.play(Card(suit: .spades, rank: .three), by: game.players[1])
+        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: game.players[3])
+        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[2])  // Wins Q♠
         game.completedTricks.append(queenTrick)
 
         game.players[1].roundScore = 13  // All hearts but no Q♠

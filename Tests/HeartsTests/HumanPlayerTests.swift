@@ -254,10 +254,10 @@ final class HumanPlayerTests: XCTestCase {
         game.currentTrick = Trick()
         // Hearts already broken, simulate at least one prior trick so we're not on trick 1
         var priorTrick = Trick()
-        try! priorTrick.play(Card(suit: .clubs, rank: .two), by: bot0, from: [Card(suit: .clubs, rank: .two)])
-        try! priorTrick.play(Card(suit: .clubs, rank: .three), by: bot1, from: [Card(suit: .clubs, rank: .three)])
-        try! priorTrick.play(Card(suit: .clubs, rank: .four), by: bot2, from: [Card(suit: .clubs, rank: .four)])
-        try! priorTrick.play(Card(suit: .clubs, rank: .five), by: bot3, from: [Card(suit: .clubs, rank: .five)])
+        try! priorTrick.play(Card(suit: .clubs, rank: .two), by: bot0)
+        try! priorTrick.play(Card(suit: .clubs, rank: .three), by: bot1)
+        try! priorTrick.play(Card(suit: .clubs, rank: .four), by: bot2)
+        try! priorTrick.play(Card(suit: .clubs, rank: .five), by: bot3)
         game.completedTricks = [priorTrick]
         game.heartsBroken = true
 
@@ -333,10 +333,10 @@ final class HumanPlayerTests: XCTestCase {
             var trick = Trick()
             let rankOffset = i % 13
             let rank = Card.Rank.allCases[rankOffset]
-            try! trick.play(Card(suit: .clubs, rank: rank), by: p0, from: [Card(suit: .clubs, rank: rank)])
-            try! trick.play(Card(suit: .clubs, rank: .three), by: p1, from: [Card(suit: .clubs, rank: .three)])
-            try! trick.play(Card(suit: .clubs, rank: .four), by: p2, from: [Card(suit: .clubs, rank: .four)])
-            try! trick.play(Card(suit: .clubs, rank: .five), by: p3, from: [Card(suit: .clubs, rank: .five)])
+            try! trick.play(Card(suit: .clubs, rank: rank), by: p0)
+            try! trick.play(Card(suit: .clubs, rank: .three), by: p1)
+            try! trick.play(Card(suit: .clubs, rank: .four), by: p2)
+            try! trick.play(Card(suit: .clubs, rank: .five), by: p3)
             game.completedTricks.append(trick)
         }
 
