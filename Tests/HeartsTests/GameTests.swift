@@ -114,29 +114,33 @@ final class GameTests: XCTestCase {
         let playerHandCount = 13
         let passedCardCount = 3
 
-        // Player 1 Assertions
+        // Player 1 (index 0): passed cards should be gone from hand, received by Player 2 (index 1)
         XCTAssertEqual(player1CardsAE.count, playerHandCount)
         let passedCards = player1CardsBE.filter { !player1CardsAE.contains($0) }
-        XCTAssertEqual(passedCards.count, passedCardCount)
-        
-        // Player 2 Assertions
-        XCTAssertTrue(passedCards.allSatisfy { player2CardsAE.contains($0) })
+        XCTAssertEqual(passedCards.count, passedCardCount, "Player 0 should have passed exactly 3 cards")
+        XCTAssertTrue(passedCards.allSatisfy { !player1CardsAE.contains($0) }, "Player 0's passed cards should no longer be in Player 0's hand")
+        XCTAssertTrue(passedCards.allSatisfy { player2CardsAE.contains($0) }, "Player 0's passed cards should appear in Player 1's hand (pass-left)")
+
+        // Player 2 (index 1): passed cards should be gone from hand, received by Player 3 (index 2)
         XCTAssertEqual(player2CardsAE.count, playerHandCount)
         let passedCards2 = player2CardsBE.filter { !player2CardsAE.contains($0) }
-        XCTAssertEqual(passedCards2.count, passedCardCount)
+        XCTAssertEqual(passedCards2.count, passedCardCount, "Player 1 should have passed exactly 3 cards")
+        XCTAssertTrue(passedCards2.allSatisfy { !player2CardsAE.contains($0) }, "Player 1's passed cards should no longer be in Player 1's hand")
+        XCTAssertTrue(passedCards2.allSatisfy { player3CardsAE.contains($0) }, "Player 1's passed cards should appear in Player 2's hand (pass-left)")
 
-        // Player 3 Assertions
-        XCTAssertTrue(passedCards2.allSatisfy { player3CardsAE.contains($0) })
+        // Player 3 (index 2): passed cards should be gone from hand, received by Player 4 (index 3)
         XCTAssertEqual(player3CardsAE.count, playerHandCount)
         let passedCards3 = player3CardsBE.filter { !player3CardsAE.contains($0) }
-        XCTAssertEqual(passedCards3.count, passedCardCount)
+        XCTAssertEqual(passedCards3.count, passedCardCount, "Player 2 should have passed exactly 3 cards")
+        XCTAssertTrue(passedCards3.allSatisfy { !player3CardsAE.contains($0) }, "Player 2's passed cards should no longer be in Player 2's hand")
+        XCTAssertTrue(passedCards3.allSatisfy { player4CardsAE.contains($0) }, "Player 2's passed cards should appear in Player 3's hand (pass-left)")
 
-        // Player 4 Assertions
-        XCTAssertTrue(passedCards3.allSatisfy { player4CardsAE.contains($0) })
+        // Player 4 (index 3): passed cards should be gone from hand, received by Player 1 (index 0)
         XCTAssertEqual(player4CardsAE.count, playerHandCount)
         let passedCards4 = player4CardsBE.filter { !player4CardsAE.contains($0) }
-        XCTAssertEqual(passedCards4.count, passedCardCount)
-        XCTAssertTrue(passedCards4.allSatisfy { player1CardsAE.contains($0) })
+        XCTAssertEqual(passedCards4.count, passedCardCount, "Player 3 should have passed exactly 3 cards")
+        XCTAssertTrue(passedCards4.allSatisfy { !player4CardsAE.contains($0) }, "Player 3's passed cards should no longer be in Player 3's hand")
+        XCTAssertTrue(passedCards4.allSatisfy { player1CardsAE.contains($0) }, "Player 3's passed cards should appear in Player 0's hand (pass-left)")
     }
 
     // MARK: - AI Integration Tests
