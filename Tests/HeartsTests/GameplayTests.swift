@@ -528,6 +528,63 @@ final class GameplayTests: XCTestCase {
         XCTAssertEqual(winner, game.players[3])
     }
 
+    func test_isGameTied_is_false_when_game_not_over() {
+        let game = makeTestGame()
+
+        game.players[0].totalScore = 40
+        game.players[1].totalScore = 40
+
+        XCTAssertFalse(game.isGameTied)
+    }
+
+    func test_isGameTied_is_false_when_one_clear_winner() {
+        let game = makeTestGame()
+
+        game.players[0].totalScore = 105
+        game.players[1].totalScore = 100
+        game.players[2].totalScore = 110
+        game.players[3].totalScore = 95  // Unique lowest — clear winner
+
+        XCTAssertFalse(game.isGameTied)
+    }
+
+    func test_isGameTied_is_false_when_higher_scores_tied_but_winner_is_clear() {
+        let game = makeTestGame()
+
+        // Players 1 and 2 are tied at 100, but player 3 has a uniquely lower score
+        game.players[0].totalScore = 100
+        game.players[1].totalScore = 100
+        game.players[2].totalScore = 110
+        game.players[3].totalScore = 60  // Clear winner
+
+        XCTAssertFalse(game.isGameTied)
+        XCTAssertEqual(game.gameWinner, game.players[3])
+    }
+
+    func test_isGameTied_is_true_when_two_players_share_minimum() {
+        let game = makeTestGame()
+
+        game.players[0].totalScore = 100  // Threshold crossed
+        game.players[1].totalScore = 50   // Tied minimum
+        game.players[2].totalScore = 80
+        game.players[3].totalScore = 50   // Tied minimum
+
+        XCTAssertTrue(game.isGameTied)
+        XCTAssertNil(game.gameWinner)
+    }
+
+    func test_isGameTied_is_true_when_all_players_share_minimum() {
+        let game = makeTestGame()
+
+        game.players[0].totalScore = 100  // Threshold crossed
+        game.players[1].totalScore = 100
+        game.players[2].totalScore = 100
+        game.players[3].totalScore = 100
+
+        XCTAssertTrue(game.isGameTied)
+        XCTAssertNil(game.gameWinner)
+    }
+
     func test_multi_round_flow() {
         let game = makeTestGame()
 

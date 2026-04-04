@@ -72,8 +72,14 @@ public class Game {
         players.contains(where: { $0.totalScore >= winningScore })
     }
 
+    public var isGameTied: Bool {
+        guard isGameOver else { return false }
+        let minScore = players.map(\.totalScore).min()!
+        return players.filter({ $0.totalScore == minScore }).count > 1
+    }
+
     public var gameWinner: Player? {
-        guard isGameOver else { return nil }
+        guard isGameOver, !isGameTied else { return nil }
         return players.min(by: { $0.totalScore < $1.totalScore })
     }
 
@@ -501,7 +507,7 @@ public class Game {
     /// - Returns: The winning player
     @discardableResult
     public func playCompleteGame() throws -> Player {
-        while !isGameOver {
+        while !isGameOver || isGameTied {
             // Check if we need to start a new hand
             if isHandComplete {
                 startNewHand()
@@ -511,7 +517,10 @@ public class Game {
             try playCompleteHand()
         }
 
-        return gameWinner!
+        guard let winner = gameWinner else {
+            preconditionFailure("Game is over and not tied, but gameWinner is nil")
+        }
+        return winner
     }
 
     // MARK: - Game Setup

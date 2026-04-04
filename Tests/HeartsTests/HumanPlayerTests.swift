@@ -319,8 +319,12 @@ final class HumanPlayerTests: XCTestCase {
         let delegate = MockDelegate()
         game.delegate = delegate
 
-        // Drive one player past the winning score threshold manually
-        game.players[1].totalScore = game.winningScore
+        // Drive one player past the winning score threshold; give others distinct scores
+        // so there is a clear winner (no tie) and gameWinner is non-nil.
+        game.players[0].totalScore = 30   // Clear winner (lowest)
+        game.players[1].totalScore = game.winningScore  // Triggers isGameOver
+        game.players[2].totalScore = 60
+        game.players[3].totalScore = 45
 
         // endHand on a complete hand — requires completedTricks to be full
         // Build 13 fake completed tricks (no points, so no moon shot)
