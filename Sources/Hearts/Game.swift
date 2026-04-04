@@ -162,8 +162,9 @@ public class Game {
                 passingCards = selectCardsForBotExchange(player: players[i])
                 players[i].hand.removeAll { $0 == passingCards.first || $0 == passingCards.second || $0 == passingCards.third }
             } else {
-                // Human with no selection provided — fall back to first 3 cards
-                passingCards = players[i].pickCards()
+                // Human with no selection provided — fall back to first 3 cards (pure selection, no mutation)
+                passingCards = players[i].selectCardsToPass()
+                players[i].hand.removeAll { $0 == passingCards.first || $0 == passingCards.second || $0 == passingCards.third }
             }
 
             cardsToPass.append((toIndex: toIndex, cards: passingCards))
