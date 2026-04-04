@@ -26,7 +26,6 @@ public enum GameError: Error, Equatable {
 
 public class Game {
     public internal(set) var players: [Player]
-    var deck: Deck
     public internal(set) var roundNumber = 0
 
     // Trick-taking state
@@ -97,7 +96,6 @@ public class Game {
          configuration: GameConfiguration = .standard) {
         self.configuration = configuration
         self.players = [player1, player2, player3, player4]
-        self.deck = Deck()
         deal()
 
         // Set current player to whoever has 2 of clubs
@@ -116,6 +114,7 @@ public class Game {
 
     private func deal() {
         let numberOfCardsPerHand = 13
+        var deck = Deck()
         deck.shuffle()
         for _ in 0..<numberOfCardsPerHand {
             players[0].hand.append(deck.deal()!)
@@ -544,8 +543,7 @@ public class Game {
             players[i].hand = []
         }
 
-        // Reset deck and deal new cards
-        deck = Deck()
+        // Deal new cards
         deal()
 
         // Reset exchange flag so performExchange() can run for the new hand.
