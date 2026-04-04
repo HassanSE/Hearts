@@ -80,6 +80,22 @@ public class Game {
         return players.min(by: { $0.totalScore < $1.totalScore })
     }
 
+    /// Returns the live hand for `player` from the authoritative `players` array.
+    /// Use this instead of `player.hand` directly, as local `Player` copies go stale after mutations.
+    public func hand(for player: Player) -> [Card] {
+        players.first(where: { $0.id == player.id })?.hand ?? []
+    }
+
+    /// Returns the live round score for `player` from the authoritative `players` array.
+    public func roundScore(for player: Player) -> Int {
+        players.first(where: { $0.id == player.id })?.roundScore ?? 0
+    }
+
+    /// Returns the live total score for `player` from the authoritative `players` array.
+    public func totalScore(for player: Player) -> Int {
+        players.first(where: { $0.id == player.id })?.totalScore ?? 0
+    }
+
     public var exchangeDirection: CardExchangeDirection {
         switch roundNumber % 4 {
         case 0: return .left

@@ -988,4 +988,49 @@ final class GameplayTests: XCTestCase {
             XCTAssertEqual(player.roundScore, 0, "Round scores should be reset to 0 after endHand")
         }
     }
+
+    // MARK: - Live Accessor Tests
+
+    func test_hand_accessor_returns_live_hand_after_card_played() {
+        let game = makeTestGame()
+        let player = game.players[0]
+
+        // Capture stale copy before the play
+        let staleHand = player.hand
+        let cardToPlay = game.players[0].hand.first(where: { $0.suit == .clubs && $0.rank == .two })!
+
+        try! game.playCard(cardToPlay, by: game.players[0])
+
+        // Stale copy still has the card; live accessor does not
+        XCTAssertTrue(staleHand.contains(cardToPlay), "Stale copy should still contain the played card")
+        XCTAssertFalse(game.hand(for: player).contains(cardToPlay), "Live accessor should reflect the removal")
+        XCTAssertEqual(game.hand(for: player).count, staleHand.count - 1)
+    }
+
+    func test_roundScore_accessor_returns_live_score() {
+        let game = makeTestGame()
+        let player = game.players[0]
+
+        game.players[0].roundScore = 7
+
+        XCTAssertEqual(game.roundScore(for: player), 7)
+    }
+
+    func test_totalScore_accessor_returns_live_score() {
+        let game = makeTestGame()
+        let player = game.players[0]
+
+        game.players[0].totalScore = 42
+
+        XCTAssertEqual(game.totalScore(for: player), 42)
+    }
+
+    func test_accessors_return_defaults_for_unknown_player() {
+        let game = Game()
+        let stranger = Player(name: "Stranger")
+
+        XCTAssertEqual(game.hand(for: stranger), [])
+        XCTAssertEqual(game.roundScore(for: stranger), 0)
+        XCTAssertEqual(game.totalScore(for: stranger), 0)
+    }
 }
