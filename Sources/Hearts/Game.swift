@@ -7,8 +7,6 @@
 
 import Foundation
 
-typealias Hand = [Card]
-
 public enum CardExchangeDirection {
     case left
     case right

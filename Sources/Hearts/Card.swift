@@ -7,6 +7,8 @@
 
 import Foundation
 
+typealias Hand = [Card]
+
 public struct Card {
     public let suit: Suit
     public let rank: Rank
