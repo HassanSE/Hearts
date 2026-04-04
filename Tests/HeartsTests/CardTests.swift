@@ -38,4 +38,14 @@ final class CardTests: XCTestCase {
         }
     }
 
+    func test_cards_points_named_special_cards() {
+        XCTAssertEqual(Card(suit: .spades, rank: .queen).points, 13)
+        XCTAssertEqual(Card(suit: .hearts, rank: .ace).points, 1)
+        XCTAssertEqual(Card(suit: .hearts, rank: .two).points, 1)
+        XCTAssertEqual(Card(suit: .diamonds, rank: .jack).points, 0)
+        XCTAssertEqual(Card(suit: .clubs, rank: .ace).points, 0)
+        XCTAssertEqual(Card(suit: .spades, rank: .ace).points, 0)
+        XCTAssertEqual(Card(suit: .spades, rank: .king).points, 0)
+    }
+
 }
