@@ -852,6 +852,33 @@ final class GameplayTests: XCTestCase {
         XCTAssertEqual(game.players[3].totalScore, 0)
     }
 
+    // MARK: - Hearts Broken Tests
+
+    func test_queenOfSpades_does_not_break_hearts() {
+        let game = makeTestGame()
+
+        // Hearts are not broken at start
+        XCTAssertFalse(game.heartsBroken)
+
+        // Set up a trick: player 0 leads clubs, player 1 is void in clubs and plays Q♠
+        // player 1's hand: replace clubs card with Q♠ so they must play off-suit
+        game.players[0].hand = [Card(suit: .clubs, rank: .two)]
+        game.players[1].hand = [Card(suit: .spades, rank: .queen)]  // void in clubs, plays Q♠
+        game.players[2].hand = [Card(suit: .clubs, rank: .three)]
+        game.players[3].hand = [Card(suit: .clubs, rank: .four)]
+
+        game.currentPlayerIndex = 0
+
+        // Play the trick
+        try! game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
+        try! game.playCard(Card(suit: .spades, rank: .queen), by: game.players[1])
+        try! game.playCard(Card(suit: .clubs, rank: .three), by: game.players[2])
+        try! game.playCard(Card(suit: .clubs, rank: .four), by: game.players[3])
+
+        // Q♠ must NOT break hearts
+        XCTAssertFalse(game.heartsBroken, "Playing Q♠ should not break hearts")
+    }
+
     func test_shootTheMoon_does_not_trigger_without_queen_of_spades() {
         let game = makeTestGame()
 
