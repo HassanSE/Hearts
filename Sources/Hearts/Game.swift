@@ -108,7 +108,9 @@ public class Game {
         }
     }
 
-    func getOpponent(_ player: Player, direction: Direction) -> Player? {
+    /// Returns the opponent of `player` in the given direction, or `nil` if direction is `.none`.
+    func getOpponent(_ player: Player, direction: CardExchangeDirection) -> Player? {
+        guard direction != .none else { return nil }
         guard let index = players.firstIndex(where: { $0.id == player.id }) else { return nil }
         let offset = direction == .left ? 1 : direction == .right ? 3 : 2
         return players[(index + offset) % 4]

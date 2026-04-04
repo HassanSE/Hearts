@@ -7,12 +7,6 @@
 
 import Foundation
 
-enum Direction {
-    case left
-    case right
-    case across
-}
-
 public struct Player {
     public let id: UUID
     public let name: String
