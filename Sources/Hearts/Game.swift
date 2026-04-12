@@ -73,6 +73,9 @@ public class Game {
     /// Prevents double-exchange and lets the UI drive timing for human players.
     private var hasExchanged = false
 
+    /// Undo history: each entry is a snapshot taken before a state-mutating action.
+    private var history: [GameSnapshot] = []
+
     /// Delegate to receive game event notifications.
     public weak var delegate: GameEngineDelegate?
 
@@ -137,6 +140,50 @@ public class Game {
         }
     }
 
+    // MARK: - Snapshot / Restore
+
+    /// Returns a snapshot of the complete current game state.
+    /// Use `restore(from:)` to rewind to this point, or `undo()` for step-by-step revert.
+    public func snapshot() -> GameSnapshot {
+        GameSnapshot(
+            players: players,
+            roundNumber: roundNumber,
+            currentTrick: currentTrick,
+            completedTricks: completedTricks,
+            heartsBroken: heartsBroken,
+            currentPlayerIndex: currentPlayerIndex,
+            configuration: configuration,
+            hasExchanged: hasExchanged
+        )
+    }
+
+    /// Restores game state from a snapshot and clears the undo history.
+    /// - Note: `configuration` is not restored (it is immutable on `Game`).
+    public func restore(from snapshot: GameSnapshot) {
+        applySnapshot(snapshot)
+        history = []
+    }
+
+    /// Whether there is a prior state available to undo to.
+    public var canUndo: Bool { !history.isEmpty }
+
+    /// Reverts to the state before the last `playCard` or `performExchange` call.
+    /// No-op if history is empty.
+    public func undo() {
+        guard !history.isEmpty else { return }
+        applySnapshot(history.removeLast())
+    }
+
+    private func applySnapshot(_ snapshot: GameSnapshot) {
+        players = snapshot.players
+        roundNumber = snapshot.roundNumber
+        currentTrick = snapshot.currentTrick
+        completedTricks = snapshot.completedTricks
+        heartsBroken = snapshot.heartsBroken
+        currentPlayerIndex = snapshot.currentPlayerIndex
+        hasExchanged = snapshot.hasExchanged
+    }
+
     public init(player1: Player,
          player2: Player,
          player3: Player,
@@ -188,6 +235,7 @@ public class Game {
     /// ```
     public func performExchange(humanCards: PassedCards? = nil) {
         guard !hasExchanged else { return }
+        history.append(snapshot())
         hasExchanged = true
 
         guard exchangeDirection != .none else { return }
@@ -298,7 +346,8 @@ public class Game {
             }
         }
 
-        // 7. Record the play (Trick enforces only structural rules)
+        // 7. Save state to history for undo support, then record the play
+        history.append(snapshot())
         try currentTrick.play(card, by: player)
 
         // 8. Remove card from player's hand
@@ -603,6 +652,7 @@ public class Game {
         currentTrick = Trick()
         completedTricks = []
         heartsBroken = false
+        history = []
 
         // Set current player to whoever has 2 of clubs
         if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
