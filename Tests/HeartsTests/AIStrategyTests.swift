@@ -878,4 +878,110 @@ final class AIStrategyTests: XCTestCase {
         let strategy = BotDifficulty.hard.makeStrategy()
         XCTAssertTrue(strategy is AdvancedAIStrategy)
     }
+
+    // MARK: - AdvancedAIStrategy Opponent Modeling
+
+    func test_advancedAI_avoids_leading_suit_opponent_is_void_in() throws {
+        // Build a completed trick where clubs was led and one opponent played off-suit,
+        // revealing they are void in clubs.
+        let playerA = Player(name: "A")
+        let playerB = Player(name: "B")  // void in clubs — played hearts when clubs was led
+        let playerC = Player(name: "C")
+        let playerD = Player(name: "D")  // AI's positional stand-in
+
+        var pastTrick = Trick()
+        try pastTrick.play(Card(suit: .clubs, rank: .five), by: playerA)
+        try pastTrick.play(Card(suit: .hearts, rank: .king), by: playerB)  // B is void in clubs
+        try pastTrick.play(Card(suit: .clubs, rank: .three), by: playerC)
+        try pastTrick.play(Card(suit: .clubs, rank: .ace), by: playerD)
+
+        // AI hand: clubs is the longest suit (3 cards), diamonds and spades are alternatives.
+        // Without void avoidance the AI would lead the middle club.
+        // With void avoidance it should skip clubs (voided) and choose diamonds or spades.
+        let aiHand: Hand = [
+            Card(suit: .clubs, rank: .six),
+            Card(suit: .clubs, rank: .eight),
+            Card(suit: .clubs, rank: .ten),
+            Card(suit: .diamonds, rank: .four),
+            Card(suit: .spades, rank: .two),
+        ]
+
+        let context = TrickContext(
+            hand: aiHand,
+            currentTrick: Trick(),
+            heartsBroken: false,   // hearts not legal to lead
+            isFirstTrick: false,
+            completedTricks: [pastTrick]
+        )
+
+        let card = AdvancedAIStrategy().selectCardToPlay(context: context)
+        XCTAssertNotEqual(card.suit, .clubs,
+            "AdvancedAI should avoid leading clubs when an opponent is known void in it")
+    }
+
+    func test_advancedAI_leads_any_valid_card_when_all_suits_are_voided() throws {
+        // Make clubs and spades both voided so the only legal non-heart leads are constrained.
+        let p1 = Player(name: "P1")
+        let p2 = Player(name: "P2")
+        let p3 = Player(name: "P3")
+        let p4 = Player(name: "P4")
+
+        // Trick where clubs was led but p2 played off-suit → p2 void in clubs
+        var trick1 = Trick()
+        try trick1.play(Card(suit: .clubs, rank: .three), by: p1)
+        try trick1.play(Card(suit: .spades, rank: .two), by: p2)   // p2 void in clubs
+        try trick1.play(Card(suit: .clubs, rank: .four), by: p3)
+        try trick1.play(Card(suit: .clubs, rank: .five), by: p4)
+
+        // Trick where diamonds was led but p3 played off-suit → p3 void in diamonds
+        var trick2 = Trick()
+        try trick2.play(Card(suit: .diamonds, rank: .three), by: p1)
+        try trick2.play(Card(suit: .diamonds, rank: .four), by: p2)
+        try trick2.play(Card(suit: .clubs, rank: .six), by: p3)    // p3 void in diamonds
+        try trick2.play(Card(suit: .diamonds, rank: .five), by: p4)
+
+        // AI hand: only spades remain to lead (hearts not broken)
+        let aiHand: Hand = [
+            Card(suit: .spades, rank: .seven),
+            Card(suit: .spades, rank: .nine),
+        ]
+
+        let context = TrickContext(
+            hand: aiHand,
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false,
+            completedTricks: [trick1, trick2]
+        )
+
+        // Must not crash and must return a card from the hand
+        let card = AdvancedAIStrategy().selectCardToPlay(context: context)
+        XCTAssertTrue(aiHand.contains(card),
+            "AI must return a card from hand even when all suits have known voids")
+    }
+
+    func test_advancedAI_does_not_avoid_suit_with_no_void_history() throws {
+        // No completed tricks → no void info → AI should use normal longest-suit logic.
+        let aiHand: Hand = [
+            Card(suit: .clubs, rank: .six),
+            Card(suit: .clubs, rank: .eight),
+            Card(suit: .clubs, rank: .ten),
+            Card(suit: .diamonds, rank: .four),
+        ]
+
+        let context = TrickContext(
+            hand: aiHand,
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false,
+            completedTricks: []   // no history
+        )
+
+        let card = AdvancedAIStrategy().selectCardToPlay(context: context)
+        // With no void info, longest suit (clubs, 3 cards) is preferred — middle card = 8♣
+        XCTAssertEqual(card.suit, .clubs,
+            "With no void history AI should lead from its longest suit")
+        XCTAssertEqual(card.rank, .eight,
+            "AI should lead the middle card of its longest suit")
+    }
 }

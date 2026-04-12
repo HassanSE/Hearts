@@ -280,7 +280,7 @@ struct AdvancedAIStrategy: AIStrategy {
         }
 
         // If leading, be strategic
-        return selectCardToLead(legalMoves: legalMoves, hand: context.hand, heartsBroken: context.heartsBroken, playedCards: context.playedCards)
+        return selectCardToLead(legalMoves: legalMoves, hand: context.hand, heartsBroken: context.heartsBroken, completedTricks: context.completedTricks)
     }
 
     private func shouldAttemptMoonShot(context: TrickContext) -> Bool {
@@ -317,7 +317,9 @@ struct AdvancedAIStrategy: AIStrategy {
         return sorted[0]
     }
 
-    private func selectCardToLead(legalMoves: [Card], hand: Hand, heartsBroken: Bool, playedCards: [Card]) -> Card {
+    private func selectCardToLead(legalMoves: [Card], hand: Hand, heartsBroken: Bool, completedTricks: [Trick]) -> Card {
+        let playedCards = completedTricks.flatMap { $0.cards }
+
         // Card counting: if A♠ and K♠ have both been played, Q♠ is safe to lead
         if let queenOfSpades = legalMoves.first(where: { $0.suit == .spades && $0.rank == .queen }) {
             let aceOfSpadesPlayed = playedCards.contains { $0.suit == .spades && $0.rank == .ace }
@@ -327,24 +329,39 @@ struct AdvancedAIStrategy: AIStrategy {
             }
         }
 
-        // When leading, prefer cards from our longest suit for flexibility
-        let suitGroups = Dictionary(grouping: hand, by: { $0.suit })
-        let longestSuit = suitGroups.max(by: { $0.value.count < $1.value.count })
+        // Opponent void avoidance: avoid leading suits where any player is known void.
+        // A player is inferred void in suit S if they played off-suit when S was the lead.
+        // Leading into a void invites dangerous discards (high hearts, Q♠) onto our trick.
+        let voidedSuits = opponentVoidedSuits(from: completedTricks)
+        let safeLeads = legalMoves.filter { !voidedSuits.contains($0.suit) }
+        let movesToConsider = safeLeads.isEmpty ? legalMoves : safeLeads
 
-        if let longest = longestSuit {
-            let legalFromLongest = legalMoves.filter { $0.suit == longest.key }
-            if !legalFromLongest.isEmpty {
-                let sorted = legalFromLongest.sorted { $0.rank.rawValue < $1.rank.rawValue }
-                // Lead middle card from longest suit
-                if sorted.count >= 3 {
-                    return sorted[sorted.count / 2]
-                }
-                return sorted[0]
+        // Among safe leads, prefer cards from our longest suit for flexibility.
+        // Iterate suits from longest to shortest so we respect the safe-lead constraint.
+        let suitGroups = Dictionary(grouping: hand, by: { $0.suit })
+        let suitsByLength = suitGroups.sorted { $0.value.count > $1.value.count }
+
+        for (suit, _) in suitsByLength {
+            let candidates = movesToConsider.filter { $0.suit == suit }
+            if !candidates.isEmpty {
+                let sorted = candidates.sorted { $0.rank.rawValue < $1.rank.rawValue }
+                return sorted.count >= 3 ? sorted[sorted.count / 2] : sorted[0]
             }
         }
 
-        // Fallback: play lowest card
-        let sorted = legalMoves.sorted { $0.rank.rawValue < $1.rank.rawValue }
-        return sorted[0]
+        // Fallback: lowest card among movesToConsider
+        return movesToConsider.sorted { $0.rank.rawValue < $1.rank.rawValue }[0]
+    }
+
+    /// Returns the set of suits any player is known to be void in, inferred from completed tricks.
+    private func opponentVoidedSuits(from completedTricks: [Trick]) -> Set<Card.Suit> {
+        var voids: Set<Card.Suit> = []
+        for trick in completedTricks {
+            guard let leadSuit = trick.leadSuit else { continue }
+            for play in trick.plays where play.card.suit != leadSuit {
+                voids.insert(leadSuit)
+            }
+        }
+        return voids
     }
 }
