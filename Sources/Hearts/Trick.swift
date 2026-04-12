@@ -12,8 +12,14 @@ enum TrickError: Error, Equatable {
     case playerAlreadyPlayed
 }
 
-public struct Trick {
-    public private(set) var plays: [(player: Player, card: Card)] = []
+public struct Trick: Codable {
+    /// A single card play within a trick, associating a player with the card they played.
+    public struct Play: Codable {
+        public let player: Player
+        public let card: Card
+    }
+
+    public private(set) var plays: [Play] = []
 
     /// The suit of the first card played in this trick
     public var leadSuit: Card.Suit? {
@@ -70,7 +76,7 @@ public struct Trick {
             throw TrickError.playerAlreadyPlayed
         }
 
-        plays.append((player: player, card: card))
+        plays.append(Play(player: player, card: card))
     }
 }
 

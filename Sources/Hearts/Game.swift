@@ -7,11 +7,43 @@
 
 import Foundation
 
-public enum CardExchangeDirection {
+public enum CardExchangeDirection: Codable {
     case left
     case right
     case across
     case none
+}
+
+/// A serializable snapshot of all game state, suitable for persistence or undo support.
+public struct GameSnapshot: Codable {
+    public let players: [Player]
+    public let roundNumber: Int
+    public let currentTrick: Trick
+    public let completedTricks: [Trick]
+    public let heartsBroken: Bool
+    public let currentPlayerIndex: Int
+    public let configuration: GameConfiguration
+    public let hasExchanged: Bool
+
+    public init(
+        players: [Player],
+        roundNumber: Int,
+        currentTrick: Trick,
+        completedTricks: [Trick],
+        heartsBroken: Bool,
+        currentPlayerIndex: Int,
+        configuration: GameConfiguration,
+        hasExchanged: Bool
+    ) {
+        self.players = players
+        self.roundNumber = roundNumber
+        self.currentTrick = currentTrick
+        self.completedTricks = completedTricks
+        self.heartsBroken = heartsBroken
+        self.currentPlayerIndex = currentPlayerIndex
+        self.configuration = configuration
+        self.hasExchanged = hasExchanged
+    }
 }
 
 public enum GameError: Error, Equatable {
@@ -321,7 +353,7 @@ public class Game {
     private func calculateTrickPoints(_ trick: Trick) -> Int {
         var points = 0
 
-        for (_, card) in trick.plays {
+        for card in trick.cards {
             if card.suit == .hearts {
                 points += 1
             } else if card.suit == .spades && card.rank == .queen {

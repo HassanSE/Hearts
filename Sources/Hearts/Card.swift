@@ -9,11 +9,11 @@ import Foundation
 
 typealias Hand = [Card]
 
-public struct Card {
+public struct Card: Codable {
     public let suit: Suit
     public let rank: Rank
     
-    public enum Rank: Int, CaseIterable, Comparable {
+    public enum Rank: Int, CaseIterable, Comparable, Codable {
         public static func < (lhs: Rank, rhs: Rank) -> Bool {
             lhs.rawValue < rhs.rawValue
         }
@@ -21,7 +21,7 @@ public struct Card {
         case two = 2, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace
     }
     
-    public enum Suit: CaseIterable, Comparable {
+    public enum Suit: CaseIterable, Comparable, Codable {
         case spades
         case hearts
         case diamonds

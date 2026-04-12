@@ -8,7 +8,7 @@
 import Foundation
 
 /// Determines how the moon-shooter's score is handled when someone shoots the moon.
-public enum MoonShotVariant {
+public enum MoonShotVariant: Codable {
     /// All opponents receive 26 points. The shooter receives 0 (or -10 with Jack bonus). Default.
     case addToOthers
     /// The shooter's total score is reduced by 26. Opponents' scores are unchanged.
@@ -31,7 +31,7 @@ public enum MoonShotVariant {
 /// let customConfig = GameConfiguration(jackOfDiamondsBonus: true, winningScore: 50)
 /// let game = Game(player1: p1, player2: p2, player3: p3, player4: p4, configuration: customConfig)
 /// ```
-public struct GameConfiguration {
+public struct GameConfiguration: Codable {
     /// When true, the Jack of Diamonds reduces the trick winner's score by 10 points.
     ///
     /// This is a popular Hearts variant. When combined with shooting the moon:

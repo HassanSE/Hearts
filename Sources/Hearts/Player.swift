@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct Player {
+public struct Player: Codable {
     public let id: UUID
     public let name: String
     public let type: PlayerType
