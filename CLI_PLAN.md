@@ -15,7 +15,8 @@ engine under real gameplay conditions.
 - **Step branches:** Each phase/step gets its own branch off the epic branch,
   e.g. `cli/phase-0-engine-gaps` (using `cli/` prefix since git disallows
   path extensions of existing branch names).
-- Merge step branches into `feature/cli-interface` when complete.
+- Step branches are merged into `feature/cli-interface` via **pull requests**
+  so the user can review changes before they land on the epic branch.
 - Once the full CLI is done, `feature/cli-interface` merges into `main`.
 
 ---
@@ -47,12 +48,12 @@ These are things the CLI needs that the engine doesn't currently expose.
 
 ## Phase 1: Package Structure
 
-- [ ] **1.1** Add executable target `HeartsCLI` to `Package.swift`
+- [x] **1.1** Add executable target `HeartsCLI` to `Package.swift`
   - Target depends on `Hearts` library.
   - Source directory: `Sources/HeartsCLI/`.
 
-- [ ] **1.2** Create `Sources/HeartsCLI/main.swift` with a minimal "Hello Hearts" entry point
-  - Verify it builds and runs: `swift run HeartsCLI`
+- [x] **1.2** Create `Sources/HeartsCLI/main.swift` with a minimal "Hello Hearts" entry point
+  - Verified: builds and runs with `swift run HeartsCLI`.
 
 ---
 
@@ -162,6 +163,7 @@ These are things the CLI needs that the engine doesn't currently expose.
 | File | Purpose |
 |------|---------|
 | `Sources/HeartsCLI/main.swift` | Entry point, game loop |
+| `Package.swift` | Added HeartsCLI executable target |
 | `CLI_PLAN.md` | This document |
 
 ---

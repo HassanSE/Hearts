@@ -6,10 +6,12 @@ import PackageDescription
 let package = Package(
     name: "Hearts",
     products: [
-        // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "Hearts",
             targets: ["Hearts"]),
+        .executable(
+            name: "HeartsCLI",
+            targets: ["HeartsCLI"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -21,6 +23,9 @@ let package = Package(
         .target(
             name: "Hearts",
             dependencies: []),
+        .executableTarget(
+            name: "HeartsCLI",
+            dependencies: ["Hearts"]),
         .testTarget(
             name: "HeartsTests",
             dependencies: ["Hearts"]),
