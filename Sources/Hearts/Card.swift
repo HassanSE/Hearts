@@ -12,6 +12,11 @@ typealias Hand = [Card]
 public struct Card: Codable {
     public let suit: Suit
     public let rank: Rank
+
+    public init(suit: Suit, rank: Rank) {
+        self.suit = suit
+        self.rank = rank
+    }
     
     public enum Rank: Int, CaseIterable, Comparable, Codable {
         public static func < (lhs: Rank, rhs: Rank) -> Bool {
