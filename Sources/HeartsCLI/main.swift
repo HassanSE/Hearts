@@ -123,6 +123,81 @@ func runExchangePhase(game: Game) {
     }
 }
 
+func formatGameError(_ error: GameError) -> String {
+    switch error {
+    case .notPlayersTurn: return "It's not your turn."
+    case .cardNotInHand: return "That card isn't in your hand."
+    case .mustLeadWithTwoOfClubs: return "You must lead with the 2 of clubs."
+    case .mustFollowSuit(let suit): return "You must follow suit (\(suit))."
+    case .cannotPlayPointsOnFirstTrick: return "No points may be played on the first trick."
+    case .heartsNotBroken: return "Hearts haven't been broken yet."
+    case .handComplete: return "The hand is already complete."
+    }
+}
+
+func printTrickState(_ trick: Trick) {
+    print("")
+    if trick.plays.isEmpty {
+        print("Current trick: (you lead)")
+    } else {
+        print("Current trick:")
+        for play in trick.plays {
+            print("  \(play.player.name): \(formatCard(play.card))")
+        }
+    }
+}
+
+func promptHumanPlay(game: Game) {
+    printTrickState(game.currentTrick)
+    let humanHand = game.hand(for: game.players[0])
+    printNumberedHand(humanHand, label: "Your hand:")
+    let sortedCards = sortedHand(humanHand)
+
+    while true {
+        print("Your turn. Select a card to play (1-\(sortedCards.count)):")
+        print("> ", terminator: "")
+        let input = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+        guard let n = Int(input), n >= 1, n <= sortedCards.count else {
+            print("Please enter a number between 1 and \(sortedCards.count).")
+            continue
+        }
+        let card = sortedCards[n - 1]
+        do {
+            try game.playCard(card, by: game.players[0])
+            return
+        } catch let error as GameError {
+            print("Invalid play: \(formatGameError(error))")
+        } catch {
+            print("Unexpected error: \(error)")
+        }
+    }
+}
+
+func runOneTrick(game: Game) throws {
+    let preCount = game.completedTricks.count
+
+    try game.playBotTurnsUntilHumanTurn()
+
+    if game.completedTricks.count == preCount && !game.isHandComplete {
+        promptHumanPlay(game: game)
+        try game.playBotTurnsUntilHumanTurn()
+    }
+
+    if game.completedTricks.count > preCount {
+        let trick = game.completedTricks[preCount]
+        if let winner = trick.winner {
+            print("")
+            print("Completed trick \(preCount + 1):")
+            for play in trick.plays {
+                print("  \(play.player.name): \(formatCard(play.card))")
+            }
+            let pts = trick.points
+            let suffix = pts == 1 ? "point" : "points"
+            print("→ Won by \(winner.name) (+\(pts) \(suffix))")
+        }
+    }
+}
+
 func makeGame(difficulty: BotDifficulty, configuration: GameConfiguration) -> Game {
     let human = Player(name: "You", type: .human)
     let bot1 = Player(name: "Watson", type: .bot(difficulty: difficulty))
@@ -153,3 +228,5 @@ print("Moon shot variant: \(configuration.moonShotVariant)")
 runExchangePhase(game: game)
 print("")
 print("Leading player: \(game.currentPlayer.name) (holds 2♣)")
+
+try runOneTrick(game: game)
