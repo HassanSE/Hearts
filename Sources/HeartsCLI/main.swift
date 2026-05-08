@@ -48,6 +48,81 @@ func promptWinningScore() -> Int {
     return 100
 }
 
+let suitOrder: [Card.Suit] = [.clubs, .diamonds, .spades, .hearts]
+
+func sortedHand(_ hand: [Card]) -> [Card] {
+    hand.sorted { lhs, rhs in
+        if lhs.suit != rhs.suit {
+            return suitOrder.firstIndex(of: lhs.suit)! < suitOrder.firstIndex(of: rhs.suit)!
+        }
+        return lhs.rank < rhs.rank
+    }
+}
+
+func formatCard(_ card: Card) -> String {
+    "\(card.rank)\(card.suit)"
+}
+
+func printNumberedHand(_ hand: [Card], label: String) {
+    print(label)
+    let cards = sortedHand(hand)
+    let line = cards.enumerated()
+        .map { "[\($0.offset + 1)] \(formatCard($0.element))" }
+        .joined(separator: "  ")
+    print("  \(line)")
+}
+
+func directionLabel(_ direction: CardExchangeDirection) -> String {
+    switch direction {
+    case .left: return "left"
+    case .right: return "right"
+    case .across: return "across"
+    case .none: return "none"
+    }
+}
+
+func runExchangePhase(game: Game) {
+    let direction = game.exchangeDirection
+    let humanHand = game.hand(for: game.players[0])
+
+    if direction == .none {
+        print("")
+        print("No exchange this round.")
+        game.performExchange()
+        return
+    }
+
+    print("")
+    printNumberedHand(humanHand, label: "Your hand:")
+
+    let sortedCards = sortedHand(humanHand)
+    while true {
+        print("Select 3 cards to pass \(directionLabel(direction)). Enter card numbers (e.g. 1 5 9):")
+        print("> ", terminator: "")
+        let input = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+        let parts = input.split(whereSeparator: { $0 == " " || $0 == "," }).compactMap { Int($0) }
+
+        guard parts.count == 3 else {
+            print("Please enter exactly 3 numbers.")
+            continue
+        }
+        guard Set(parts).count == 3 else {
+            print("Cards must be distinct.")
+            continue
+        }
+        guard parts.allSatisfy({ $0 >= 1 && $0 <= sortedCards.count }) else {
+            print("Numbers must be between 1 and \(sortedCards.count).")
+            continue
+        }
+
+        let selected = parts.map { sortedCards[$0 - 1] }
+        let passed: PassedCards = (selected[0], selected[1], selected[2])
+        game.performExchange(humanCards: passed)
+        printNumberedHand(game.hand(for: game.players[0]), label: "Your hand after exchange:")
+        return
+    }
+}
+
 func makeGame(difficulty: BotDifficulty, configuration: GameConfiguration) -> Game {
     let human = Player(name: "You", type: .human)
     let bot1 = Player(name: "Watson", type: .bot(difficulty: difficulty))
@@ -70,8 +145,11 @@ print("Game initialized.")
 for (index, player) in game.players.enumerated() {
     print("  [\(index)] \(player.name) — \(player.type)")
 }
-print("Leading player: \(game.currentPlayer.name) (holds 2♣)")
 print("Difficulty: \(difficulty)")
 print("Jack of Diamonds bonus: \(configuration.jackOfDiamondsBonus)")
 print("Winning score: \(configuration.winningScore)")
 print("Moon shot variant: \(configuration.moonShotVariant)")
+
+runExchangePhase(game: game)
+print("")
+print("Leading player: \(game.currentPlayer.name) (holds 2♣)")
