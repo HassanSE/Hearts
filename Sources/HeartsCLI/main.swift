@@ -48,6 +48,14 @@ func promptWinningScore() -> Int {
     return 100
 }
 
+func makeGame(difficulty: BotDifficulty, configuration: GameConfiguration) -> Game {
+    let human = Player(name: "You", type: .human)
+    let bot1 = Player(name: "Watson", type: .bot(difficulty: difficulty))
+    let bot2 = Player(name: "Beth", type: .bot(difficulty: difficulty))
+    let bot3 = Player(name: "Cindy", type: .bot(difficulty: difficulty))
+    return Game(player1: human, player2: bot1, player3: bot2, player4: bot3, configuration: configuration)
+}
+
 print("Welcome to Hearts!")
 let difficulty = promptDifficulty()
 let configuration = GameConfiguration(
@@ -55,6 +63,14 @@ let configuration = GameConfiguration(
     winningScore: promptWinningScore(),
     moonShotVariant: promptMoonShotVariant()
 )
+let game = makeGame(difficulty: difficulty, configuration: configuration)
+
+print("")
+print("Game initialized.")
+for (index, player) in game.players.enumerated() {
+    print("  [\(index)] \(player.name) — \(player.type)")
+}
+print("Leading player: \(game.currentPlayer.name) (holds 2♣)")
 print("Difficulty: \(difficulty)")
 print("Jack of Diamonds bonus: \(configuration.jackOfDiamondsBonus)")
 print("Winning score: \(configuration.winningScore)")
