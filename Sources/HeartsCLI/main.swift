@@ -1,6 +1,17 @@
 import Foundation
 import Hearts
 
+setbuf(stdout, nil)
+
+func readLineOrExit() -> String {
+    guard let line = readLine() else {
+        print("")
+        print("Input closed — exiting.")
+        exit(0)
+    }
+    return line.trimmingCharacters(in: .whitespaces)
+}
+
 func promptDifficulty() -> BotDifficulty {
     print("Select difficulty:")
     print("  1) Easy")
@@ -8,7 +19,7 @@ func promptDifficulty() -> BotDifficulty {
     print("  3) Hard")
     print("> ", terminator: "")
 
-    let input = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+    let input = readLineOrExit()
     switch input {
     case "1": return .easy
     case "2": return .medium
@@ -22,7 +33,7 @@ func promptDifficulty() -> BotDifficulty {
 func promptJackBonus() -> Bool {
     print("Enable Jack of Diamonds bonus? (y/N)")
     print("> ", terminator: "")
-    let input = readLine()?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
+    let input = readLineOrExit().lowercased()
     return input == "y" || input == "yes"
 }
 
@@ -31,7 +42,7 @@ func promptMoonShotVariant() -> MoonShotVariant {
     print("  1) Add 26 to others (default)")
     print("  2) Subtract 26 from shooter")
     print("> ", terminator: "")
-    let input = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+    let input = readLineOrExit()
     switch input {
     case "2": return .subtractFromSelf
     default: return .addToOthers
@@ -41,7 +52,7 @@ func promptMoonShotVariant() -> MoonShotVariant {
 func promptWinningScore() -> Int {
     print("Winning score (default 100):")
     print("> ", terminator: "")
-    let input = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+    let input = readLineOrExit()
     if input.isEmpty { return 100 }
     if let value = Int(input), value > 0 { return value }
     print("Invalid score — defaulting to 100.")
@@ -99,7 +110,7 @@ func runExchangePhase(game: Game) {
     while true {
         print("Select 3 cards to pass \(directionLabel(direction)). Enter card numbers (e.g. 1 5 9):")
         print("> ", terminator: "")
-        let input = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+        let input = readLineOrExit()
         let parts = input.split(whereSeparator: { $0 == " " || $0 == "," }).compactMap { Int($0) }
 
         guard parts.count == 3 else {
@@ -156,7 +167,7 @@ func promptHumanPlay(game: Game) {
     while true {
         print("Your turn. Select a card to play (1-\(sortedCards.count)):")
         print("> ", terminator: "")
-        let input = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+        let input = readLineOrExit()
         guard let n = Int(input), n >= 1, n <= sortedCards.count else {
             print("Please enter a number between 1 and \(sortedCards.count).")
             continue
@@ -198,6 +209,74 @@ func runOneTrick(game: Game) throws {
     }
 }
 
+func padRight(_ s: String, _ width: Int) -> String {
+    s.count >= width ? s : s + String(repeating: " ", count: width - s.count)
+}
+
+func padLeft(_ s: String, _ width: Int) -> String {
+    s.count >= width ? s : String(repeating: " ", count: width - s.count) + s
+}
+
+func printScoreboard(game: Game, roundScores: [Int], handNumber: Int) {
+    print("")
+    print("Scoreboard after hand \(handNumber):")
+    print("  \(padRight("Player", 10)) \(padLeft("Round", 6))  \(padLeft("Total", 6))")
+    print("  \(String(repeating: "-", count: 26))")
+    for (i, player) in game.players.enumerated() {
+        print("  \(padRight(player.name, 10)) \(padLeft("\(roundScores[i])", 6))  \(padLeft("\(player.totalScore)", 6))")
+    }
+}
+
+func printGameResult(game: Game) {
+    print("")
+    print(String(repeating: "=", count: 32))
+    print("           GAME OVER")
+    print(String(repeating: "=", count: 32))
+    let sorted = game.players.sorted { $0.totalScore < $1.totalScore }
+    print("  Final standings:")
+    for player in sorted {
+        print("    \(padRight(player.name, 10)) \(padLeft("\(player.totalScore)", 4))")
+    }
+    print("")
+    if let winner = game.gameWinner {
+        let suffix = winner.totalScore == 1 ? "point" : "points"
+        print("Winner: \(winner.name) with \(winner.totalScore) \(suffix)")
+    } else if game.isGameTied {
+        print("Game tied — should continue, but exiting.")
+    }
+}
+
+func runHand(game: Game, handNumber: Int) throws {
+    print("")
+    print(String(repeating: "=", count: 32))
+    print("  Hand \(handNumber) (round \(game.roundNumber))")
+    print(String(repeating: "=", count: 32))
+
+    runExchangePhase(game: game)
+    print("")
+    print("Leading player: \(game.currentPlayer.name) (holds 2♣)")
+
+    while !game.isHandComplete {
+        try runOneTrick(game: game)
+    }
+
+    let roundScores = game.players.map { $0.roundScore }
+    game.endHand()
+    printScoreboard(game: game, roundScores: roundScores, handNumber: handNumber)
+}
+
+func runGame(game: Game) throws {
+    var handNumber = 1
+    while !game.isGameOver || game.isGameTied {
+        try runHand(game: game, handNumber: handNumber)
+        handNumber += 1
+        if !game.isGameOver || game.isGameTied {
+            game.startNewHand()
+        }
+    }
+    printGameResult(game: game)
+}
+
 func makeGame(difficulty: BotDifficulty, configuration: GameConfiguration) -> Game {
     let human = Player(name: "You", type: .human)
     let bot1 = Player(name: "Watson", type: .bot(difficulty: difficulty))
@@ -225,8 +304,4 @@ print("Jack of Diamonds bonus: \(configuration.jackOfDiamondsBonus)")
 print("Winning score: \(configuration.winningScore)")
 print("Moon shot variant: \(configuration.moonShotVariant)")
 
-runExchangePhase(game: game)
-print("")
-print("Leading player: \(game.currentPlayer.name) (holds 2♣)")
-
-try runOneTrick(game: game)
+try runGame(game: game)
