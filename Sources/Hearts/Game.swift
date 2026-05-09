@@ -121,6 +121,20 @@ public class Game {
         players.first(where: { $0.id == player.id })?.hand ?? []
     }
 
+    /// Returns the cards in `player`'s hand that are legal to play right now.
+    /// Returns an empty array if it isn't `player`'s turn or the hand is complete.
+    public func legalMoves(for player: Player) -> [Card] {
+        guard player == currentPlayer, !isHandComplete else { return [] }
+        let context = TrickContext(
+            hand: hand(for: player),
+            currentTrick: currentTrick,
+            heartsBroken: heartsBroken,
+            isFirstTrick: completedTricks.isEmpty,
+            completedTricks: completedTricks
+        )
+        return context.getLegalMoves()
+    }
+
     /// Returns the live round score for `player` from the authoritative `players` array.
     public func roundScore(for player: Player) -> Int {
         players.first(where: { $0.id == player.id })?.roundScore ?? 0
