@@ -146,12 +146,17 @@ func formatGameError(_ error: GameError) -> String {
     }
 }
 
+func formatSuit(_ suit: Card.Suit) -> String {
+    "\(suit)"
+}
+
 func printTrickState(_ trick: Trick) {
     print("")
     if trick.plays.isEmpty {
         print("Current trick: (you lead)")
     } else {
-        print("Current trick:")
+        let leadSuit = trick.leadSuit.map { " — lead suit: \(formatSuit($0))" } ?? ""
+        print("Current trick:\(leadSuit)")
         for play in trick.plays {
             print("  \(play.player.name): \(formatCard(play.card))")
         }
@@ -160,9 +165,12 @@ func printTrickState(_ trick: Trick) {
 
 func promptHumanPlay(game: Game) {
     printTrickState(game.currentTrick)
-    let humanHand = game.hand(for: game.players[0])
-    printNumberedHand(humanHand, label: "Your hand:")
-    let sortedCards = sortedHand(humanHand)
+    let human = game.players[0]
+    printNumberedHand(game.hand(for: human), label: "Your hand:")
+
+    let legal = game.legalMoves(for: human)
+    let sortedCards = sortedHand(legal)
+    printNumberedHand(legal, label: "Legal moves:")
 
     while true {
         print("Your turn. Select a card to play (1-\(sortedCards.count)):")
@@ -174,7 +182,7 @@ func promptHumanPlay(game: Game) {
         }
         let card = sortedCards[n - 1]
         do {
-            try game.playCard(card, by: game.players[0])
+            try game.playCard(card, by: human)
             return
         } catch let error as GameError {
             print("Invalid play: \(formatGameError(error))")
@@ -285,6 +293,25 @@ func makeGame(difficulty: BotDifficulty, configuration: GameConfiguration) -> Ga
     return Game(player1: human, player2: bot1, player3: bot2, player4: bot3, configuration: configuration)
 }
 
+final class CLIEventLogger: GameEngineDelegate {
+    func game(_ game: Game, didBreakHearts card: Card, by player: Player) {
+        print("")
+        print("♥  Hearts have been broken — \(player.name) played \(formatCard(card)).")
+    }
+
+    func game(_ game: Game, didEndHand scores: [Player: Int], moonShooter: Player?) {
+        guard let shooter = moonShooter else { return }
+        print("")
+        print("🌙 \(shooter.name) shot the moon!")
+        switch game.configuration.moonShotVariant {
+        case .addToOthers:
+            print("   Every other player takes 26 points.")
+        case .subtractFromSelf:
+            print("   \(shooter.name) subtracts 26 from their own score.")
+        }
+    }
+}
+
 print("Welcome to Hearts!")
 let difficulty = promptDifficulty()
 let configuration = GameConfiguration(
@@ -293,6 +320,8 @@ let configuration = GameConfiguration(
     moonShotVariant: promptMoonShotVariant()
 )
 let game = makeGame(difficulty: difficulty, configuration: configuration)
+let eventLogger = CLIEventLogger()
+game.delegate = eventLogger
 
 print("")
 print("Game initialized.")
