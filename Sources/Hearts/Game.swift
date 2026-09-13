@@ -149,14 +149,17 @@ public class Game {
     /// Returns an empty array if it isn't `player`'s turn or the hand is complete.
     public func legalMoves(for player: Player) -> [Card] {
         guard player == currentPlayer, !isHandComplete else { return [] }
-        let context = TrickContext(
-            hand: hand(for: player),
+        return playRules(forSeat: currentPlayerIndex).legalMoves()
+    }
+
+    /// The rules oracle for the player in `seat`, built from the live hand and trick state.
+    private func playRules(forSeat seat: Int) -> PlayRules {
+        PlayRules(
+            hand: players[seat].hand,
             currentTrick: currentTrick,
             heartsBroken: heartsBroken,
-            isFirstTrick: completedTricks.isEmpty,
-            completedTricks: completedTricks
+            isFirstTrick: completedTricks.isEmpty
         )
-        return context.getLegalMoves()
     }
 
     /// Returns the live round score for `player` from the authoritative `players` array.
@@ -370,60 +373,20 @@ public class Game {
             throw GameError.handComplete
         }
 
-        // 3. Get player index and validate card is in hand
+        // 3. Resolve the seat, then let the rules oracle check card-in-hand and the four play rules
         guard let playerIndex = players.firstIndex(of: player) else {
             throw GameError.cardNotInHand
         }
+        try playRules(forSeat: playerIndex).validate(card)
 
-        guard players[playerIndex].hand.contains(card) else {
-            throw GameError.cardNotInHand
-        }
-
-        // 4. Validate first trick rules (must lead with 2♣, no points)
-        if completedTricks.isEmpty && currentTrick.plays.isEmpty {
-            // First card of first trick must be 2♣
-            guard card.suit == .clubs && card.rank == .two else {
-                throw GameError.mustLeadWithTwoOfClubs
-            }
-        }
-
-        if completedTricks.isEmpty {
-            // No points on first trick (unless no choice)
-            if card.points > 0 {
-                let hasNonPointCard = players[playerIndex].hand.contains(where: { $0.points == 0 })
-                guard !hasNonPointCard else {
-                    throw GameError.cannotPlayPointsOnFirstTrick
-                }
-            }
-        }
-
-        // 5. Validate hearts broken rule (only when leading)
-        if currentTrick.plays.isEmpty && card.suit == .hearts {
-            // Can't lead hearts until broken, unless only hearts in hand
-            if !heartsBroken {
-                let hasOnlyHearts = players[playerIndex].hand.allSatisfy { $0.suit == .hearts }
-                guard hasOnlyHearts else {
-                    throw GameError.heartsNotBroken
-                }
-            }
-        }
-
-        // 6. Validate follow-suit rule
-        if let leadSuit = currentTrick.leadSuit {
-            let hasLeadSuit = players[playerIndex].hand.contains(where: { $0.suit == leadSuit })
-            if hasLeadSuit && card.suit != leadSuit {
-                throw GameError.mustFollowSuit(required: leadSuit)
-            }
-        }
-
-        // 7. Save state to history for undo support, then record the play
+        // 4. Save state to history for undo support, then record the play
         history.append(snapshot())
         try currentTrick.play(card, by: player)
 
-        // 8. Remove card from player's hand
+        // 5. Remove card from player's hand
         players[playerIndex].hand.removeAll { $0 == card }
 
-        // 9. Update hearts broken state and fire delegate events
+        // 6. Update hearts broken state and fire delegate events
         let justBrokeHearts = !heartsBroken && card.suit == .hearts
         if card.suit == .hearts {
             heartsBroken = true
@@ -434,7 +397,7 @@ public class Game {
             delegate?.game(self, didBreakHearts: card, by: player)
         }
 
-        // 10. Check if trick is complete
+        // 7. Check if trick is complete
         if currentTrick.isComplete {
             completeTrick()
         } else {

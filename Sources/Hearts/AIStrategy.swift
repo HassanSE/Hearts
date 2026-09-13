@@ -30,43 +30,10 @@ struct TrickContext {
         completedTricks.flatMap { $0.cards }
     }
 
-    /// Returns only the cards from hand that are legal to play given the current game state
-    func getLegalMoves() -> [Card] {
-        var legalMoves = hand
-
-        // Rule 0: First card of game must be 2 of clubs
-        if isFirstTrick && currentTrick.leadSuit == nil {
-            let twoOfClubs = hand.filter { $0.suit == .clubs && $0.rank == .two }
-            if !twoOfClubs.isEmpty {
-                return twoOfClubs
-            }
-        }
-
-        // Rule 1: Must follow suit if possible
-        if let leadSuit = currentTrick.leadSuit {
-            let cardsOfLeadSuit = hand.filter { $0.suit == leadSuit }
-            if !cardsOfLeadSuit.isEmpty {
-                legalMoves = cardsOfLeadSuit
-            }
-        }
-
-        // Rule 2: Cannot lead hearts until broken (unless only hearts remain)
-        if currentTrick.leadSuit == nil && !heartsBroken {
-            let nonHearts = legalMoves.filter { $0.suit != .hearts }
-            if !nonHearts.isEmpty {
-                legalMoves = nonHearts
-            }
-        }
-
-        // Rule 3: Cannot play points on first trick (unless no choice)
-        if isFirstTrick && currentTrick.leadSuit != nil {
-            let nonPointCards = legalMoves.filter { $0.points == 0 }
-            if !nonPointCards.isEmpty {
-                legalMoves = nonPointCards
-            }
-        }
-
-        return legalMoves
+    /// The cards in `hand` that `PlayRules` accepts for this decision.
+    var legalMoves: [Card] {
+        PlayRules(hand: hand, currentTrick: currentTrick, heartsBroken: heartsBroken, isFirstTrick: isFirstTrick)
+            .legalMoves()
     }
 }
 
@@ -119,7 +86,7 @@ struct RandomAIStrategy: AIStrategy {
     func selectCardToPlay(context: TrickContext) -> Card {
         // Random strategy: randomly select from legal moves
         var generator = randomSource
-        let legalMoves = context.getLegalMoves()
+        let legalMoves = context.legalMoves
         guard let card = legalMoves.randomElement(using: &generator) else {
             fatalError("No legal moves available — hand is empty or game state is corrupted")
         }
@@ -154,7 +121,7 @@ struct BasicAIStrategy: AIStrategy {
 
     func selectCardToPlay(context: TrickContext) -> Card {
         // Basic strategy: Play low cards to avoid taking points
-        let legalMoves = context.getLegalMoves()
+        let legalMoves = context.legalMoves
 
         // If we must follow suit, try to play low and avoid winning
         if context.currentTrick.leadSuit != nil {
@@ -267,7 +234,7 @@ struct AdvancedAIStrategy: AIStrategy {
 
     func selectCardToPlay(context: TrickContext) -> Card {
         // Advanced strategy: Play smart based on current trick and game state
-        let legalMoves = context.getLegalMoves()
+        let legalMoves = context.legalMoves
 
         // Moon-shot pursuit: if we hold a dominant heart hand + Q♠, try to capture everything
         if shouldAttemptMoonShot(context: context) {

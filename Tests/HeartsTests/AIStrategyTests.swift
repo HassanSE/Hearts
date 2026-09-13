@@ -60,7 +60,7 @@ final class AIStrategyTests: XCTestCase {
         let selectedCard = strategy.selectCardToPlay(context: context)
 
         // Should return a legal card from the hand
-        XCTAssertTrue(context.getLegalMoves().contains(selectedCard))
+        XCTAssertTrue(context.legalMoves.contains(selectedCard))
     }
 
     // MARK: - BasicAIStrategy Tests
@@ -297,46 +297,20 @@ final class AIStrategyTests: XCTestCase {
 
     // MARK: - TrickContext Tests
 
-    func test_getLegalMoves_onlyHeartsInHand_canLeadDespiteHeartsNotBroken() {
-        let hand: Hand = [
-            Card(suit: .hearts, rank: .ace),
-            Card(suit: .hearts, rank: .king),
-        ]
-        let context = TrickContext(
-            hand: hand,
-            currentTrick: Trick(),
-            heartsBroken: false,
-            isFirstTrick: false
-        )
-
-        let legal = context.getLegalMoves()
-
-        XCTAssertEqual(legal.count, 2)
-        XCTAssertTrue(legal.allSatisfy { $0.suit == .hearts })
-    }
-
-    func test_getLegalMoves_firstTrickFollowing_cannotPlayPointCards() {
-        // On the first trick, a player following suit cannot dump point cards if non-point cards are available
+    func test_legalMoves_matchesPlayRulesForSameInputs() {
+        // Rule coverage lives in PlayRulesTests; the context only forwards its inputs to the oracle.
         var trick = Trick()
-        let leader = Player(name: "Leader", type: .bot(difficulty: .easy))
-        try! trick.play(Card(suit: .clubs, rank: .ace), by: leader)
-
-        // No clubs in hand - all cards are initially legal after the follow-suit check
+        try! trick.play(Card(suit: .clubs, rank: .ace), by: Player(name: "Leader", type: .bot(difficulty: .easy)))
         let hand: Hand = [
-            Card(suit: .hearts, rank: .seven),   // 1 point - must be excluded
-            Card(suit: .spades, rank: .queen),   // 13 points - must be excluded
-            Card(suit: .diamonds, rank: .five),  // 0 points - only legal option
+            Card(suit: .hearts, rank: .seven),
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .diamonds, rank: .five),
         ]
-        let context = TrickContext(
-            hand: hand,
-            currentTrick: trick,
-            heartsBroken: false,
-            isFirstTrick: true
-        )
+        let context = TrickContext(hand: hand, currentTrick: trick, heartsBroken: false, isFirstTrick: true)
+        let rules = PlayRules(hand: hand, currentTrick: trick, heartsBroken: false, isFirstTrick: true)
 
-        let legal = context.getLegalMoves()
-
-        XCTAssertEqual(legal, [Card(suit: .diamonds, rank: .five)])
+        XCTAssertEqual(context.legalMoves, rules.legalMoves())
+        XCTAssertEqual(context.legalMoves, [Card(suit: .diamonds, rank: .five)])
     }
 
     // MARK: - BasicAIStrategy Additional Tests
