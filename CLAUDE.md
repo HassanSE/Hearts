@@ -20,38 +20,46 @@ Every public API must have comprehensive test coverage. Edge cases, error condit
 
 ## Architecture
 
-```
-Sources/HeartsEngine/
-├── Models/           # Core data types (Card, Suit, Rank, Player, Hand, Trick, etc.)
-├── Rules/            # Game rules and validation logic
-├── State/            # Game state management and transitions
-├── AI/               # Computer player strategies
-├── Scoring/          # Score calculation and tracking
-└── Events/           # Game events and notifications (delegate/callback patterns)
+Three SPM targets: the `Hearts` library (the engine), the `HeartsCLI` executable (a terminal
+client that exercises it), and `HeartsTests`. The engine is small enough that its sources sit
+flat in one directory, grouped by responsibility rather than by folder:
 
-Tests/HeartsEngineTests/
-├── Models/           # Model unit tests
-├── Rules/            # Rules validation tests
-├── State/            # State transition tests
-├── AI/               # AI behavior tests
-├── Scoring/          # Scoring calculation tests
-├── Integration/      # Full game flow tests
-└── Mocks/            # Test doubles and fixtures
 ```
+Sources/Hearts/
+├── Card.swift, Deck.swift, Seat.swift, Player.swift, PlayerType.swift   # models: Card (+ Rank, Suit), Seat/SeatMap, player profiles
+├── Trick.swift, PlayRules.swift, CardExchange.swift                     # rules: trick structure, the single play-validation oracle, passing
+├── Game.swift, GamePhase.swift, GameSnapshot.swift, GameConfiguration.swift  # state: the engine, its phase machine, snapshots, rule variants
+├── AIStrategy.swift                                                     # AI: AIStrategy, TrickContext, Random/Basic/Advanced strategies, BotDifficulty
+├── Scoring.swift                                                        # scoring: Scoring, HandResult
+├── GameEngineDelegate.swift                                             # events: delegate protocol with default no-ops
+└── SeededRandomNumberGenerator.swift                                    # injectable randomness
+
+Sources/HeartsCLI/main.swift          # terminal client (swift run HeartsCLI)
+
+Tests/HeartsTests/
+├── <Source>Tests.swift               # one per source file (CardTests, GameTests, ScoringTests, …)
+├── Gameplay/HumanPlayer/Orchestration/History/SeatIdentity/Determinism/Codable/PluggableStrategyTests.swift
+│                                     # cross-cutting suites
+└── Mocks/                            # fixtures: Cards (Card.aceOfSpades …), Tricks, Games, DelegateSpy, SeatMapLiterals
+```
+
+The public surface is intentional: the package is consumed as a library, so types a client needs
+(`Game`, `Card`, `Seat`, `GamePhase`, `GameError`, `AIStrategy`, `GameEngineDelegate`, …) are
+`public`; helpers stay `internal` and tests use `@testable import` where they need them.
 
 ## Code Style Guidelines
 
 ### Naming Conventions
 
-- Types: `PascalCase` (e.g., `GameState`, `CardValidator`)
+- Types: `PascalCase` (e.g., `GamePhase`, `PlayRules`)
 - Functions/Methods: `camelCase` (e.g., `playCard()`, `calculateScore()`)
 - Constants: `camelCase` (e.g., `maxHandSize`, `pointsToLose`)
 - Protocols: Noun or adjective describing capability (e.g., `CardPlayable`, `ScoreCalculating`)
 
 ### Swift Conventions
 
-- Use `struct` for value types (Card, Hand, Score)
-- Use `class` only when reference semantics are required (GameEngine, AIPlayer)
+- Use `struct` for value types (Card, Trick, HandResult, GameSnapshot)
+- Use `class` only when reference semantics are required (`Game` is the only one)
 - Use `enum` for finite sets (Suit, Rank, GamePhase)
 - Prefer `let` over `var`
 - Use `guard` for early exits
@@ -65,13 +73,14 @@ Tests/HeartsEngineTests/
 - Add code examples for complex APIs
 
 ```swift
-/// Attempts to play a card from a player's hand.
+/// Plays `card` from `seat`'s hand into the current trick.
 /// - Parameters:
 ///   - card: The card to play
-///   - player: The player attempting the play
-/// - Returns: The resulting game state after the play
-/// - Throws: `InvalidPlayError` if the play violates game rules
-func play(card: Card, by player: Player) throws -> GameState
+///   - seat: The seat attempting the play
+/// - Throws: `GameError.wrongPhase` unless `phase` is `.awaitingPlay(seat)`;
+///   `.cardNotInHand`, `.mustFollowSuit`, `.heartsNotBroken`, `.cannotPlayPointsOnFirstTrick`
+///   or `.mustLeadWithTwoOfClubs` if the play violates game rules. Nothing changes on error.
+public func playCard(_ card: Card, by seat: Seat) throws
 ```
 
 ## Testing Requirements
@@ -105,15 +114,15 @@ func test_passingPhase_withThreeCards_transitionsToPlayingPhase() { }
 Create reusable test fixtures and builders:
 
 ```swift
-// In Tests/Mocks/
+// In Tests/HeartsTests/Mocks/ — all 52 cards exist as Card.<rank>Of<Suit>
 extension Card {
     static let aceOfSpades = Card(suit: .spades, rank: .ace)
     static let queenOfSpades = Card(suit: .spades, rank: .queen)
 }
 
-extension Hand {
-    static func mock(cards: [Card]) -> Hand { ... }
-}
+// Games.swift: Game.seededBots(seed:), .seededHumanSouth(seed:), .fixedDeal([hands]), game.play([cards])
+// Tricks.swift: Trick.mock([cards], leadingFrom: seat)
+// DelegateSpy.swift: records every GameEngineDelegate callback in order
 ```
 
 ## Hearts Game Rules Reference
@@ -163,39 +172,57 @@ swift test --enable-code-coverage
 
 ```bash
 swift test --enable-code-coverage
-xcrun llvm-cov report .build/debug/HeartsEnginePackageTests.xctest/Contents/MacOS/HeartsEnginePackageTests -instr-profile .build/debug/codecov/default.profdata
+xcrun llvm-cov report .build/debug/HeartsPackageTests.xctest/Contents/MacOS/HeartsPackageTests \
+  -instr-profile .build/debug/codecov/default.profdata \
+  -ignore-filename-regex='Tests|HeartsCLI|\.build'
 ```
+
+The `-ignore-filename-regex` keeps the report to `Sources/Hearts`; the CLI and the tests
+themselves are not counted toward the 95% target.
 
 ## Error Handling
 
-Use typed errors for game rule violations:
+Use typed errors for game rule violations. The engine has one error enum, `GameError`
+(`Sources/Hearts/Game.swift`); every rule violation, wrong-phase call, bad exchange selection,
+bad fixed deal and rejected snapshot is a case of it, and a throwing call leaves the game
+unchanged. Never trap: no `fatalError`, `precondition` or force unwrap in `Sources/Hearts`.
 
 ```swift
-enum InvalidPlayError: Error {
-    case notPlayersTurn
-    case cardNotInHand
-    case mustFollowSuit(required: Suit)
-    case heartsNotBroken
-    case cannotPlayPointsOnFirstTrick
-    case mustLeadTwoOfClubs
+public enum GameError: Error, Equatable {
+    case notPlayersTurn, cardNotInHand, mustLeadWithTwoOfClubs
+    case mustFollowSuit(required: Card.Suit)
+    case cannotPlayPointsOnFirstTrick, heartsNotBroken
+    case wrongPhase(GamePhase)            // mutator not admitted by the current phase
+    case humanInputRequired(seat: Seat)   // bot-only driver reached a human decision
+    // … exchange, deal and snapshot cases
 }
 ```
 
 ## State Management
 
-The game engine should be the single source of truth. State changes should be:
+`Game` is the single source of truth. Its state is `public internal(set)`; only its mutators
+change it. State changes are:
 
-- Immutable where possible (return new state rather than mutating)
-- Validated before applying
-- Observable via delegate/callback pattern (no Combine or other reactive frameworks)
+- Driven by `GamePhase`: `game.phase` says which mutator is accepted next
+  (`.awaitingExchange` → `performExchange`, `.awaitingPlay(seat)` → `playCard`,
+  `.awaitingSettlement` → `endHand`, `.handComplete` → `startNewHand`, `.gameOver` terminal).
+  Anything else throws `GameError.wrongPhase`. `advance()` runs every bot-only step and stops
+  where a human must act.
+- Validated before applying: a throwing call changes nothing.
+- Keyed by `Seat`, never by `Player`: `Player` is an immutable profile; hands and scores are
+  `SeatMap`s on `Game`.
+- Observable via delegate/callback pattern (no Combine or other reactive frameworks). Every
+  method has a default no-op:
 
 ```swift
-protocol GameEngineDelegate: AnyObject {
-    func gameEngine(_ engine: GameEngine, didTransitionTo state: GameState)
-    func gameEngine(_ engine: GameEngine, playerDidPlay card: Card, by player: Player)
-    func gameEngine(_ engine: GameEngine, didCompleteTrick trick: Trick, winner: Player)
-    func gameEngine(_ engine: GameEngine, didCompleteHand scores: [Player: Int])
-    func gameEngine(_ engine: GameEngine, didEndGame winner: Player)
+public protocol GameEngineDelegate: AnyObject {
+    func game(_ game: Game, didTransitionTo phase: GamePhase)
+    func game(_ game: Game, didPlayCard card: Card, by seat: Seat)
+    func game(_ game: Game, didCompleteTrick trick: Trick, winner: Seat, points: Int)
+    func game(_ game: Game, didBreakHearts card: Card, by seat: Seat)
+    func game(_ game: Game, didEndHand result: HandResult)
+    func game(_ game: Game, didEndGame winner: Seat)
+    func game(_ game: Game, didRestoreTo phase: GamePhase)
 }
 ```
 
@@ -204,17 +231,22 @@ protocol GameEngineDelegate: AnyObject {
 AI players should conform to a strategy protocol:
 
 ```swift
-protocol AIStrategy {
-    func selectCardsToPass(from hand: Hand, direction: PassDirection) -> [Card]
-    func selectCardToPlay(from hand: Hand, in trick: Trick, gameState: GameState) -> Card
+public protocol AIStrategy {
+    func selectCardsToPass(from hand: [Card], direction: CardExchangeDirection) -> PassedCards
+    func selectCardToPlay(context: TrickContext) -> Card
 }
 ```
 
-Implement multiple difficulty levels:
+`TrickContext` carries the seat, hand, current and completed tricks, scores and a
+`legalMoves` list computed by `PlayRules`; a strategy must return one of those. `Game` holds one
+strategy instance per bot seat for the life of the game (pass overrides via `strategies:` in
+any `Game` init), so a class conformer can remember what it has seen.
 
-- `RandomAIStrategy`: Random valid plays (for testing)
-- `BasicAIStrategy`: Simple heuristics (avoid points)
-- `AdvancedAIStrategy`: Strategic play (card counting, shooting the moon detection)
+Difficulty levels (`BotDifficulty.makeStrategy`):
+
+- `RandomAIStrategy` (`.easy`): Random legal plays, drawn from the game's random source
+- `BasicAIStrategy` (`.medium`): Simple heuristics (avoid points)
+- `AdvancedAIStrategy` (`.hard`): Card counting, void inference, moon pursuit
 
 ## Dependencies
 

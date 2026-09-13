@@ -2,6 +2,8 @@
 
 This is a living document. Each item is self-contained: it describes what to do, where to do it, why it matters, and how to verify it is done. Work through items in phase order. Check off items as they are completed.
 
+> **Status (2026-09-13):** every item below is either done or superseded; new work is tracked as tickets in `issues/` (local, gitignored). Item bodies describe the code *as it was when the item was written* — several name APIs that later refactors removed (`playBotTurnsUntilHumanTurn` → `advance()`, `hasExchanged` → `GamePhase`, `currentPlayerIndex` → `currentSeat`, the `hand(for:)` accessors → `game.hands[seat]`). Trust the code over the item text.
+
 ---
 
 ## Phase 1 — Critical Correctness
@@ -215,6 +217,8 @@ These are heuristics, not perfect inferences. Start with (1) as it has the clear
 
 **Verification:** Test passes without crash.
 
+**Done:** `playBotTurnsUntilHumanTurn()` has since been replaced by `advance()`, which stops at `.gameOver` without mutating anything; see `GamePhaseTests`.
+
 ---
 
 ## Phase 3 — Quality & Refactor
@@ -358,7 +362,7 @@ These items improve the project's depth and portfolio quality but are not requir
 
 ---
 
-### [ ] 4.3 Game state snapshot (undo support)
+### [x] 4.3 Game state snapshot (undo support)
 
 **What:** The current `Game` class mutates state in place with no history. There is no way to undo a play or replay a game from a checkpoint. This is valuable for a portfolio project demonstrating thoughtful design.
 
@@ -373,6 +377,8 @@ These items improve the project's depth and portfolio quality but are not requir
 **Prerequisite:** Item 4.2 (`Codable`) is recommended first so snapshots are serializable.
 
 **Verification:** After taking a snapshot, play several cards, restore the snapshot, and assert game state matches the pre-play state exactly.
+
+**Done:** `GameSnapshot` (own file, `Equatable`, `Codable`, per-seat `SeatMap`s plus `phase`), `Game.snapshot()`, a throwing `Game.restore(from:)` that validates the snapshot (`GameError.snapshotFromDifferentGame` / `.inconsistentSnapshot`) before applying it, and `Game.undo()` / `canUndo` over a history that survives `endHand()` and `startNewHand()`, so a deal can be undone. Observers get `game(_:didRestoreTo:)`. See `GameSnapshotTests` and `HistoryTests`.
 
 ---
 
@@ -399,7 +405,7 @@ Major structural changes that require broad refactoring across source and tests.
 
 ---
 
-### [ ] 5.1 Convert `Player` from struct to class (reference semantics)
+### [x] 5.1 Convert `Player` from struct to class (reference semantics) — superseded
 
 **What:** `Player` is currently a value type (`struct`). Every assignment or function argument creates an independent copy. Any mutation through `Game` (e.g. `playCard`, `endHand`) updates the canonical copy in `game.players`, but any local copy held by a caller becomes silently stale. The accessor helpers added in 3.4 mitigate this, but do not eliminate the footgun — callers who reach for `player.hand` directly will still get burned.
 
@@ -418,6 +424,8 @@ Major structural changes that require broad refactoring across source and tests.
 **Note:** This is a broad, high-risk change. Do it on a branch with full test coverage as the safety net. `Codable` conformance (item 4.2) should be re-verified after this change since class-based `Codable` requires explicit `init(from:)`.
 
 **Verification:** All 188+ tests pass. No `game.players[i]` workaround lookups remain in tests.
+
+**Superseded (2026-09-13):** the stale-copy problem was removed a different way. `Player` is now an immutable profile (`name`, `type`) and all per-seat state lives on `Game`, keyed by `Seat` through `SeatMap` (`game.hands[seat]`, `game.roundScores[seat]`, `game.totalScores[seat]`). There is nothing left on `Player` to go stale, and the `hand(for:)` / `roundScore(for:)` / `totalScore(for:)` accessors discussed below are gone. The analysis that follows is kept for the record.
 
 ---
 

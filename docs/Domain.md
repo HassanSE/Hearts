@@ -1,3 +1,9 @@
+> **Historical.** A pre-implementation glossary. The code's vocabulary mostly matches it, with these
+> differences: what this calls a "round" (13 tricks, one deal) the code and docs call a *hand*,
+> though `Game.roundNumber` / `roundScores` / `HandResult.roundScores` keep the older word;
+> players are identified by `Seat`, and `Player` is only a name and type; "pass" is
+> `performExchange` with a `CardExchangeDirection`. See `CLAUDE.md` for the current terms.
+
 When developing a software application for a card game like Hearts following the Domain-Driven Design (DDD) approach, it's important to define and use domain-specific terms that accurately represent the concepts and rules of the game. Here are some terms that might be helpful in your DDD-based design for a Hearts card game:
 
 1. **Card**: A fundamental domain entity representing a playing card, which includes attributes like rank and suit.

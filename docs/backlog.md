@@ -1,3 +1,7 @@
+> **Historical.** Generic getting-started guidance from before any code was written. Everything
+> in it is done; the actual design (value-type models, `Seat`-keyed state, a `GamePhase` state
+> machine, `AIStrategy`) is described in `CLAUDE.md` and `README.md`. Kept for the record.
+
 Creating a Hearts card game in Swift is a great project to work on. To start, you should focus on modeling the game logic. Here's a step-by-step guide on how to get started:
 
 1. **Understand the Rules of Hearts:**

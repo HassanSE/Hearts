@@ -1,5 +1,11 @@
 # Hearts Codebase Analysis & Refresher
 
+> **Historical — do not use as a description of the current code.** This snapshot was taken in
+> January 2026, before trick-taking, scoring, AI, delegates, phases and snapshots existed. Every
+> "❌ Missing" and "🔶 Partial" below has since been implemented, and the line references no
+> longer point anywhere meaningful. It is kept only as a record of the starting point. For the
+> current architecture read `CLAUDE.md` and `README.md`; for the current API read `Sources/Hearts`.
+
 *Generated: January 2026*
 
 ## 1. What's Already Implemented

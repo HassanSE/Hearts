@@ -25,19 +25,22 @@ Review recently written or modified code files and identify issues across these 
 
 ### Forbidden Patterns
 - Any import of `UIKit`, `AppKit`, `SwiftUI`, `WatchKit`, `Combine`, `RxSwift`, `CoreGraphics`, or `CoreAnimation`
-- Force unwraps (`!`) outside of test files
-- `public` access modifiers (all types are `internal` in this SPM package)
+- Force unwraps (`!`), `try!` and `as!` outside of test files
 - Third-party package dependencies
 - Mutable state where immutable alternatives exist
-- `fatalError` in production logic paths (acceptable only for truly unreachable states)
+- `fatalError`, `precondition` or `preconditionFailure` anywhere in `Sources/Hearts` — the engine has none; rule violations and misuse throw `GameError` and leave state untouched
+- Exposing `Game` state as settable: stored state is `public internal(set)`; only `Game`'s own mutators change it
+
+### Access Control
+The package is consumed as a library, so a public API is by design. `public` is correct for anything a client needs (`Game`, `Card`, `Seat`, `SeatMap`, `GamePhase`, `GameError`, `AIStrategy`, `GameEngineDelegate`, `GameSnapshot`, `Scoring`, …). Flag `public` only when it exposes an implementation detail (private helpers, `RandomSource`, `Deck`, the bot selection helpers) or when a stored property on `Game` is `public var` rather than `public internal(set) var`.
 
 ### Required Patterns
-- `struct` for value types: `Card`, `Hand`, `Score`, `Player`, `Trick`
-- `class` only for reference semantics: `GameEngine`, `AIPlayer`
-- `enum` for finite sets: `Suit`, `Rank`, `GamePhase`, `PassDirection`
+- `struct` for value types: `Card`, `Trick`, `Player`, `HandResult`, `GameSnapshot`, `SeatMap`
+- `class` only for reference semantics: `Game` (and client-supplied `AIStrategy` conformers that need memory)
+- `enum` for finite sets: `Suit`, `Rank`, `Seat`, `GamePhase`, `CardExchangeDirection`, `GameError`
 - `let` preferred over `var`
 - `guard` for early exits
-- Typed errors using `InvalidPlayError` or equivalent domain-specific error enums
+- Typed errors: every engine failure is a `GameError` case; new failure modes get a new case, not a new enum
 - Documentation comments (`///`) on all public APIs with parameters and return values documented
 - Protocol names as nouns or adjectives describing capability (e.g., `CardPlayable`, `ScoreCalculating`)
 
@@ -55,14 +58,18 @@ Verify that game logic correctly enforces:
 - 2 of clubs must lead the first trick of each hand
 - Shooting the moon: all hearts + Queen of Spades = 0 for taker, 26 for others
 - Pass direction rotates: left → right → across → no pass
-- `isHandComplete` = 13 completed tricks
+- A hand ends when every hand is empty (not when 13 tricks are counted), so partial fixed deals settle naturally
+- Ties at or above the winning score keep playing (`isGameTied`); `gameWinner` is `nil` until unique
 
 ### Known Gotchas to Check
-- `Player` is a struct — stale copies after `game.playCard(card, by: player)` are a common bug; verify state is read from `game.players[i]`, not a captured local
+- Identity is `Seat`, never `Player`. `Player` is an immutable profile; per-seat state is `game.hands[seat]`, `game.roundScores[seat]`, `game.totalScores[seat]`. Flag any new API that takes or returns a `Player` where a `Seat` is meant
+- `GamePhase` is the only source of "what next": each phase admits exactly one mutator, all others throw `GameError.wrongPhase`. A mutator must check phase *first*, before turn or card checks, and must change nothing when it throws
+- `phase` changes only through `Game.transition(to:)`, which fires `didTransitionTo`; direct assignment elsewhere in `Game` bypasses the delegate
 - `[Card].contains([Card])` is a contiguous subsequence check in Swift 5.7+; membership checks must use `allSatisfy { contains($0) }`
-- `hasExchanged` flag must reset in `startNewHand()`
-- `performExchange` precondition: player must have exactly 10 cards before receiving
-- `isFirstTrick = completedTricks.isEmpty` affects `getLegalMoves()`
+- `isFirstTrick = completedTricks.isEmpty` feeds `PlayRules`; `PlayRules` is the *only* play-validation oracle — `Game.playCard`, `TrickContext.legalMoves` and the CLI all go through it, so never re-implement a rule inline
+- A strategy's own off-suit discards are not opponent voids: void inference must skip `context.seat`
+- `SeededRandomNumberGenerator` is shared by the deal and every random-bot decision through one `RandomSource`; anything that draws randomness must use it, never `SystemRandomNumberGenerator`, or determinism tests break
+- `GameSnapshot.init` is internal on purpose; `restore(from:)` must validate (`checkConsistency`) before applying, and history must not be cleared by `startNewHand()` (deals are undoable)
 
 ## Review Methodology
 
@@ -73,7 +80,7 @@ Identify which files were recently changed. Focus your review on those files and
 Read through each changed file and flag issues by category. Use this checklist mentally:
 - [ ] No forbidden imports
 - [ ] No force unwraps in production code
-- [ ] No `public` access modifiers
+- [ ] `public` only on intended API; `Game` state is `internal(set)`
 - [ ] Correct type choice (struct/class/enum)
 - [ ] `let` vs `var` appropriateness
 - [ ] Guard for early exits
@@ -89,16 +96,17 @@ For each changed source file, verify:
 - All public methods are tested
 - Error conditions are tested
 - Edge cases are covered (empty hands, full tricks, game-end conditions, shooting the moon)
-- Test naming follows `test_methodName_condition_expectedResult()`
+- Test naming follows `test_methodName_condition_expectedResult()` — exactly three segments after `test_`
 - Tests use `// MARK: -` groupings
-- Test fixtures and helpers are in `Tests/Mocks/`
+- Test fixtures and helpers are in `Tests/HeartsTests/Mocks/` (`Cards`, `Tricks`, `Games`, `DelegateSpy`, `SeatMapLiterals`); flag new private copies of a delegate spy, trick builder or card literal
 
 ### Step 4: Architecture Review
 Verify the change does not:
 - Introduce UI dependencies
 - Break the single-source-of-truth principle
 - Add cross-cutting concerns to the wrong layer
-- Violate the directory structure (`Models/`, `Rules/`, `State/`, `AI/`, `Scoring/`, `Events/`)
+- Put engine logic in `Sources/HeartsCLI` (the CLI only prompts, prints and calls `Game`)
+- Add a second source of truth next to `GamePhase`, `PlayRules` or `Scoring`
 
 ### Step 5: Synthesize Findings
 Organize findings into:
@@ -148,7 +156,7 @@ Examples of what to record:
 - Newly discovered gotchas specific to this codebase (e.g., value-type copy bugs, Swift version-specific behavior)
 - Recurring issues in a particular module
 - Undocumented conventions observed in practice
-- Test fixture patterns and mock structures added to `Tests/Mocks/`
+- Test fixture patterns and mock structures added to `Tests/HeartsTests/Mocks/`
 - AI strategy patterns and their edge cases
 - State transition invariants observed in the engine
 
