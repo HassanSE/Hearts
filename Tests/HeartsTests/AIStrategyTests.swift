@@ -1051,4 +1051,55 @@ final class AIStrategyTests: XCTestCase {
         XCTAssertEqual(card.rank, .eight,
             "AI should lead the middle card of its longest suit")
     }
+
+    // MARK: - TrickContext trickLeader
+
+    func test_trickLeader_whenLeading_isNil() {
+        let context = TrickContext(hand: [.twoOfClubs], currentTrick: Trick(), heartsBroken: false, isFirstTrick: true)
+        XCTAssertNil(context.trickLeader)
+    }
+
+    func test_trickLeader_whenFollowing_isSeatThatLed() throws {
+        let trick = try Trick.mock([.twoOfClubs, .threeOfClubs], leadingFrom: .west)
+        let context = TrickContext(seat: .south, hand: [.aceOfClubs], currentTrick: trick, heartsBroken: false, isFirstTrick: true)
+        XCTAssertEqual(context.trickLeader, .west)
+    }
+
+    // MARK: - Fallbacks outside Game
+
+    func test_selectCardToPlay_randomWithNoLegalMoves_fallsBackToFirstCard() {
+        // Leading the first trick without 2♣: no card is legal. Game never asks in this state.
+        let strategy = RandomAIStrategy(randomSource: RandomSource(SeededRandomNumberGenerator(seed: 1)))
+        let context = TrickContext(hand: [.aceOfClubs, .kingOfClubs], currentTrick: Trick(), heartsBroken: false, isFirstTrick: true)
+        XCTAssertTrue(context.legalMoves.isEmpty)
+        XCTAssertEqual(strategy.selectCardToPlay(context: context), .aceOfClubs)
+    }
+
+    func test_advancedAIStrategy_leadingInMoonShotModeWithHeartsUnbroken_leadsQueenOfSpades() {
+        let strategy = AdvancedAIStrategy()
+        let hand: Hand = [
+            .aceOfHearts, .kingOfHearts, .queenOfHearts, .jackOfHearts,
+            .tenOfHearts, .nineOfHearts, .eightOfHearts,
+            .queenOfSpades, .twoOfClubs,
+        ]
+        let context = TrickContext(hand: hand, currentTrick: Trick(), heartsBroken: false, isFirstTrick: false)
+
+        // Hearts cannot be led, so the moon shooter forces the issue with Q♠ instead.
+        XCTAssertEqual(strategy.selectCardToPlay(context: context), .queenOfSpades)
+    }
+
+    func test_selectCardToPlay_advancedFollowingTwoCardsInLeadSuit_ducksUnderTheHigher() throws {
+        let strategy = AdvancedAIStrategy()
+        let trick = try Trick.mock([.fiveOfDiamonds, .tenOfDiamonds], leadingFrom: .west)
+        let context = TrickContext(
+            seat: .east,
+            hand: [.sevenOfDiamonds, .jackOfDiamonds, .twoOfClubs],
+            currentTrick: trick,
+            heartsBroken: false,
+            isFirstTrick: false
+        )
+
+        XCTAssertEqual(strategy.selectCardToPlay(context: context), .sevenOfDiamonds)
+    }
+
 }

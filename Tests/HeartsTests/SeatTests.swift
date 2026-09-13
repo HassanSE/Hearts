@@ -92,4 +92,13 @@ final class SeatTests: XCTestCase {
         let data = Data("[1,2,3]".utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(SeatMap<Int>.self, from: data))
     }
+
+    // MARK: - Comparable
+
+    func test_comparable_seats_orderClockwiseFromSouth() {
+        XCTAssertEqual(Seat.allCases.shuffled().sorted(), [.south, .west, .north, .east])
+        XCTAssertTrue(Seat.south < Seat.east)
+        XCTAssertFalse(Seat.east < Seat.south)
+    }
+
 }

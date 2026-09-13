@@ -238,4 +238,18 @@ final class GameEngineDelegateTests: XCTestCase {
         XCTAssertFalse(game.isGameOver)
         XCTAssertEqual(delegate.gameWinners.count, 0)
     }
+
+    func test_defaults_conformerImplementingNothing_survivesRestoreAndUndo() throws {
+        let game = Game.seededBots(seed: 3)
+        let silent = Silent()
+        game.delegate = silent
+        let snapshot = game.snapshot()
+
+        try game.playCompleteHand()
+        XCTAssertNoThrow(try game.restore(from: snapshot))
+        try game.playCompleteHand()
+        game.undo()
+        XCTAssertEqual(game.phase, .awaitingSettlement)
+    }
+
 }

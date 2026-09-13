@@ -237,4 +237,15 @@ final class TrickTests: XCTestCase {
         XCTAssertTrue(description.contains("south"))
         XCTAssertTrue(description.contains("west"))
     }
+
+    func test_debugDescription_incompleteTrick_omitsWinner() throws {
+        let trick = try Trick.mock([.twoOfClubs, .threeOfClubs], leadingFrom: .south)
+        XCTAssertFalse(trick.debugDescription.contains("Winner"))
+    }
+
+    func test_debugDescription_completeTrick_namesWinner() throws {
+        let trick = try Trick.mock([.twoOfClubs, .kingOfClubs, .threeOfClubs, .fourOfClubs], leadingFrom: .south)
+        XCTAssertEqual(trick.debugDescription, "Trick[south: 2 ♣, west: K ♣, north: 3 ♣, east: 4 ♣ | Winner: west]")
+    }
+
 }
