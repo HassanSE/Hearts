@@ -64,7 +64,10 @@ let suitOrder: [Card.Suit] = [.clubs, .diamonds, .spades, .hearts]
 func sortedHand(_ hand: [Card]) -> [Card] {
     hand.sorted { lhs, rhs in
         if lhs.suit != rhs.suit {
-            return suitOrder.firstIndex(of: lhs.suit)! < suitOrder.firstIndex(of: rhs.suit)!
+            // Unknown suits (impossible for a 4-suit enum) sort last rather than crashing.
+            let lhsIndex = suitOrder.firstIndex(of: lhs.suit) ?? suitOrder.count
+            let rhsIndex = suitOrder.firstIndex(of: rhs.suit) ?? suitOrder.count
+            return lhsIndex < rhsIndex
         }
         return lhs.rank < rhs.rank
     }
@@ -143,6 +146,7 @@ func formatGameError(_ error: GameError) -> String {
     case .cannotPlayPointsOnFirstTrick: return "No points may be played on the first trick."
     case .heartsNotBroken: return "Hearts haven't been broken yet."
     case .handComplete: return "The hand is already complete."
+    case .trickIncomplete: return "The trick isn't finished yet."
     }
 }
 

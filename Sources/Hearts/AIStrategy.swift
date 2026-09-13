@@ -261,12 +261,14 @@ struct AdvancedAIStrategy: AIStrategy {
         if shouldAttemptMoonShot(context: context) {
             if context.currentTrick.leadSuit != nil {
                 // Following: play highest card to win the trick and capture points
-                return legalMoves.max(by: { $0.rank.rawValue < $1.rank.rawValue })!
+                if let highest = legalMoves.max(by: { $0.rank.rawValue < $1.rank.rawValue }) {
+                    return highest
+                }
             } else {
                 // Leading: lead highest heart to force opponents to give up points
                 let hearts = legalMoves.filter { $0.suit == .hearts }
-                if !hearts.isEmpty {
-                    return hearts.max(by: { $0.rank.rawValue < $1.rank.rawValue })!
+                if let highestHeart = hearts.max(by: { $0.rank.rawValue < $1.rank.rawValue }) {
+                    return highestHeart
                 }
                 if let queenOfSpades = legalMoves.first(where: { $0.suit == .spades && $0.rank == .queen }) {
                     return queenOfSpades
@@ -298,10 +300,9 @@ struct AdvancedAIStrategy: AIStrategy {
 
         // Try to duck under: play the highest card that won't win
         if let highest = highestSoFar {
-            let safeCards = sorted.filter { $0.rank.rawValue < highest.rank.rawValue }
-            if !safeCards.isEmpty {
-                // Play highest safe card (duck under)
-                return safeCards.last!
+            // Play highest safe card (duck under)
+            if let highestSafe = sorted.last(where: { $0.rank.rawValue < highest.rank.rawValue }) {
+                return highestSafe
             }
         }
 

@@ -54,6 +54,8 @@ public enum GameError: Error, Equatable {
     case cannotPlayPointsOnFirstTrick
     case heartsNotBroken
     case handComplete
+    /// A trick winner was requested before the trick had received all four cards.
+    case trickIncomplete
 }
 
 public class Game {
@@ -106,7 +108,7 @@ public class Game {
 
     public var isGameTied: Bool {
         guard isGameOver else { return false }
-        let minScore = players.map(\.totalScore).min()!
+        guard let minScore = players.map(\.totalScore).min() else { return false }
         return players.filter({ $0.totalScore == minScore }).count > 1
     }
 
@@ -223,13 +225,12 @@ public class Game {
 
     private func deal() {
         let numberOfCardsPerHand = 13
-        var deck = Deck()
+        let deck = Deck()
         deck.shuffle()
-        for _ in 0..<numberOfCardsPerHand {
-            players[0].hand.append(deck.deal()!)
-            players[1].hand.append(deck.deal()!)
-            players[2].hand.append(deck.deal()!)
-            players[3].hand.append(deck.deal()!)
+        // A fresh deck always holds enough cards; a short deck leaves hands untouched rather than crashing.
+        guard let hands = deck.deal(handCount: players.count, cardsPerHand: numberOfCardsPerHand) else { return }
+        for (index, hand) in hands.enumerated() {
+            players[index].hand.append(contentsOf: hand)
         }
     }
 
@@ -604,7 +605,11 @@ public class Game {
         }
 
         // Return the winner of the just-completed trick
-        return completedTricks[initialCompletedCount].winner!
+        guard initialCompletedCount < completedTricks.count,
+              let winner = completedTricks[initialCompletedCount].winner else {
+            throw GameError.trickIncomplete
+        }
+        return winner
     }
 
     /// Play a complete hand (card exchange + 13 tricks)

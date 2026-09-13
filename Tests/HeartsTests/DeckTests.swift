@@ -40,3 +40,25 @@ final class DeckTests: XCTestCase {
         XCTAssertEqual(deck.count, 52)
     }
 }
+
+// MARK: - Dealing hands
+
+extension DeckTests {
+    func test_dealHands_withFullDeck_returnsFourHandsOfThirteenAndEmptiesDeck() {
+        let deck = Deck()
+        let hands = deck.deal(handCount: 4, cardsPerHand: 13)
+
+        XCTAssertEqual(hands?.count, 4)
+        XCTAssertEqual(hands?.map(\.count), [13, 13, 13, 13])
+        XCTAssertEqual(deck.count, 0)
+        let dealt = hands?.flatMap { $0 } ?? []
+        XCTAssertEqual(dealt.count, 52)
+        XCTAssertTrue(Deck().cards.allSatisfy { dealt.contains($0) }, "every card in the deck is dealt exactly once")
+    }
+
+    func test_dealHands_whenDeckIsTooShort_returnsNilWithoutCrashing() {
+        let deck = Deck()
+        _ = deck.deal()
+        XCTAssertNil(deck.deal(handCount: 4, cardsPerHand: 13))
+    }
+}
