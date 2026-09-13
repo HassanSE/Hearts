@@ -82,6 +82,10 @@ public class Game {
     // Game configuration
     public let configuration: GameConfiguration
 
+    /// The point rules this game plays by, derived from `configuration`.
+    /// Use it to value a trick or explain a `HandResult` without driving the engine.
+    public let scoring: Scoring
+
     /// Tracks whether the card exchange has been performed for the current hand.
     /// Prevents double-exchange and lets the UI drive timing for human players.
     private var hasExchanged = false
@@ -124,19 +128,19 @@ public class Game {
         completedTricks.count == 13
     }
 
+    /// Whether some player has reached `winningScore`.
     public var isGameOver: Bool {
-        players.contains(where: { $0.totalScore >= winningScore })
+        scoring.isGameOver(totalScores: players.map(\.totalScore))
     }
 
+    /// Whether the game is over but more than one player shares the lowest total (another hand is needed).
     public var isGameTied: Bool {
-        guard isGameOver else { return false }
-        guard let minScore = players.map(\.totalScore).min() else { return false }
-        return players.filter({ $0.totalScore == minScore }).count > 1
+        scoring.isTied(totalScores: players.map(\.totalScore))
     }
 
+    /// The player with the unique lowest total once the game is over; `nil` while it is in progress or tied.
     public var gameWinner: Player? {
-        guard isGameOver, !isGameTied else { return nil }
-        return players.min(by: { $0.totalScore < $1.totalScore })
+        scoring.winner(totalScores: players.map(\.totalScore)).map { players[$0] }
     }
 
     /// Returns the live hand for `player` from the authoritative `players` array.
@@ -238,6 +242,7 @@ public class Game {
          configuration: GameConfiguration = .standard,
          using generator: some RandomNumberGenerator = SystemRandomNumberGenerator()) {
         self.configuration = configuration
+        self.scoring = Scoring(configuration: configuration)
         self.players = [player1, player2, player3, player4]
         self.randomSource = RandomSource(generator)
         deal()
@@ -270,6 +275,7 @@ public class Game {
             throw GameError.invalidDeal
         }
         self.configuration = configuration
+        self.scoring = Scoring(configuration: configuration)
         self.players = players
         self.randomSource = RandomSource(generator)
         for (seat, hand) in hands.enumerated() {
@@ -413,7 +419,7 @@ public class Game {
         }
 
         // Award points to winner based on configuration
-        let points = self.points(in: currentTrick)
+        let points = scoring.points(in: currentTrick)
         players[winnerIndex].roundScore += points
 
         // Capture completed trick before resetting
@@ -429,29 +435,14 @@ public class Game {
         delegate?.game(self, didCompleteTrick: completedTrick, winner: winner, points: points)
     }
 
-    /// Points a trick is worth under this game's configuration.
+    /// Points a trick is worth under this game's configuration; shorthand for `scoring.points(in:)`.
     ///
-    /// Unlike `Trick.points`, which counts only hearts and Q♠, this applies
-    /// `GameConfiguration.jackOfDiamondsBonus`, so it always matches the value
-    /// awarded to the trick winner (and delivered via
-    /// `GameEngineDelegate.game(_:didCompleteTrick:winner:points:)`).
-    /// Consumers displaying trick results should use this rather than `Trick.points`.
+    /// This is the value awarded to the trick winner and delivered via
+    /// `GameEngineDelegate.game(_:didCompleteTrick:winner:points:)`.
     /// - Parameter trick: The trick to score (complete or partial)
     /// - Returns: Total points (negative when the trick contains J♦ and the bonus is enabled)
     public func points(in trick: Trick) -> Int {
-        var points = 0
-
-        for card in trick.cards {
-            if card.suit == .hearts {
-                points += 1
-            } else if card.suit == .spades && card.rank == .queen {
-                points += 13
-            } else if configuration.jackOfDiamondsBonus && card.suit == .diamonds && card.rank == .jack {
-                points -= 10
-            }
-        }
-
-        return points
+        scoring.points(in: trick)
     }
 
     private func advanceTurn() {
@@ -460,89 +451,40 @@ public class Game {
 
     // MARK: - Multi-Round Management
 
-    /// End the current hand and transfer round scores to total scores
-    public func endHand() {
-        // Detect moon shooter before applying scores (uses completedTricks)
-        let moonShooter = detectMoonShooter()
+    /// Ends the current hand: settles the completed tricks into total scores and advances the round.
+    ///
+    /// Round scores are derived from the tricks each seat won, valued by `scoring`, so the result
+    /// always agrees with the points reported per trick. The same result is delivered to
+    /// `GameEngineDelegate.game(_:didEndHand:)`, followed by `game(_:didEndGame:)` if a winner emerged.
+    ///
+    /// - Precondition (by contract, not enforced until phases exist): all 13 tricks have been played.
+    ///   Calling it earlier scores whatever tricks are complete.
+    /// - Returns: Per-seat round scores (after any moon-shot adjustment), the new totals, and the moon shooter.
+    @discardableResult
+    public func endHand() -> HandResult {
+        let result = scoring.settleHand(capturedCards: capturedCards(), totalScores: players.map(\.totalScore))
 
-        // Check for shooting the moon
-        if let moonShooter = moonShooter {
-            switch configuration.moonShotVariant {
-            case .addToOthers:
-                // Shooter gets 0 (or -10 with Jack bonus); all opponents receive 26
-                for i in 0..<players.count {
-                    if players[i].id == moonShooter.id {
-                        let moonShooterScore = configuration.jackOfDiamondsBonus ? -10 : 0
-                        players[i].totalScore += moonShooterScore
-                    } else {
-                        players[i].totalScore += 26
-                    }
-                    players[i].roundScore = 0
-                }
-            case .subtractFromSelf:
-                // Shooter's score is reduced by 26; opponents are unaffected
-                for i in 0..<players.count {
-                    if players[i].id == moonShooter.id {
-                        players[i].totalScore -= 26
-                    } else {
-                        players[i].totalScore += players[i].roundScore
-                    }
-                    players[i].roundScore = 0
-                }
-            }
-        } else {
-            // Normal scoring: transfer round scores to total scores
-            for i in 0..<players.count {
-                players[i].totalScore += players[i].roundScore
-                players[i].roundScore = 0
-            }
+        for seat in players.indices {
+            players[seat].totalScore = result.totalScores[seat]
+            players[seat].roundScore = 0
         }
-
-        // Increment round number for next hand
         roundNumber += 1
 
-        // Fire end-of-hand delegate events
-        let scores = Dictionary(uniqueKeysWithValues: players.map { ($0, $0.totalScore) })
-        delegate?.game(self, didEndHand: scores, moonShooter: moonShooter)
-        if isGameOver, let winner = gameWinner {
+        delegate?.game(self, didEndHand: result)
+        if let winner = gameWinner {
             delegate?.game(self, didEndGame: winner)
         }
+        return result
     }
 
-    /// Detect if any player shot the moon (captured all 13 hearts + Queen of Spades)
-    /// - Returns: The player who shot the moon, or nil if no one did
-    private func detectMoonShooter() -> Player? {
-        for player in players {
-            let capturedCards = getCardsCaptured(by: player)
-
-            // Check if player has all 13 hearts
-            let hearts = capturedCards.filter { $0.suit == .hearts }
-            let hasAllHearts = hearts.count == 13
-
-            // Check if player has Queen of Spades
-            let hasQueenOfSpades = capturedCards.contains { $0.suit == .spades && $0.rank == .queen }
-
-            if hasAllHearts && hasQueenOfSpades {
-                return player
-            }
-        }
-
-        return nil
-    }
-
-    /// Get all cards captured by a player during the current hand
-    /// - Parameter player: The player to check
-    /// - Returns: Array of cards the player won in tricks
-    private func getCardsCaptured(by player: Player) -> [Card] {
-        var capturedCards: [Card] = []
-
+    /// The cards each seat has won in completed tricks this hand, indexed by seat.
+    private func capturedCards() -> [[Card]] {
+        var captured = Array(repeating: [Card](), count: players.count)
         for trick in completedTricks {
-            if let winner = trick.winner, winner.id == player.id {
-                capturedCards.append(contentsOf: trick.cards)
-            }
+            guard let winner = trick.winner, let seat = players.firstIndex(of: winner) else { continue }
+            captured[seat].append(contentsOf: trick.cards)
         }
-
-        return capturedCards
+        return captured
     }
 
     // MARK: - AI Integration

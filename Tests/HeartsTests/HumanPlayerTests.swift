@@ -14,7 +14,7 @@ private class MockDelegate: GameEngineDelegate {
     var didPlayCardCalls: [(card: Card, player: Player)] = []
     var didCompleteTrickCalls: [(trick: Trick, winner: Player, points: Int)] = []
     var didBreakHeartsCalls: [(card: Card, player: Player)] = []
-    var didEndHandCalls: [(scores: [Player: Int], moonShooter: Player?)] = []
+    var didEndHandCalls: [HandResult] = []
     var didEndGameCalls: [Player] = []
 
     func game(_ game: Game, didPlayCard card: Card, by player: Player) {
@@ -29,8 +29,8 @@ private class MockDelegate: GameEngineDelegate {
         didBreakHeartsCalls.append((card, player))
     }
 
-    func game(_ game: Game, didEndHand scores: [Player: Int], moonShooter: Player?) {
-        didEndHandCalls.append((scores, moonShooter))
+    func game(_ game: Game, didEndHand result: HandResult) {
+        didEndHandCalls.append(result)
     }
 
     func game(_ game: Game, didEndGame winner: Player) {
@@ -290,13 +290,10 @@ final class HumanPlayerTests: XCTestCase {
         try game.playBotTurnsUntilHumanTurn()
         game.endHand()
 
-        let call = delegate.didEndHandCalls[0]
-        // Scores dict should have an entry per player
-        XCTAssertEqual(call.scores.count, 4)
-        // All players should be in the scores dict
-        for player in game.players {
-            XCTAssertNotNil(call.scores[player])
-        }
+        let result = delegate.didEndHandCalls[0]
+        // One round score and one total per seat, matching the game's totals
+        XCTAssertEqual(result.roundScores.count, 4)
+        XCTAssertEqual(result.totalScores, game.players.map(\.totalScore))
     }
 
     func test_delegate_didEndHand_moonShooterIsNilWhenNoMoonShot() throws {

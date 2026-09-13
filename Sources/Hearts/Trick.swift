@@ -26,8 +26,10 @@ public struct Trick: Codable {
         plays.count == 4
     }
 
-    /// Total points in this trick (hearts = 1 each, Q♠ = 13)
-    public var points: Int {
+    /// Raw points in this trick (hearts = 1 each, Q♠ = 13), ignoring rule variants.
+    /// Internal on purpose: consumers must use `Scoring.points(in:)` / `Game.points(in:)`,
+    /// which apply the configured J♦ bonus and therefore match what the winner is awarded.
+    var points: Int {
         plays.reduce(0) { $0 + $1.card.points }
     }
 

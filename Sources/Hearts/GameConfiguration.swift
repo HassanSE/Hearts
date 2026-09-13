@@ -36,8 +36,8 @@ public struct GameConfiguration: Codable {
     ///
     /// This is a popular Hearts variant. When combined with shooting the moon:
     /// - Shooting the moon is detected by capturing all 13 hearts + Queen of Spades (regardless of other cards)
-    /// - If a player shoots the moon with this bonus enabled, they get -10 points (instead of 0)
-    /// - Other players still get 26 points each
+    /// - The bonus stays with whoever captured J♦: a shooter who also took it scores -10 (instead of 0),
+    ///   while an opponent who took it scores 16 (instead of 26) under `.addToOthers`
     ///
     /// Example: Player captures all hearts, Q♠, and J♦ = shooter gets -10, others get 26 each
     public let jackOfDiamondsBonus: Bool

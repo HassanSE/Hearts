@@ -88,6 +88,26 @@ final class GameplayTests: XCTestCase {
         }
     }
 
+    /// Appends completed tricks so that each seat has captured exactly `points[seat]` hearts,
+    /// mirroring what `completeTrick` records during play. Points must be 0...13 per seat and
+    /// distinct hearts are used across seats, so the sum must not exceed 13.
+    func simulateCapturedHearts(_ points: [Int], in game: Game) {
+        var hearts = Card.Rank.allCases.map { Card(suit: .hearts, rank: $0) }
+        for (seat, count) in points.enumerated() {
+            let others = game.players.indices.filter { $0 != seat }
+            for _ in 0..<count {
+                var trick = Trick()
+                // The winner leads a heart; the others discard low clubs.
+                try! trick.play(hearts.removeLast(), by: game.players[seat])
+                try! trick.play(Card(suit: .clubs, rank: .two), by: game.players[others[0]])
+                try! trick.play(Card(suit: .clubs, rank: .three), by: game.players[others[1]])
+                try! trick.play(Card(suit: .clubs, rank: .four), by: game.players[others[2]])
+                game.completedTricks.append(trick)
+                game.players[seat].roundScore += 1
+            }
+        }
+    }
+
     // MARK: - Turn Validation Tests
 
     func test_playCard_throws_when_not_players_turn() throws {
@@ -394,29 +414,23 @@ final class GameplayTests: XCTestCase {
     func test_endHand_transfers_round_scores_to_total_scores() {
         let game = makeTestGame()
 
-        // Set up some round scores (avoid 26 to not trigger shoot the moon)
-        game.players[0].roundScore = 10
-        game.players[1].roundScore = 5
-        game.players[2].roundScore = 0
-        game.players[3].roundScore = 11
+        // Seats capture 4, 3, 0 and 6 hearts respectively
+        simulateCapturedHearts([4, 3, 0, 6], in: game)
 
         let initialTotals = game.players.map { $0.totalScore }
 
         game.endHand()
 
-        XCTAssertEqual(game.players[0].totalScore, initialTotals[0] + 10)
-        XCTAssertEqual(game.players[1].totalScore, initialTotals[1] + 5)
+        XCTAssertEqual(game.players[0].totalScore, initialTotals[0] + 4)
+        XCTAssertEqual(game.players[1].totalScore, initialTotals[1] + 3)
         XCTAssertEqual(game.players[2].totalScore, initialTotals[2] + 0)
-        XCTAssertEqual(game.players[3].totalScore, initialTotals[3] + 11)
+        XCTAssertEqual(game.players[3].totalScore, initialTotals[3] + 6)
     }
 
     func test_endHand_resets_round_scores_to_zero() {
         let game = makeTestGame()
 
-        game.players[0].roundScore = 10
-        game.players[1].roundScore = 5
-        game.players[2].roundScore = 0
-        game.players[3].roundScore = 11
+        simulateCapturedHearts([4, 3, 0, 6], in: game)
 
         game.endHand()
 
@@ -582,17 +596,14 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Play first round and accumulate scores
-        game.players[0].roundScore = 10
-        game.players[1].roundScore = 5
-        game.players[2].roundScore = 0
-        game.players[3].roundScore = 11
+        simulateCapturedHearts([4, 3, 0, 6], in: game)
 
         // End first hand
         game.endHand()
 
         XCTAssertEqual(game.roundNumber, 1)
-        XCTAssertEqual(game.players[0].totalScore, 10)
-        XCTAssertEqual(game.players[3].totalScore, 11)
+        XCTAssertEqual(game.players[0].totalScore, 4)
+        XCTAssertEqual(game.players[3].totalScore, 6)
         XCTAssertEqual(game.players[0].roundScore, 0)
 
         // Start second hand
@@ -820,7 +831,7 @@ final class GameplayTests: XCTestCase {
     func test_shootTheMoon_does_not_trigger_without_all_hearts() {
         let game = makeTestGame()
 
-        // Player 0 has Q♠ and only 2 hearts (missing 11)
+        // Player 0 has Q♠ and only 3 hearts (missing 10)
         var heartTrick = Trick()
         try! heartTrick.play(Card(suit: .hearts, rank: .two), by: game.players[1])
         try! heartTrick.play(Card(suit: .hearts, rank: .three), by: game.players[2])
@@ -834,12 +845,12 @@ final class GameplayTests: XCTestCase {
         try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[0])  // Wins
 
         game.completedTricks = [heartTrick, queenTrick]
-        game.players[0].roundScore = 15  // 2 hearts + Q♠ = 15, but missing 11 hearts
+        game.players[0].roundScore = 16  // 3 hearts + Q♠ = 16, but missing 10 hearts
 
         game.endHand()
 
         // Normal scoring applies (no moon shot)
-        XCTAssertEqual(game.players[0].totalScore, 15)
+        XCTAssertEqual(game.players[0].totalScore, 16)
         XCTAssertEqual(game.players[1].totalScore, 0)
         XCTAssertEqual(game.players[2].totalScore, 0)
         XCTAssertEqual(game.players[3].totalScore, 0)
@@ -876,14 +887,13 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Player 1 has all 13 hearts but not Q♠
-        // Create 13 heart tricks where player 1 wins all of them
+        // Create 13 heart tricks where player 1 leads a heart and wins it
         for rank in Card.Rank.allCases {
             var trick = Trick()
-            let heartCard = Card(suit: .hearts, rank: rank)
-            try! trick.play(heartCard, by: game.players[0])
+            try! trick.play(Card(suit: .hearts, rank: rank), by: game.players[1])  // Wins
             try! trick.play(Card(suit: .clubs, rank: .two), by: game.players[2])
             try! trick.play(Card(suit: .clubs, rank: .three), by: game.players[3])
-            try! trick.play(Card(suit: .hearts, rank: .ace), by: game.players[1])  // Wins
+            try! trick.play(Card(suit: .clubs, rank: .four), by: game.players[0])
             game.completedTricks.append(trick)
         }
 

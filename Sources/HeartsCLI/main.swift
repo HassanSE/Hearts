@@ -221,13 +221,13 @@ func padLeft(_ s: String, _ width: Int) -> String {
     s.count >= width ? s : String(repeating: " ", count: width - s.count) + s
 }
 
-func printScoreboard(game: Game, roundScores: [Int], handNumber: Int) {
+func printScoreboard(game: Game, result: HandResult, handNumber: Int) {
     print("")
     print("Scoreboard after hand \(handNumber):")
     print("  \(padRight("Player", 10)) \(padLeft("Round", 6))  \(padLeft("Total", 6))")
     print("  \(String(repeating: "-", count: 26))")
     for (i, player) in game.players.enumerated() {
-        print("  \(padRight(player.name, 10)) \(padLeft("\(roundScores[i])", 6))  \(padLeft("\(player.totalScore)", 6))")
+        print("  \(padRight(player.name, 10)) \(padLeft("\(result.roundScores[i])", 6))  \(padLeft("\(result.totalScores[i])", 6))")
     }
 }
 
@@ -264,9 +264,8 @@ func runHand(game: Game, handNumber: Int) throws {
         try runOneTrick(game: game)
     }
 
-    let roundScores = game.players.map { $0.roundScore }
-    game.endHand()
-    printScoreboard(game: game, roundScores: roundScores, handNumber: handNumber)
+    let result = game.endHand()
+    printScoreboard(game: game, result: result, handNumber: handNumber)
 }
 
 func runGame(game: Game) throws {
@@ -295,8 +294,9 @@ final class CLIEventLogger: GameEngineDelegate {
         print("♥  Hearts have been broken — \(player.name) played \(formatCard(card)).")
     }
 
-    func game(_ game: Game, didEndHand scores: [Player: Int], moonShooter: Player?) {
-        guard let shooter = moonShooter else { return }
+    func game(_ game: Game, didEndHand result: HandResult) {
+        guard let seat = result.moonShooter else { return }
+        let shooter = game.players[seat]
         print("")
         print("🌙 \(shooter.name) shot the moon!")
         switch game.configuration.moonShotVariant {

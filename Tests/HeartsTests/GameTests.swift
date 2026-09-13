@@ -341,3 +341,73 @@ final class GamePlayCardErrorSurfaceTests: XCTestCase {
         }
     }
 }
+
+// MARK: - Hand settlement
+
+final class GameEndHandTests: XCTestCase {
+    private final class Spy: GameEngineDelegate {
+        var results: [HandResult] = []
+        func game(_ game: Game, didEndHand result: HandResult) {
+            results.append(result)
+        }
+    }
+
+    /// Two tricks: seat 2 wins the first (2♣ 3♣ 5♣ 7♥), then seat 0 wins the second (6♣ 8♥ A♣ 4♣).
+    /// Seats 0 and 2 each capture one heart.
+    private func makeTwoTrickGame(configuration: GameConfiguration = .standard) throws -> Game {
+        let players = (0..<4).map { Player(name: "P\($0)") }
+        let game = try Game(player1: players[0], player2: players[1], player3: players[2], player4: players[3], hands: [
+            [Card(suit: .clubs, rank: .two), Card(suit: .clubs, rank: .ace)],
+            [Card(suit: .clubs, rank: .three), Card(suit: .clubs, rank: .four)],
+            [Card(suit: .clubs, rank: .five), Card(suit: .clubs, rank: .six)],
+            [Card(suit: .hearts, rank: .seven), Card(suit: .hearts, rank: .eight)]
+        ], configuration: configuration)
+        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
+        try game.playCard(Card(suit: .clubs, rank: .three), by: game.players[1])
+        try game.playCard(Card(suit: .clubs, rank: .five), by: game.players[2])
+        try game.playCard(Card(suit: .hearts, rank: .seven), by: game.players[3])
+        try game.playCard(Card(suit: .clubs, rank: .six), by: game.players[2])
+        try game.playCard(Card(suit: .hearts, rank: .eight), by: game.players[3])
+        try game.playCard(Card(suit: .clubs, rank: .ace), by: game.players[0])
+        try game.playCard(Card(suit: .clubs, rank: .four), by: game.players[1])
+        return game
+    }
+
+    func test_endHand_returnsRoundScoresDerivedFromTricksAndNewTotals() throws {
+        let game = try makeTwoTrickGame()
+        game.players[2].totalScore = 40
+
+        let result = game.endHand()
+
+        XCTAssertEqual(result.roundScores, [1, 0, 1, 0])
+        XCTAssertEqual(result.totalScores, [1, 0, 41, 0])
+        XCTAssertNil(result.moonShooter)
+        XCTAssertEqual(game.players.map(\.totalScore), [1, 0, 41, 0])
+        XCTAssertEqual(game.players.map(\.roundScore), [0, 0, 0, 0])
+    }
+
+    func test_endHand_deliversSameResultToDelegate() throws {
+        let game = try makeTwoTrickGame()
+        let spy = Spy()
+        game.delegate = spy
+
+        let result = game.endHand()
+
+        XCTAssertEqual(spy.results, [result])
+    }
+
+    func test_endHand_usesConfiguredScoring() throws {
+        let game = try makeTwoTrickGame(configuration: .withJackBonus)
+
+        XCTAssertEqual(game.endHand(), game.scoring.settleHand(
+            capturedCards: [
+                [Card(suit: .clubs, rank: .six), Card(suit: .hearts, rank: .eight),
+                 Card(suit: .clubs, rank: .ace), Card(suit: .clubs, rank: .four)],
+                [],
+                [Card(suit: .clubs, rank: .two), Card(suit: .clubs, rank: .three),
+                 Card(suit: .clubs, rank: .five), Card(suit: .hearts, rank: .seven)],
+                []
+            ],
+            totalScores: [0, 0, 0, 0]))
+    }
+}
