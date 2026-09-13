@@ -5,8 +5,6 @@
 //  Created by Muhammad Hassan on 14/10/2023.
 //
 
-import Foundation
-
 /// Who occupies a seat: a display name and whether a human or a bot makes the decisions.
 ///
 /// `Player` is an immutable profile. Everything that changes during play — the hand, round and

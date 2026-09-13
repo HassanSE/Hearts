@@ -5,8 +5,6 @@
 //  Created by Muhammad Hassan on 14/10/2023.
 //
 
-import Foundation
-
 /// Every way a call into the engine can be rejected.
 ///
 /// A throwing `Game` method checks its inputs against the current state first and applies nothing on

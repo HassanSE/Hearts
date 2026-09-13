@@ -5,8 +5,6 @@
 //  Created by Muhammad Hassan on 29/01/2026.
 //
 
-import Foundation
-
 /// Determines how the moon-shooter's score is handled when someone shoots the moon.
 public enum MoonShotVariant: Codable, Sendable {
     /// All opponents receive 26 points. The shooter receives 0 (or -10 with Jack bonus). Default.

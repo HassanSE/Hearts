@@ -5,8 +5,6 @@
 //  Created by Muhammad Hassan on 24/01/2026.
 //
 
-import Foundation
-
 /// Who makes the decisions for a seat: a human supplying input, or a bot driven by an `AIStrategy`.
 ///
 /// `Game.advance()` stops at every decision a `.human` seat must make and plays through the

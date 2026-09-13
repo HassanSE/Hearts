@@ -5,8 +5,6 @@
 //  Created by Muhammad Hassan on 24/01/2026.
 //
 
-import Foundation
-
 // MARK: - Trick Context
 
 /// Everything a strategy may consult when choosing a card to play.

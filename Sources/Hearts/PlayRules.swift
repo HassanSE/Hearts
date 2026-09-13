@@ -5,8 +5,6 @@
 //  Created by Muhammad Hassan on 13/09/2026.
 //
 
-import Foundation
-
 /// The single authority on which cards may legally be played from a hand.
 ///
 /// Captures the inputs the four Hearts play rules depend on and answers two questions about them:

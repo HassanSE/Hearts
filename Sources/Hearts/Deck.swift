@@ -5,8 +5,6 @@
 //  Created by Muhammad Hassan on 14/10/2023.
 //
 
-import Foundation
-
 /// A stack of cards, initially all 52 in suit-then-rank order, dealt from the top (the end of `cards`).
 struct Deck {
     private(set) var cards: [Card] = []

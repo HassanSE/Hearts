@@ -5,8 +5,6 @@
 //  Created by Muhammad Hassan on 24/01/2026.
 //
 
-import Foundation
-
 /// The cards played in one round of the table, in play order, each tagged with the seat that played it.
 public struct Trick: Codable, Equatable, Sendable {
     /// A single card play within a trick: which seat played which card.
