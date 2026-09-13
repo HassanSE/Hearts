@@ -12,9 +12,10 @@ typealias Hand = [Card]
 /// One of the 52 playing cards: a `Suit` and a `Rank`.
 ///
 /// A value type with no identity beyond its two components, so two `Card`s are equal exactly when
-/// they name the same card. Cards are `Comparable` for display sorting only (see `<`); trick
+/// they name the same card. Cards are `Hashable`, so they can key dictionaries and populate sets,
+/// and `Comparable` for display sorting only (see `<`); trick
 /// resolution compares `rank` within the lead suit and is handled by `Trick`.
-public struct Card: Codable {
+public struct Card: Codable, Hashable, Sendable {
     /// The card's suit.
     public let suit: Suit
     /// The card's rank, 2 (lowest) through ace (highest).
@@ -33,7 +34,7 @@ public struct Card: Codable {
     ///
     /// `rawValue` is the pip count (2…10) or 11…14 for jack, queen, king and ace, which is also
     /// the order used to decide the winner of a trick.
-    public enum Rank: Int, CaseIterable, Comparable, Codable {
+    public enum Rank: Int, CaseIterable, Comparable, Codable, Sendable {
         /// Orders ranks by `rawValue`, so 2 is the lowest and ace the highest.
         public static func < (lhs: Rank, rhs: Rank) -> Bool {
             lhs.rawValue < rhs.rawValue
@@ -73,7 +74,7 @@ public struct Card: Codable {
     /// hearts last). This order has no gameplay meaning — Hearts has no trump —
     /// it exists so that sorting a hand groups cards the way a player expects
     /// to see them.
-    public enum Suit: CaseIterable, Comparable, Codable {
+    public enum Suit: CaseIterable, Comparable, Codable, Sendable {
         /// ♠ — holds Q♠, the 13-point card.
         case spades
         /// ♥ — every heart is worth 1 point; hearts may not be led until broken.

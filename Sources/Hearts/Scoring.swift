@@ -10,7 +10,7 @@
 /// `Scoring` is the single authority on how many points a card or trick is worth. It is a
 /// pure value: it never inspects a `Game`, so consumers can score hand-built tricks and
 /// UIs can explain a result without driving the engine.
-public struct Scoring {
+public struct Scoring: Sendable {
     /// The rule variants this scorer applies.
     public let configuration: GameConfiguration
 
@@ -42,7 +42,7 @@ public struct Scoring {
 }
 
 /// The outcome of settling one hand, keyed by seat.
-public struct HandResult: Equatable, Codable {
+public struct HandResult: Equatable, Codable, Sendable {
     /// Points each seat adds to its total for this hand, after any moon-shot adjustment.
     public let roundScores: SeatMap<Int>
     /// Each seat's total after this hand's `roundScores` were applied.

@@ -17,7 +17,7 @@
 ///        └──────────── startNewHand ◀──── handComplete(result) ◀─────────────────┤
 ///                                                                                └─▶ gameOver(winner)
 /// ```
-public enum GamePhase: Equatable, Codable {
+public enum GamePhase: Equatable, Codable, Sendable {
     /// Cards are dealt; waiting for `performExchange(selections:)`.
     /// When `Game.exchangeDirection` is `.none` the call moves no cards but is still required.
     case awaitingExchange

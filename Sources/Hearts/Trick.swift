@@ -8,9 +8,9 @@
 import Foundation
 
 /// The cards played in one round of the table, in play order, each tagged with the seat that played it.
-public struct Trick: Codable, Equatable {
+public struct Trick: Codable, Equatable, Sendable {
     /// A single card play within a trick: which seat played which card.
-    public struct Play: Codable, Equatable {
+    public struct Play: Codable, Equatable, Sendable {
         /// The seat that played `card`.
         public let seat: Seat
         /// The card played.

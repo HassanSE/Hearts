@@ -26,7 +26,7 @@ import Foundation
 /// 4. The lead suit must be followed if the hand holds it.
 ///
 /// Turn order and hand completion are `Game`'s responsibility, not this type's.
-public struct PlayRules {
+public struct PlayRules: Sendable {
     /// The cards the deciding player currently holds.
     public let hand: [Card]
     /// The trick in progress; empty when the player is leading.

@@ -13,7 +13,7 @@ import Foundation
 ///
 /// Built by `Game` for the deciding seat on every play. All state is a copy taken at decision time,
 /// so a strategy cannot mutate the game through it.
-public struct TrickContext {
+public struct TrickContext: Sendable {
     /// The seat making this decision.
     public let seat: Seat
     /// The cards `seat` currently holds.
@@ -97,7 +97,7 @@ public protocol AIStrategy {
 // MARK: - Bot Difficulty
 
 /// Which built-in `AIStrategy` a bot seat uses.
-public enum BotDifficulty: Hashable, Codable {
+public enum BotDifficulty: Hashable, Codable, Sendable {
     /// `RandomAIStrategy`: any legal card.
     case easy
     /// `BasicAIStrategy`: plays low, passes high.

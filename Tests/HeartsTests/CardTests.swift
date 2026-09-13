@@ -107,4 +107,45 @@ final class CardTests: XCTestCase {
         let suits = Card.Suit.allCases.sorted()
         XCTAssertEqual(suits, [.clubs, .diamonds, .spades, .hearts])
     }
+
+    // MARK: - Hashable
+
+    func test_hashable_equalCards_shareHash() {
+        XCTAssertEqual(Card(suit: .spades, rank: .queen).hashValue, Card.queenOfSpades.hashValue)
+    }
+
+    func test_set_ofFullDeck_holdsFiftyTwoDistinctCards() {
+        let cards = Card.Suit.allCases.flatMap { suit in Card.Rank.allCases.map { Card(suit: suit, rank: $0) } }
+        XCTAssertEqual(Set(cards).count, 52)
+        XCTAssertEqual(Set(cards + cards).count, 52)
+    }
+
+    func test_dictionary_keyedByCard_looksUpByValue() {
+        let points: [Card: Int] = [.queenOfSpades: 13, .aceOfHearts: 1]
+        XCTAssertEqual(points[Card(suit: .spades, rank: .queen)], 13)
+        XCTAssertNil(points[.twoOfClubs])
+    }
+
+    // MARK: - Sendable
+
+    func test_sendable_engineValueTypes_crossIsolationBoundaries() async throws {
+        // Compiles only if every type sent here is Sendable; the assertions keep the values alive.
+        let card = Card.queenOfSpades
+        let seat = Seat.south
+        let trick = try Trick.mock([.twoOfClubs], leadingFrom: .south)
+        let phase = GamePhase.awaitingPlay(.south)
+        let configuration = GameConfiguration.withJackBonus
+        let player = Player(name: "Bot", type: .bot(difficulty: .hard))
+        let snapshot = Game.seededBots(seed: 1).snapshot()
+        let result = await Task.detached {
+            (card, seat, trick, phase, configuration, player, snapshot)
+        }.value
+        XCTAssertEqual(result.0, card)
+        XCTAssertEqual(result.1, seat)
+        XCTAssertEqual(result.2, trick)
+        XCTAssertEqual(result.3, phase)
+        XCTAssertEqual(result.4, configuration)
+        XCTAssertEqual(result.5, player)
+        XCTAssertEqual(result.6, snapshot)
+    }
 }

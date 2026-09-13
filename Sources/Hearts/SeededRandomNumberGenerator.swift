@@ -15,7 +15,7 @@
 /// ```
 ///
 /// Not cryptographically secure; use `SystemRandomNumberGenerator` (the default) for real play.
-public struct SeededRandomNumberGenerator: RandomNumberGenerator {
+public struct SeededRandomNumberGenerator: RandomNumberGenerator, Sendable {
     private var state: UInt64
 
     /// Creates a generator whose output is fully determined by `seed`.

@@ -11,7 +11,7 @@ import Foundation
 ///
 /// `Game.advance()` stops at every decision a `.human` seat must make and plays through the
 /// `.bot` seats itself. Encodes as `{"type": "human"}` or `{"type": "bot", "difficulty": …}`.
-public enum PlayerType: Hashable, Codable {
+public enum PlayerType: Hashable, Codable, Sendable {
     /// Decisions come from outside the engine via `Game.performExchange(selections:)` and `Game.playCard(_:by:)`.
     case human
     /// Decisions come from the built-in strategy for `difficulty` (or an override passed to `Game.init`).

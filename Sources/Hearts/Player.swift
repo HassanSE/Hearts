@@ -13,7 +13,7 @@ import Foundation
 /// total scores, whose turn it is — belongs to `Game` and is keyed by `Seat`, so a `Player` value
 /// can be held indefinitely without going stale. Two players with the same name and type are equal;
 /// identity at the table is the `Seat`, not the profile.
-public struct Player: Codable, Hashable {
+public struct Player: Codable, Hashable, Sendable {
     /// Display name.
     public let name: String
     /// Whether this seat is played by a human (needs input) or a bot (chooses via its strategy).

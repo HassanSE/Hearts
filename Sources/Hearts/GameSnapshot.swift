@@ -10,7 +10,7 @@
 /// Per-seat state (hands and scores) is stored once, keyed by seat; tricks reference seats only.
 /// Snapshots come only from `Game.snapshot()` (or by decoding one that did); `Game.restore(from:)`
 /// checks that a snapshot describes a consistent state of the same game before applying it.
-public struct GameSnapshot: Equatable, Codable {
+public struct GameSnapshot: Equatable, Codable, Sendable {
     /// Who sits where; must match the game a snapshot is restored into.
     public let players: SeatMap<Player>
     /// The cards each seat held.

@@ -10,7 +10,7 @@ import Foundation
 /// Direction in which each seat passes three cards before a hand.
 ///
 /// The direction rotates each round: left, right, across, then no pass.
-public enum CardExchangeDirection: Codable {
+public enum CardExchangeDirection: Codable, Sendable {
     /// Each seat passes to the next seat clockwise.
     case left
     /// Each seat passes to the previous seat.

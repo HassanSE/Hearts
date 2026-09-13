@@ -11,7 +11,7 @@
 /// card, who won a trick, whose turn it is and who owes points. It never goes stale, unlike a copy
 /// of a `Player` or a hand. `rawValue` is the seat's index (`0...3`), which is also the order the
 /// four players were passed to `Game.init`.
-public enum Seat: Int, CaseIterable, Codable, Hashable, Comparable {
+public enum Seat: Int, CaseIterable, Codable, Hashable, Comparable, Sendable {
     /// Seat 0 — the first player given to `Game.init`.
     case south = 0
     /// Seat 1 — to the left of south.
@@ -87,6 +87,7 @@ extension SeatMap: Sequence {
 
 extension SeatMap: Equatable where Value: Equatable {}
 extension SeatMap: Hashable where Value: Hashable {}
+extension SeatMap: Sendable where Value: Sendable {}
 
 extension SeatMap: Codable where Value: Codable {
     /// Decodes a four-element array in seat order.
