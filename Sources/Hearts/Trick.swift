@@ -17,14 +17,15 @@ public struct Trick: Codable, Equatable {
         public let card: Card
     }
 
+    /// The plays made so far, in play order; the first is the lead. Never more than four.
     public private(set) var plays: [Play] = []
 
-    /// The suit of the first card played in this trick
+    /// The suit of the first card played in this trick, or `nil` if nothing has been played yet.
     public var leadSuit: Card.Suit? {
         plays.first?.card.suit
     }
 
-    /// Whether all 4 players have played a card
+    /// Whether all four seats have played a card.
     public var isComplete: Bool {
         plays.count == 4
     }
@@ -45,7 +46,7 @@ public struct Trick: Codable, Equatable {
             .seat
     }
 
-    /// All cards played in this trick
+    /// The cards played in this trick, in play order.
     public var cards: [Card] {
         plays.map { $0.card }
     }
@@ -83,6 +84,7 @@ public struct Trick: Codable, Equatable {
 }
 
 extension Trick: CustomDebugStringConvertible {
+    /// `"Trick[south: 2 ♣, west: K ♣, … | Winner: west]"`; the winner is omitted until the trick is complete.
     public var debugDescription: String {
         let playsDesc = plays.map { "\($0.seat): \($0.card)" }.joined(separator: ", ")
         let winnerDesc = winner.map { " | Winner: \($0)" } ?? ""

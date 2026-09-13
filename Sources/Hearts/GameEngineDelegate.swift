@@ -37,6 +37,7 @@ public protocol GameEngineDelegate: AnyObject {
     func game(_ game: Game, didRestoreTo phase: GamePhase)
 }
 
+/// Default no-op implementations, so a conformer implements only the events it observes.
 public extension GameEngineDelegate {
     func game(_ game: Game, didTransitionTo phase: GamePhase) {}
     func game(_ game: Game, didPlayCard card: Card, by seat: Seat) {}

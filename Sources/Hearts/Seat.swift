@@ -34,6 +34,7 @@ public enum Seat: Int, CaseIterable, Codable, Hashable, Comparable {
         return Seat.allCases[index]
     }
 
+    /// Orders seats clockwise from south: south < west < north < east.
     public static func < (lhs: Seat, rhs: Seat) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
@@ -88,6 +89,8 @@ extension SeatMap: Equatable where Value: Equatable {}
 extension SeatMap: Hashable where Value: Hashable {}
 
 extension SeatMap: Codable where Value: Codable {
+    /// Decodes a four-element array in seat order.
+    /// - Throws: `DecodingError.dataCorrupted` if the array does not hold exactly four values.
     public init(from decoder: Decoder) throws {
         let values = try decoder.singleValueContainer().decode([Value].self)
         guard values.count == Seat.allCases.count else {
@@ -99,6 +102,7 @@ extension SeatMap: Codable where Value: Codable {
         storage = values
     }
 
+    /// Encodes the values as a four-element array in seat order.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(storage)

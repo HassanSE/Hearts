@@ -39,6 +39,7 @@ extension Player {
 }
 
 extension Player: CustomDebugStringConvertible {
+    /// `"Player(name: Watson, type: bot(medium))"` or `"Player(name: You, type: human)"`.
     public var debugDescription: String {
         let typeDescription: String
         switch type {

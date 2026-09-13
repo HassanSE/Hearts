@@ -7,12 +7,25 @@
 
 import Foundation
 
+/// Every way a call into the engine can be rejected.
+///
+/// A throwing `Game` method checks its inputs against the current state first and applies nothing on
+/// failure, so catching one of these leaves the game exactly as it was. The play-rule cases
+/// (`cardNotInHand` through `heartsNotBroken`) are raised by `PlayRules`; the phase, exchange, deal
+/// and snapshot cases by `Game`.
 public enum GameError: Error, Equatable {
+    /// `playCard(_:by:)` was called for a seat other than `currentSeat`, or a seat that has already
+    /// played in the current trick.
     case notPlayersTurn
+    /// The card is not in the playing (or passing) seat's hand.
     case cardNotInHand
+    /// The first trick of a hand must be led with 2♣.
     case mustLeadWithTwoOfClubs
+    /// The hand holds `required` (the lead suit), so a card of that suit must be played.
     case mustFollowSuit(required: Card.Suit)
+    /// A heart or Q♠ was played on the first trick while the hand held a non-point card.
     case cannotPlayPointsOnFirstTrick
+    /// A heart was led before any heart had been played, while the hand held another suit.
     case heartsNotBroken
     /// A mutator was called in a phase that does not accept it; carries the phase the game was in.
     /// See `GamePhase` for which mutator each phase admits.
@@ -41,6 +54,25 @@ public enum GameError: Error, Equatable {
     case inconsistentSnapshot
 }
 
+/// The Hearts engine: one instance is one game, from the first deal to `.gameOver`.
+///
+/// `Game` is the single source of truth. All state is readable and `internal(set)`; only the
+/// phase-driven mutators change it: `performExchange(selections:)`, `playCard(_:by:)`, `endHand()`
+/// and `startNewHand()`, each accepted only in the `GamePhase` that names it. A rejected call throws
+/// a `GameError` and changes nothing. `advance()` performs every bot-only step and stops where a
+/// human seat must act, so a client's loop is `advance()` then `switch phase`. Observers attach a
+/// `GameEngineDelegate`; persistence and undo go through `snapshot()`, `restore(from:)` and `undo()`.
+///
+/// ```swift
+/// let bot = Player(name: "Bot", type: .bot(difficulty: .medium))
+/// let game = Game(player1: Player(name: "You"), player2: bot, player3: bot, player4: bot)
+/// try game.advance()               // bots exchange; stops at .awaitingExchange for you
+/// try game.performExchange(selections: [.south: Array(game.hands[.south].prefix(3))])
+/// try game.advance()               // bots play until it is your turn
+/// if case .awaitingPlay(let seat) = game.phase {
+///     try game.playCard(game.legalMoves(for: seat)[0], by: seat)
+/// }
+/// ```
 public class Game {
     /// Who sits where. Fixed for the life of the game.
     public let players: SeatMap<Player>
@@ -54,17 +86,23 @@ public class Game {
     /// Each seat's running total across settled hands.
     public internal(set) var totalScores: SeatMap<Int>
 
+    /// Zero-based index of the hand in progress; drives `exchangeDirection`. Incremented by `endHand()`.
     public internal(set) var roundNumber = 0
 
     // Trick-taking state
+    /// The trick being played. Empty right after a deal and right after a trick is collected; a
+    /// completed trick is moved to `completedTricks` before the delegate hears about it.
     public internal(set) var currentTrick: Trick = Trick()
+    /// The tricks completed so far this hand, in play order. Empty until the first trick is collected.
     public internal(set) var completedTricks: [Trick] = []
+    /// Whether a heart has been played this hand; until it is, hearts may not be led (see `PlayRules`).
     public internal(set) var heartsBroken: Bool = false
 
     /// The seat whose turn it is to play.
     public internal(set) var currentSeat: Seat = .south
 
     // Game configuration
+    /// The rule variants and winning score this game was created with. Fixed for the life of the game.
     public let configuration: GameConfiguration
 
     /// The point rules this game plays by, derived from `configuration`.
@@ -89,6 +127,7 @@ public class Game {
     /// Delegate to receive game event notifications.
     public weak var delegate: GameEngineDelegate?
 
+    /// The total at which the game ends; shorthand for `configuration.winningScore`.
     public var winningScore: Int {
         configuration.winningScore
     }
@@ -169,6 +208,8 @@ public class Game {
         )
     }
 
+    /// Where cards are passed this hand: left, right, across, then none, rotating with `roundNumber`.
+    /// When it is `.none`, `performExchange(selections:)` is still required but moves no cards.
     public var exchangeDirection: CardExchangeDirection {
         switch roundNumber % 4 {
         case 0: return .left

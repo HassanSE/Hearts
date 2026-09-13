@@ -11,15 +11,25 @@
 /// Snapshots come only from `Game.snapshot()` (or by decoding one that did); `Game.restore(from:)`
 /// checks that a snapshot describes a consistent state of the same game before applying it.
 public struct GameSnapshot: Equatable, Codable {
+    /// Who sits where; must match the game a snapshot is restored into.
     public let players: SeatMap<Player>
+    /// The cards each seat held.
     public let hands: SeatMap<[Card]>
+    /// Raw points each seat had taken in tricks so far that hand.
     public let roundScores: SeatMap<Int>
+    /// Each seat's running total across settled hands.
     public let totalScores: SeatMap<Int>
+    /// Zero-based index of the hand in progress.
     public let roundNumber: Int
+    /// The trick in progress (possibly empty).
     public let currentTrick: Trick
+    /// The tricks completed so far that hand, in play order.
     public let completedTricks: [Trick]
+    /// Whether a heart had been played that hand.
     public let heartsBroken: Bool
+    /// The seat whose turn it was.
     public let currentSeat: Seat
+    /// The rule variants in force; must match the game a snapshot is restored into.
     public let configuration: GameConfiguration
     /// Which mutator the game accepts next; see `GamePhase`.
     public let phase: GamePhase

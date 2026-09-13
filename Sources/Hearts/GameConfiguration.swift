@@ -49,6 +49,11 @@ public struct GameConfiguration: Equatable, Codable {
     /// Determines how the moon-shooter's score is adjusted when someone shoots the moon.
     public let moonShotVariant: MoonShotVariant
 
+    /// Creates a configuration. The defaults are `.standard`.
+    /// - Parameters:
+    ///   - jackOfDiamondsBonus: Whether J♦ is worth −10 to its captor.
+    ///   - winningScore: The total at which the game ends; the lowest total then wins.
+    ///   - moonShotVariant: How a moon shot is settled.
     public init(jackOfDiamondsBonus: Bool = false, winningScore: Int = 100, moonShotVariant: MoonShotVariant = .addToOthers) {
         self.jackOfDiamondsBonus = jackOfDiamondsBonus
         self.winningScore = winningScore

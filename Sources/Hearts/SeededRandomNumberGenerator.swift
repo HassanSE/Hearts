@@ -24,6 +24,8 @@ public struct SeededRandomNumberGenerator: RandomNumberGenerator {
         state = seed
     }
 
+    /// Advances the generator and returns the next 64 bits of the sequence.
+    /// - Returns: A pseudo-random value determined by the seed and how many times `next()` has been called.
     public mutating func next() -> UInt64 {
         state &+= 0x9E37_79B9_7F4A_7C15
         var z = state

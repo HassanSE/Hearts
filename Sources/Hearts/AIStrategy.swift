@@ -149,6 +149,11 @@ public struct RandomAIStrategy: AIStrategy {
         self.randomSource = randomSource
     }
 
+    /// Passes three cards drawn at random from `hand`.
+    /// - Parameters:
+    ///   - hand: The full 13-card hand.
+    ///   - direction: Ignored.
+    /// - Returns: Three distinct cards from `hand`.
     public func selectCardsToPass(from hand: [Card], direction: CardExchangeDirection) -> PassedCards {
         // Random strategy: randomly select 3 cards from hand
         var generator = randomSource
@@ -156,6 +161,9 @@ public struct RandomAIStrategy: AIStrategy {
         return (shuffled[0], shuffled[1], shuffled[2])
     }
 
+    /// Plays a card drawn at random from `context.legalMoves`.
+    /// - Parameter context: The deciding seat's hand and the visible game state.
+    /// - Returns: A random legal card (or the first card in hand if, outside `Game`, none is legal).
     public func selectCardToPlay(context: TrickContext) -> Card {
         // Random strategy: randomly select from legal moves
         var generator = randomSource
@@ -166,8 +174,14 @@ public struct RandomAIStrategy: AIStrategy {
 
 /// Medium: passes the most dangerous cards and plays low.
 public struct BasicAIStrategy: AIStrategy {
+    /// Creates the strategy; it holds no state.
     public init() {}
 
+    /// Passes the three most dangerous cards: Q♠, then hearts, then spades, then highest rank.
+    /// - Parameters:
+    ///   - hand: The full 13-card hand.
+    ///   - direction: Ignored.
+    /// - Returns: Three distinct cards from `hand`.
     public func selectCardsToPass(from hand: [Card], direction: CardExchangeDirection) -> PassedCards {
         // Basic strategy: Pass high dangerous cards
         // Priority: Queen of Spades > High Hearts > High Spades > Other high cards
@@ -177,6 +191,9 @@ public struct BasicAIStrategy: AIStrategy {
         return (sorted[0], sorted[1], sorted[2])
     }
 
+    /// Plays the lowest legal card when following; when leading, the lowest non-point card if there is one.
+    /// - Parameter context: The deciding seat's hand and the visible game state.
+    /// - Returns: A card from `context.legalMoves`.
     public func selectCardToPlay(context: TrickContext) -> Card {
         // Basic strategy: Play low cards to avoid taking points
         let legalMoves = context.legalMoves
@@ -198,8 +215,15 @@ public struct BasicAIStrategy: AIStrategy {
 
 /// Hard: voids suits when passing, counts spades, avoids known voids and pursues the moon.
 public struct AdvancedAIStrategy: AIStrategy {
+    /// Creates the strategy; it holds no state and infers everything from `TrickContext`.
     public init() {}
 
+    /// Passes to void the shortest suit when it has three cards or fewer (topping up with the most
+    /// dangerous other cards); otherwise Q♠, high hearts, high spades, then the highest remaining ranks.
+    /// - Parameters:
+    ///   - hand: The full 13-card hand.
+    ///   - direction: Ignored.
+    /// - Returns: Three distinct cards from `hand`.
     public func selectCardsToPass(from hand: [Card], direction: CardExchangeDirection) -> PassedCards {
         // Advanced strategy: Try to void a suit or minimize dangerous cards
         // 1. Check if we can void a suit (pass all cards of shortest suit)
@@ -277,6 +301,13 @@ public struct AdvancedAIStrategy: AIStrategy {
         return (cardsToPass[0], cardsToPass[1], cardsToPass[2])
     }
 
+    /// Chooses a card using the tricks seen so far. Pursues the moon while it holds Q♠ and seven or
+    /// more hearts and no opponent has captured a point. Otherwise, when following, plays the highest
+    /// card that will not win the trick, falling back to the lowest if the trick holds points; when
+    /// leading, leads Q♠ once A♠ and K♠ are gone, avoids suits an opponent is known to be void in,
+    /// and prefers its longest suit.
+    /// - Parameter context: The deciding seat's hand and the visible game state.
+    /// - Returns: A card from `context.legalMoves`.
     public func selectCardToPlay(context: TrickContext) -> Card {
         // Advanced strategy: Play smart based on current trick and game state
         let legalMoves = context.legalMoves
