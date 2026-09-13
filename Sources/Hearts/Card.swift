@@ -26,11 +26,31 @@ public struct Card: Codable {
         case two = 2, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace
     }
     
+    /// The four suits.
+    ///
+    /// Suits are ordered for display as ♣ < ♦ < ♠ < ♥ (alternating colours,
+    /// hearts last). This order has no gameplay meaning — Hearts has no trump —
+    /// it exists so that sorting a hand groups cards the way a player expects
+    /// to see them.
     public enum Suit: CaseIterable, Comparable, Codable {
         case spades
         case hearts
         case diamonds
         case clubs
+
+        /// Position in the documented display order ♣ ♦ ♠ ♥.
+        private var displayOrder: Int {
+            switch self {
+            case .clubs: return 0
+            case .diamonds: return 1
+            case .spades: return 2
+            case .hearts: return 3
+            }
+        }
+
+        public static func < (lhs: Suit, rhs: Suit) -> Bool {
+            lhs.displayOrder < rhs.displayOrder
+        }
     }
 }
 
@@ -75,8 +95,13 @@ extension Card.Suit: CustomStringConvertible {
 }
 
 extension Card: Comparable {
+    /// Total order over cards: by suit (♣ ♦ ♠ ♥, see `Suit`), then by rank
+    /// within a suit. Consistent with `==`, so `sorted()` on a hand groups
+    /// cards by suit in ascending rank. Trick resolution does not use this
+    /// order; it compares `rank` within the lead suit only.
     public static func < (lhs: Card, rhs: Card) -> Bool {
-        lhs.rank < rhs.rank
+        if lhs.suit != rhs.suit { return lhs.suit < rhs.suit }
+        return lhs.rank < rhs.rank
     }
 }
 

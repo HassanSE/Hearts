@@ -59,27 +59,13 @@ func promptWinningScore() -> Int {
     return 100
 }
 
-let suitOrder: [Card.Suit] = [.clubs, .diamonds, .spades, .hearts]
-
-func sortedHand(_ hand: [Card]) -> [Card] {
-    hand.sorted { lhs, rhs in
-        if lhs.suit != rhs.suit {
-            // Unknown suits (impossible for a 4-suit enum) sort last rather than crashing.
-            let lhsIndex = suitOrder.firstIndex(of: lhs.suit) ?? suitOrder.count
-            let rhsIndex = suitOrder.firstIndex(of: rhs.suit) ?? suitOrder.count
-            return lhsIndex < rhsIndex
-        }
-        return lhs.rank < rhs.rank
-    }
-}
-
 func formatCard(_ card: Card) -> String {
     "\(card.rank)\(card.suit)"
 }
 
 func printNumberedHand(_ hand: [Card], label: String) {
     print(label)
-    let cards = sortedHand(hand)
+    let cards = hand.sorted()
     let line = cards.enumerated()
         .map { "[\($0.offset + 1)] \(formatCard($0.element))" }
         .joined(separator: "  ")
@@ -109,7 +95,7 @@ func runExchangePhase(game: Game) throws {
     print("")
     printNumberedHand(humanHand, label: "Your hand:")
 
-    let sortedCards = sortedHand(humanHand)
+    let sortedCards = humanHand.sorted()
     while true {
         print("Select 3 cards to pass \(directionLabel(direction)). Enter card numbers (e.g. 1 5 9):")
         print("> ", terminator: "")
@@ -178,7 +164,7 @@ func promptHumanPlay(game: Game) throws {
     printNumberedHand(game.hand(for: human), label: "Your hand:")
 
     let legal = game.legalMoves(for: human)
-    let sortedCards = sortedHand(legal)
+    let sortedCards = legal.sorted()
     printNumberedHand(legal, label: "Legal moves:")
 
     while true {

@@ -25,6 +25,38 @@ final class CardTests: XCTestCase {
         XCTAssertLessThan(twoOfClubs, aceOfClubs)
     }
     
+    // MARK: - Comparable
+
+    func test_comparable_forAllCardPairs_incomparableImpliesEqual() {
+        let cards = Deck().cards
+        for a in cards {
+            for b in cards {
+                if !(a < b) && !(b < a) {
+                    XCTAssertEqual(a, b, "\(a) and \(b) are neither < nor > but not ==")
+                }
+            }
+        }
+    }
+
+    func test_sorted_mixedHand_groupsBySuitThenAscendingRank() {
+        let hand: [Card] = [
+            Card(suit: .hearts, rank: .two),
+            Card(suit: .clubs, rank: .ace),
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .diamonds, rank: .two),
+            Card(suit: .clubs, rank: .three),
+            Card(suit: .hearts, rank: .ace),
+        ]
+        XCTAssertEqual(hand.sorted(), [
+            Card(suit: .clubs, rank: .three),
+            Card(suit: .clubs, rank: .ace),
+            Card(suit: .diamonds, rank: .two),
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .hearts, rank: .two),
+            Card(suit: .hearts, rank: .ace),
+        ])
+    }
+
     func test_cards_points() {
         let deck = Deck()
         for card in deck.cards {

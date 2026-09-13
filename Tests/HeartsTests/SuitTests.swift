@@ -15,10 +15,8 @@ final class SuitTests: XCTestCase {
         XCTAssertEqual(suits.count, 4)
     }
     
-    func test_suits_order() {
-        let suits = Card.Suit.allCases.sorted(by: >)
-        XCTAssertEqual(suits.first, Card.Suit.clubs)
-        XCTAssertEqual(suits.last, Card.Suit.spades)
-        XCTAssertEqual(suits, [.clubs, .diamonds, .hearts, .spades])
+    func test_sorted_allSuits_followsDisplayOrderClubsDiamondsSpadesHearts() {
+        let suits = Card.Suit.allCases.sorted()
+        XCTAssertEqual(suits, [.clubs, .diamonds, .spades, .hearts])
     }
 }
