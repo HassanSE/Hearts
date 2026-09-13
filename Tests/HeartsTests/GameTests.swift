@@ -211,3 +211,89 @@ final class GameTests: XCTestCase {
         }
     }
 }
+
+// MARK: - Configured Trick Points
+
+final class GameTrickPointsTests: XCTestCase {
+    private func makeGame(jackBonus: Bool) -> Game {
+        Game(player1: Player(name: "A"),
+             player2: Player(name: "B"),
+             player3: Player(name: "C"),
+             player4: Player(name: "D"),
+             configuration: GameConfiguration(jackOfDiamondsBonus: jackBonus))
+    }
+
+    /// Builds a complete trick from four cards played by the game's four players in order.
+    private func makeTrick(_ cards: [Card], in game: Game) throws -> Trick {
+        var trick = Trick()
+        for (player, card) in zip(game.players, cards) {
+            try trick.play(card, by: player)
+        }
+        return trick
+    }
+
+    func test_points_withJackBonusOn_trickContainingJackOfDiamonds_returnsMinus10() throws {
+        let game = makeGame(jackBonus: true)
+        let trick = try makeTrick([
+            Card(suit: .diamonds, rank: .two),
+            Card(suit: .diamonds, rank: .jack),
+            Card(suit: .diamonds, rank: .five),
+            Card(suit: .diamonds, rank: .nine)
+        ], in: game)
+
+        XCTAssertEqual(game.points(in: trick), -10)
+    }
+
+    func test_points_withJackBonusOn_jackAndHearts_sumsBonusAndPenalties() throws {
+        let game = makeGame(jackBonus: true)
+        let trick = try makeTrick([
+            Card(suit: .diamonds, rank: .jack),
+            Card(suit: .hearts, rank: .three),
+            Card(suit: .hearts, rank: .king),
+            Card(suit: .spades, rank: .queen)
+        ], in: game)
+
+        XCTAssertEqual(game.points(in: trick), 5)
+    }
+
+    func test_points_withJackBonusOff_trickContainingJackOfDiamonds_returnsRawPoints() throws {
+        let game = makeGame(jackBonus: false)
+        let trick = try makeTrick([
+            Card(suit: .diamonds, rank: .jack),
+            Card(suit: .hearts, rank: .three),
+            Card(suit: .diamonds, rank: .five),
+            Card(suit: .diamonds, rank: .nine)
+        ], in: game)
+
+        XCTAssertEqual(game.points(in: trick), 1)
+        XCTAssertEqual(game.points(in: trick), trick.points)
+    }
+
+    func test_points_partialTrick_countsCardsPlayedSoFar() throws {
+        let game = makeGame(jackBonus: true)
+        var trick = Trick()
+        try trick.play(Card(suit: .diamonds, rank: .jack), by: game.players[0])
+
+        XCTAssertEqual(game.points(in: trick), -10)
+    }
+
+    func test_points_matchesPointsDeliveredToDelegate() throws {
+        final class Spy: GameEngineDelegate {
+            var delivered: [Int] = []
+            func game(_ game: Game, didCompleteTrick trick: Trick, winner: Player, points: Int) {
+                delivered.append(points)
+            }
+        }
+        let bots = (1...4).map { Player(name: "Bot\($0)", type: .bot(difficulty: .easy)) }
+        let game = Game(player1: bots[0], player2: bots[1], player3: bots[2], player4: bots[3],
+                        configuration: GameConfiguration(jackOfDiamondsBonus: true))
+        let spy = Spy()
+        game.delegate = spy
+        try game.performExchange()
+        try game.playCompleteHand()
+
+        XCTAssertEqual(spy.delivered.count, 13)
+        XCTAssertEqual(spy.delivered, game.completedTricks.map { game.points(in: $0) })
+        XCTAssertTrue(game.completedTricks.contains { $0.cards.contains(Card(suit: .diamonds, rank: .jack)) })
+    }
+}

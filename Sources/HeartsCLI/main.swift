@@ -214,9 +214,10 @@ func runOneTrick(game: Game) throws {
             for play in trick.plays {
                 print("  \(play.player.name): \(formatCard(play.card))")
             }
-            let pts = trick.points
-            let suffix = pts == 1 ? "point" : "points"
-            print("→ Won by \(winner.name) (+\(pts) \(suffix))")
+            let pts = game.points(in: trick)
+            let suffix = abs(pts) == 1 ? "point" : "points"
+            let signed = pts < 0 ? "\(pts)" : "+\(pts)"
+            print("→ Won by \(winner.name) (\(signed) \(suffix))")
         }
     }
 }

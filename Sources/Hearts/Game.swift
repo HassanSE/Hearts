@@ -395,7 +395,7 @@ public class Game {
         }
 
         // Award points to winner based on configuration
-        let points = calculateTrickPoints(currentTrick)
+        let points = self.points(in: currentTrick)
         players[winnerIndex].roundScore += points
 
         // Capture completed trick before resetting
@@ -411,10 +411,16 @@ public class Game {
         delegate?.game(self, didCompleteTrick: completedTrick, winner: winner, points: points)
     }
 
-    /// Calculate points for a trick based on game configuration
-    /// - Parameter trick: The completed trick
-    /// - Returns: Total points (may be negative with Jack of Diamonds bonus)
-    private func calculateTrickPoints(_ trick: Trick) -> Int {
+    /// Points a trick is worth under this game's configuration.
+    ///
+    /// Unlike `Trick.points`, which counts only hearts and Q♠, this applies
+    /// `GameConfiguration.jackOfDiamondsBonus`, so it always matches the value
+    /// awarded to the trick winner (and delivered via
+    /// `GameEngineDelegate.game(_:didCompleteTrick:winner:points:)`).
+    /// Consumers displaying trick results should use this rather than `Trick.points`.
+    /// - Parameter trick: The trick to score (complete or partial)
+    /// - Returns: Total points (negative when the trick contains J♦ and the bonus is enabled)
+    public func points(in trick: Trick) -> Int {
         var points = 0
 
         for card in trick.cards {
