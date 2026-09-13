@@ -195,9 +195,9 @@ final class PlayerTests: XCTestCase {
     }
 
     func test_botDifficulty_creates_correct_strategies() {
-        let easyStrategy = BotDifficulty.easy.makeStrategy()
-        let mediumStrategy = BotDifficulty.medium.makeStrategy()
-        let hardStrategy = BotDifficulty.hard.makeStrategy()
+        let easyStrategy = BotDifficulty.easy.makeStrategy(randomSource: RandomSource(SystemRandomNumberGenerator()))
+        let mediumStrategy = BotDifficulty.medium.makeStrategy(randomSource: RandomSource(SystemRandomNumberGenerator()))
+        let hardStrategy = BotDifficulty.hard.makeStrategy(randomSource: RandomSource(SystemRandomNumberGenerator()))
 
         XCTAssertTrue(easyStrategy is RandomAIStrategy)
         XCTAssertTrue(mediumStrategy is BasicAIStrategy)

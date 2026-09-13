@@ -49,30 +49,13 @@ extension HumanPlayerTests {
         let bot2 = Player(name: "Bot2", type: .bot(difficulty: .easy))
         let bot3 = Player(name: "Bot3", type: .bot(difficulty: .easy))
 
-        let game = Game(player1: human, player2: bot1, player3: bot2, player4: bot3)
-
-        // Set up minimal hands: human has 2♣ and one other non-point card
-        game.players[0].hand = [
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .clubs, rank: .three)
-        ]
-        game.players[1].hand = [
-            Card(suit: .clubs, rank: .five),
-            Card(suit: .clubs, rank: .six)
-        ]
-        game.players[2].hand = [
-            Card(suit: .clubs, rank: .eight),
-            Card(suit: .clubs, rank: .nine)
-        ]
-        game.players[3].hand = [
-            Card(suit: .clubs, rank: .jack),
-            Card(suit: .clubs, rank: .queen)
-        ]
-
-        game.currentPlayerIndex = 0
-        game.currentTrick = Trick()
-        game.completedTricks = []
-        game.heartsBroken = false
+        // Known deal (valid by construction): human has 2♣ and one other non-point card.
+        let game = try! Game(player1: human, player2: bot1, player3: bot2, player4: bot3, hands: [
+            [Card(suit: .clubs, rank: .two), Card(suit: .clubs, rank: .three)],
+            [Card(suit: .clubs, rank: .five), Card(suit: .clubs, rank: .six)],
+            [Card(suit: .clubs, rank: .eight), Card(suit: .clubs, rank: .nine)],
+            [Card(suit: .clubs, rank: .jack), Card(suit: .clubs, rank: .queen)]
+        ])
 
         return game
     }

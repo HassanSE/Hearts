@@ -27,17 +27,34 @@ final class DeckTests: XCTestCase {
         XCTAssertEqual(clubs.count, 13)
     }
     
-    func test_deck_shuffling() {
-        let deck = Deck()
-        let ordered = deck.cards
-        deck.shuffle()
-        let afterFirstShuffle = deck.cards
-        XCTAssertNotEqual(ordered, afterFirstShuffle)
+    func test_shuffle_usingSeededGenerator_matchesStandardLibraryShuffleWithSameSeed() {
+        var deck = Deck()
+        var deckGenerator = SeededRandomNumberGenerator(seed: 42)
+        deck.shuffle(using: &deckGenerator)
+
+        var referenceGenerator = SeededRandomNumberGenerator(seed: 42)
+        let expected = Deck().cards.shuffled(using: &referenceGenerator)
+
+        XCTAssertEqual(deck.cards, expected)
         XCTAssertEqual(deck.count, 52)
-        
+    }
+
+    func test_shuffle_usingDifferentSeeds_producesDifferentOrders() {
+        var first = Deck()
+        var second = Deck()
+        var g1 = SeededRandomNumberGenerator(seed: 1)
+        var g2 = SeededRandomNumberGenerator(seed: 2)
+        first.shuffle(using: &g1)
+        second.shuffle(using: &g2)
+
+        XCTAssertNotEqual(first.cards, second.cards)
+        XCTAssertEqual(first.cards.sorted(), second.cards.sorted(), "shuffling permutes without losing cards")
+    }
+
+    func test_shuffle_withSystemGenerator_keepsAll52Cards() {
+        var deck = Deck()
         deck.shuffle()
-        XCTAssertNotEqual(afterFirstShuffle, deck.cards)
-        XCTAssertEqual(deck.count, 52)
+        XCTAssertEqual(deck.cards.sorted(), Deck().cards.sorted())
     }
 }
 
@@ -45,7 +62,7 @@ final class DeckTests: XCTestCase {
 
 extension DeckTests {
     func test_dealHands_withFullDeck_returnsFourHandsOfThirteenAndEmptiesDeck() {
-        let deck = Deck()
+        var deck = Deck()
         let hands = deck.deal(handCount: 4, cardsPerHand: 13)
 
         XCTAssertEqual(hands?.count, 4)
@@ -57,7 +74,7 @@ extension DeckTests {
     }
 
     func test_dealHands_whenDeckIsTooShort_returnsNilWithoutCrashing() {
-        let deck = Deck()
+        var deck = Deck()
         _ = deck.deal()
         XCTAssertNil(deck.deal(handCount: 4, cardsPerHand: 13))
     }

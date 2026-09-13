@@ -65,6 +65,8 @@ public enum GameError: Error, Equatable {
     case duplicatePassCards(seat: Int)
     /// A seat's exchange selection included a card that seat does not hold.
     case passedCardNotInHand(seat: Int, card: Card)
+    /// A fixed deal did not supply one hand per player, or listed the same card twice.
+    case invalidDeal
 }
 
 public class Game {
@@ -87,6 +89,10 @@ public class Game {
     /// Undo history: each entry is a snapshot taken before a state-mutating action.
     private var history: [GameSnapshot] = []
 
+    /// The single source of randomness for this game (deck shuffles and random bot decisions).
+    /// Not part of snapshots: undoing a play does not rewind the generator.
+    private var randomSource: RandomSource
+
     /// Delegate to receive game event notifications.
     public weak var delegate: GameEngineDelegate?
 
@@ -94,9 +100,16 @@ public class Game {
         configuration.winningScore
     }
 
-    public convenience init(configuration: GameConfiguration = .standard) {
+    /// Creates an all-bot game of four medium-difficulty players.
+    /// - Parameters:
+    ///   - configuration: Rule variants and the winning score.
+    ///   - generator: Source of randomness for every deal and every random-strategy decision in this
+    ///     game. Pass a `SeededRandomNumberGenerator` for a reproducible game.
+    public convenience init(configuration: GameConfiguration = .standard,
+                            using generator: some RandomNumberGenerator = SystemRandomNumberGenerator()) {
         let players = Player.makeBotPlayers()
-        self.init(player1: players[0], player2: players[1], player3: players[2], player4: players[3], configuration: configuration)
+        self.init(player1: players[0], player2: players[1], player3: players[2], player4: players[3],
+                  configuration: configuration, using: generator)
     }
 
     public var leader: Player? {
@@ -209,16 +222,61 @@ public class Game {
         hasExchanged = snapshot.hasExchanged
     }
 
+    /// Creates a game and deals the first hand.
+    /// - Parameters:
+    ///   - player1: The seat that is dealt to first (seat 0); the others follow clockwise.
+    ///   - configuration: Rule variants and the winning score.
+    ///   - generator: Source of randomness for every deal and every random-strategy decision in this
+    ///     game. Pass a `SeededRandomNumberGenerator` for a reproducible game.
     public init(player1: Player,
          player2: Player,
          player3: Player,
          player4: Player,
-         configuration: GameConfiguration = .standard) {
+         configuration: GameConfiguration = .standard,
+         using generator: some RandomNumberGenerator = SystemRandomNumberGenerator()) {
         self.configuration = configuration
         self.players = [player1, player2, player3, player4]
+        self.randomSource = RandomSource(generator)
         deal()
 
-        // Set current player to whoever has 2 of clubs
+        seatLeader()
+    }
+
+    /// Creates a game whose first hand is exactly `hands` instead of a shuffled deal.
+    ///
+    /// Intended for tests and scripted scenarios: hands may be partial (fewer than 13 cards) or empty,
+    /// but every card may appear only once. `startNewHand()` deals subsequent hands from `generator`
+    /// as usual; the fixed deal consumes no randomness.
+    ///
+    /// - Parameters:
+    ///   - hands: One hand per seat, in seat order (`hands[0]` goes to `player1`).
+    ///   - configuration: Rule variants and the winning score.
+    ///   - generator: Source of randomness for later deals and random-strategy decisions.
+    /// - Throws: `GameError.invalidDeal` if `hands.count` is not four or a card appears twice.
+    public init(player1: Player,
+                player2: Player,
+                player3: Player,
+                player4: Player,
+                hands: [[Card]],
+                configuration: GameConfiguration = .standard,
+                using generator: some RandomNumberGenerator = SystemRandomNumberGenerator()) throws {
+        let players = [player1, player2, player3, player4]
+        let sortedCards = hands.flatMap { $0 }.sorted()
+        let hasDuplicate = zip(sortedCards, sortedCards.dropFirst()).contains { $0 == $1 }
+        guard hands.count == players.count, !hasDuplicate else {
+            throw GameError.invalidDeal
+        }
+        self.configuration = configuration
+        self.players = players
+        self.randomSource = RandomSource(generator)
+        for (seat, hand) in hands.enumerated() {
+            self.players[seat].hand = hand
+        }
+        seatLeader()
+    }
+
+    /// Makes whoever holds 2♣ the current player; leaves the index unchanged if nobody does.
+    private func seatLeader() {
         if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
             currentPlayerIndex = leaderIndex
         }
@@ -233,8 +291,8 @@ public class Game {
 
     private func deal() {
         let numberOfCardsPerHand = 13
-        let deck = Deck()
-        deck.shuffle()
+        var deck = Deck()
+        deck.shuffle(using: &randomSource)
         // A fresh deck always holds enough cards; a short deck leaves hands untouched rather than crashing.
         guard let hands = deck.deal(handCount: players.count, cardsPerHand: numberOfCardsPerHand) else { return }
         for (index, hand) in hands.enumerated() {
@@ -288,9 +346,7 @@ public class Game {
         hasExchanged = true
 
         // Re-identify who holds 2♣ — exchange may have moved it to a different player
-        if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
-            currentPlayerIndex = leaderIndex
-        }
+        seatLeader()
     }
 
     // MARK: - Trick-Taking Gameplay
@@ -539,7 +595,7 @@ public class Game {
             fatalError("Bot player must have difficulty level")
         }
 
-        let strategy = difficulty.makeStrategy()
+        let strategy = difficulty.makeStrategy(randomSource: randomSource)
         return strategy.selectCardsToPass(from: player.hand, direction: exchangeDirection)
     }
 
@@ -554,7 +610,7 @@ public class Game {
             fatalError("Bot player must have difficulty level")
         }
 
-        let strategy = difficulty.makeStrategy()
+        let strategy = difficulty.makeStrategy(randomSource: randomSource)
         let context = TrickContext(
             hand: player.hand,
             currentTrick: currentTrick,
@@ -680,9 +736,6 @@ public class Game {
         heartsBroken = false
         history = []
 
-        // Set current player to whoever has 2 of clubs
-        if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
-            currentPlayerIndex = leaderIndex
-        }
+        seatLeader()
     }
 }

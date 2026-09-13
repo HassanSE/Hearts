@@ -13,7 +13,7 @@ final class OrchestrationTests: XCTestCase {
     // MARK: - Debug Tests
 
     func test_debug_game_setup() {
-        let game = Game()
+        let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         // Basic assertions
         XCTAssertEqual(game.players.count, 4)
@@ -38,7 +38,7 @@ final class OrchestrationTests: XCTestCase {
     // MARK: - playCompleteTrick Tests
 
     func test_playCompleteTrick_completes_one_trick() {
-        let game = Game()  // All bots by default
+        let game = Game(using: SeededRandomNumberGenerator(seed: 1))  // All bots by default
 
         let initialTrickCount = game.completedTricks.count
         let winner = try! game.playCompleteTrick()
@@ -54,7 +54,7 @@ final class OrchestrationTests: XCTestCase {
     }
 
     func test_playCompleteTrick_plays_all_4_players() {
-        let game = Game()
+        let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         let completedTrick = game.completedTricks.count
         try! game.playCompleteTrick()
@@ -65,7 +65,7 @@ final class OrchestrationTests: XCTestCase {
     }
 
     func test_playCompleteTrick_first_card_is_two_of_clubs() {
-        let game = Game()
+        let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         try! game.playCompleteTrick()
 
@@ -78,7 +78,7 @@ final class OrchestrationTests: XCTestCase {
     // MARK: - playCompleteHand Tests
 
     func test_playCompleteHand_completes_13_tricks() {
-        let game = Game()
+        let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         try! game.playCompleteHand()
 
@@ -88,7 +88,7 @@ final class OrchestrationTests: XCTestCase {
     }
 
     func test_playCompleteHand_awards_points_to_players() {
-        let game = Game()
+        let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         try! game.playCompleteHand()
 
@@ -98,7 +98,7 @@ final class OrchestrationTests: XCTestCase {
     }
 
     func test_playCompleteHand_all_players_have_empty_hands() {
-        let game = Game()
+        let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         try! game.playCompleteHand()
 
@@ -112,7 +112,7 @@ final class OrchestrationTests: XCTestCase {
 
     func test_playCompleteGame_ends_when_player_reaches_winning_score() {
         let config = GameConfiguration(jackOfDiamondsBonus: false, winningScore: 26)
-        let game = Game(configuration: config)
+        let game = Game(configuration: config, using: SeededRandomNumberGenerator(seed: 1))
 
         let winner = try! game.playCompleteGame()
 
@@ -128,7 +128,7 @@ final class OrchestrationTests: XCTestCase {
 
     func test_playCompleteGame_plays_multiple_hands() {
         let config = GameConfiguration(jackOfDiamondsBonus: false, winningScore: 30)
-        let game = Game(configuration: config)
+        let game = Game(configuration: config, using: SeededRandomNumberGenerator(seed: 1))
 
         try! game.playCompleteGame()
 
@@ -137,7 +137,7 @@ final class OrchestrationTests: XCTestCase {
     }
 
     func test_playCompleteGame_winner_has_lowest_score() {
-        let game = Game()
+        let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         let winner = try! game.playCompleteGame()
 

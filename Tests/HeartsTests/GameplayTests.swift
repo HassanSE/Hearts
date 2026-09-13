@@ -19,36 +19,29 @@ final class GameplayTests: XCTestCase {
         let player3 = Player(name: "Charlie")
         let player4 = Player(name: "Diana")
 
-        let game = Game(player1: player1, player2: player2, player3: player3, player4: player4)
-
-        // Manually set up hands for predictable testing
-        // Give player 0 the 2 of clubs so they lead
-        game.players[0].hand = [
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .diamonds, rank: .four)
-        ]
-        game.players[1].hand = [
-            Card(suit: .clubs, rank: .five),
-            Card(suit: .hearts, rank: .six),
-            Card(suit: .diamonds, rank: .seven)
-        ]
-        game.players[2].hand = [
-            Card(suit: .clubs, rank: .eight),
-            Card(suit: .hearts, rank: .nine),
-            Card(suit: .diamonds, rank: .ten)
-        ]
-        game.players[3].hand = [
-            Card(suit: .clubs, rank: .jack),
-            Card(suit: .hearts, rank: .queen),
-            Card(suit: .diamonds, rank: .king)
-        ]
-
-        // Reset game state
-        game.currentPlayerIndex = 0
-        game.currentTrick = Trick()
-        game.completedTricks = []
-        game.heartsBroken = false
+        // Known deal (valid by construction): player 0 holds 2♣ and leads.
+        let game = try! Game(player1: player1, player2: player2, player3: player3, player4: player4, hands: [
+            [
+                Card(suit: .clubs, rank: .two),
+                Card(suit: .clubs, rank: .three),
+                Card(suit: .diamonds, rank: .four)
+            ],
+            [
+                Card(suit: .clubs, rank: .five),
+                Card(suit: .hearts, rank: .six),
+                Card(suit: .diamonds, rank: .seven)
+            ],
+            [
+                Card(suit: .clubs, rank: .eight),
+                Card(suit: .hearts, rank: .nine),
+                Card(suit: .diamonds, rank: .ten)
+            ],
+            [
+                Card(suit: .clubs, rank: .jack),
+                Card(suit: .hearts, rank: .queen),
+                Card(suit: .diamonds, rank: .king)
+            ]
+        ])
 
         return game
     }

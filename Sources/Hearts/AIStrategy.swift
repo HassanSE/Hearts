@@ -84,10 +84,13 @@ public enum BotDifficulty: Codable {
     case medium
     case hard
 
-    func makeStrategy() -> AIStrategy {
+    /// Builds the strategy for this difficulty.
+    /// - Parameter randomSource: Generator the random (easy) strategy draws from; ignored by the
+    ///   deterministic strategies.
+    func makeStrategy(randomSource: RandomSource) -> AIStrategy {
         switch self {
         case .easy:
-            return RandomAIStrategy()
+            return RandomAIStrategy(randomSource: randomSource)
         case .medium:
             return BasicAIStrategy()
         case .hard:
@@ -99,16 +102,25 @@ public enum BotDifficulty: Codable {
 // MARK: - AI Strategy Implementations
 
 struct RandomAIStrategy: AIStrategy {
+    /// Shared with the owning `Game` so a seeded game replays its random plays exactly.
+    var randomSource: RandomSource
+
+    init(randomSource: RandomSource = RandomSource(SystemRandomNumberGenerator())) {
+        self.randomSource = randomSource
+    }
+
     func selectCardsToPass(from hand: Hand, direction: CardExchangeDirection) -> PassedCards {
         // Random strategy: randomly select 3 cards from hand
-        let shuffled = hand.shuffled()
+        var generator = randomSource
+        let shuffled = hand.shuffled(using: &generator)
         return (shuffled[0], shuffled[1], shuffled[2])
     }
 
     func selectCardToPlay(context: TrickContext) -> Card {
         // Random strategy: randomly select from legal moves
+        var generator = randomSource
         let legalMoves = context.getLegalMoves()
-        guard let card = legalMoves.randomElement() else {
+        guard let card = legalMoves.randomElement(using: &generator) else {
             fatalError("No legal moves available — hand is empty or game state is corrupted")
         }
         return card

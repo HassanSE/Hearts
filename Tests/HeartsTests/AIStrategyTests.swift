@@ -865,17 +865,17 @@ final class AIStrategyTests: XCTestCase {
     // MARK: - BotDifficulty Tests
 
     func test_botDifficulty_easy_creates_random_strategy() {
-        let strategy = BotDifficulty.easy.makeStrategy()
+        let strategy = BotDifficulty.easy.makeStrategy(randomSource: RandomSource(SystemRandomNumberGenerator()))
         XCTAssertTrue(strategy is RandomAIStrategy)
     }
 
     func test_botDifficulty_medium_creates_basic_strategy() {
-        let strategy = BotDifficulty.medium.makeStrategy()
+        let strategy = BotDifficulty.medium.makeStrategy(randomSource: RandomSource(SystemRandomNumberGenerator()))
         XCTAssertTrue(strategy is BasicAIStrategy)
     }
 
     func test_botDifficulty_hard_creates_advanced_strategy() {
-        let strategy = BotDifficulty.hard.makeStrategy()
+        let strategy = BotDifficulty.hard.makeStrategy(randomSource: RandomSource(SystemRandomNumberGenerator()))
         XCTAssertTrue(strategy is AdvancedAIStrategy)
     }
 

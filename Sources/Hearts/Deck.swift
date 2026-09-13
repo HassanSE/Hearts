@@ -7,8 +7,9 @@
 
 import Foundation
 
-class Deck {
-    var cards: [Card] = []
+/// A stack of cards, initially all 52 in suit-then-rank order, dealt from the top (the end of `cards`).
+struct Deck {
+    private(set) var cards: [Card] = []
 
     var count: Int { cards.count }
 
@@ -20,17 +21,24 @@ class Deck {
         }
     }
 
-    func shuffle() {
-        cards.shuffle()
+    /// Shuffles the deck with the system generator.
+    mutating func shuffle() {
+        var generator = SystemRandomNumberGenerator()
+        shuffle(using: &generator)
     }
 
-    func deal() -> Card? {
+    /// Shuffles the deck with `generator`; the same generator state always yields the same order.
+    mutating func shuffle<G: RandomNumberGenerator>(using generator: inout G) {
+        cards.shuffle(using: &generator)
+    }
+
+    mutating func deal() -> Card? {
         cards.popLast()
     }
 
     /// Deals `handCount` hands of `cardsPerHand` cards each, round-robin from the top of the deck.
     /// - Returns: The dealt hands, or `nil` (leaving the deck untouched) if the deck holds too few cards.
-    func deal(handCount: Int, cardsPerHand: Int) -> [[Card]]? {
+    mutating func deal(handCount: Int, cardsPerHand: Int) -> [[Card]]? {
         guard handCount > 0, cardsPerHand >= 0, count >= handCount * cardsPerHand else { return nil }
         var hands = Array(repeating: [Card](), count: handCount)
         for _ in 0..<cardsPerHand {

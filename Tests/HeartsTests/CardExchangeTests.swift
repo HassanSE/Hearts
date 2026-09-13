@@ -19,15 +19,12 @@ final class CardExchangeTests: XCTestCase {
         }
     }
 
-    /// Builds a game with the given seat types, then overwrites each hand with a full suit
-    /// so the cards each seat holds are known.
+    /// Builds a game with the given seat types, dealing each seat a full suit so the cards it holds are known.
     private func makeGame(types: [PlayerType]) -> Game {
         let players = types.enumerated().map { Player(name: "P\($0.offset)", type: $0.element) }
-        let game = Game(player1: players[0], player2: players[1], player3: players[2], player4: players[3])
-        for (index, hand) in suitHands().enumerated() {
-            game.players[index].hand = hand
-        }
-        return game
+        // Four distinct full suits are a valid deal by construction.
+        return try! Game(player1: players[0], player2: players[1], player3: players[2], player4: players[3],
+                         hands: suitHands())
     }
 
     private func cards(_ suit: Card.Suit, _ ranks: Card.Rank...) -> [Card] {

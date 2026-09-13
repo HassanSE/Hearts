@@ -138,6 +138,7 @@ func formatGameError(_ error: GameError) -> String {
     case .wrongPassCount(_, let count): return "Please enter exactly 3 numbers (got \(count))."
     case .duplicatePassCards: return "Cards must be distinct."
     case .passedCardNotInHand(_, let card): return "\(formatCard(card)) isn't in your hand."
+    case .invalidDeal: return "The deal must give each seat a hand with no card repeated."
     }
 }
 

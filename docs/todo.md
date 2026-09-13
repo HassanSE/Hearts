@@ -340,6 +340,8 @@ These items improve the project's depth and portfolio quality but are not requir
 
 **Verification:** With the same seed, two `Game` runs produce identical deal orders and `RandomAIStrategy` decisions.
 
+**Done:** `Game(…, using: SeededRandomNumberGenerator(seed:))` seeds the deal and every random-bot decision through one shared `RandomSource`; `Game(…, hands:)` supplies an explicit deal. See `DeterminismTests`.
+
 ---
 
 ### [x] 4.2 `Codable` conformance on all value types
