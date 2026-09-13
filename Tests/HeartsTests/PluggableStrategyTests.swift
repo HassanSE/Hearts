@@ -61,7 +61,7 @@ final class PluggableStrategyTests: XCTestCase {
         XCTAssertEqual(north.passCalls, 1, "one exchange decision for the hand")
         XCTAssertEqual(north.playCalls, 13, "the same instance answered every trick of the hand")
 
-        game.startNewHand()
+        try game.startNewHand()
         try game.playCompleteHand()
         XCTAssertEqual(north.passCalls, 2, "the instance survives into the next hand")
         XCTAssertEqual(north.playCalls, 26)
@@ -76,18 +76,18 @@ final class PluggableStrategyTests: XCTestCase {
                         using: SeededRandomNumberGenerator(seed: 3))
 
         try game.performExchange(selections: [.south: Array(game.hands[.south].prefix(3))])
-        try game.playBotTurnsUntilHumanTurn()
+        try game.advance()
 
-        XCTAssertEqual(game.currentSeat, .south, "engine still waits for the human")
+        XCTAssertEqual(game.phase, .awaitingPlay(.south), "engine still waits for the human")
         XCTAssertEqual(stray.playCalls + stray.passCalls, 0, "a human seat never consults a strategy")
     }
 
-    func test_playCompleteHand_whenHandAlreadyComplete_throwsHandComplete() throws {
+    func test_playCompleteHand_whenHandAlreadyComplete_throwsWrongPhase() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 5))
         try game.playCompleteHand()
 
         XCTAssertThrowsError(try game.playCompleteHand()) { error in
-            XCTAssertEqual(error as? GameError, .handComplete)
+            XCTAssertEqual(error as? GameError, .wrongPhase(game.phase))
         }
     }
 

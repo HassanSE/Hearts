@@ -21,7 +21,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertFalse(snap.heartsBroken)
         XCTAssertEqual(snap.currentSeat, game.currentSeat)
         XCTAssertEqual(snap.roundNumber, 0)
-        XCTAssertFalse(snap.hasExchanged)
+        XCTAssertEqual(snap.phase, .awaitingExchange)
     }
 
     func test_snapshot_reflects_state_after_exchange() throws {
@@ -29,7 +29,7 @@ final class SnapshotTests: XCTestCase {
         try game.performExchange()
         let snap = game.snapshot()
 
-        XCTAssertTrue(snap.hasExchanged)
+        XCTAssertEqual(snap.phase, .awaitingPlay(game.currentSeat))
     }
 
     func test_snapshot_reflects_hearts_broken() throws {
@@ -70,7 +70,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(game.completedTricks.count, 0)
         XCTAssertEqual(game.roundNumber, 0)
         XCTAssertFalse(game.heartsBroken)
-        XCTAssertFalse(game.snapshot().hasExchanged)
+        XCTAssertEqual(game.phase, .awaitingExchange)
     }
 
     func test_restore_allows_replaying_same_moves() throws {
@@ -182,7 +182,7 @@ final class SnapshotTests: XCTestCase {
 
         // Hands restored to pre-exchange state
         XCTAssertEqual(game.hands, handsBefore)
-        XCTAssertFalse(game.snapshot().hasExchanged)
+        XCTAssertEqual(game.phase, .awaitingExchange)
     }
 
     func test_undo_is_noop_when_history_empty() throws {
@@ -214,12 +214,11 @@ final class SnapshotTests: XCTestCase {
     func test_startNewHand_clears_undo_history() throws {
         let game = Game()
         try game.performExchange()
-        try! game.playCompleteTrick()
+        try! game.playCompleteHand()
 
         XCTAssertTrue(game.canUndo)
 
-        game.endHand()
-        game.startNewHand()
+        try game.startNewHand()
 
         XCTAssertFalse(game.canUndo)
     }

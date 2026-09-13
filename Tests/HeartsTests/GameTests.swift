@@ -187,6 +187,7 @@ final class GameTests: XCTestCase {
         let botPlayer4 = Player(name: "Bot4", type: .bot(difficulty: .medium))
 
         let game = Game(player1: botPlayer1, player2: botPlayer2, player3: botPlayer3, player4: botPlayer4)
+        try game.performExchange()
 
         // Play first card (2 of clubs)
         let firstCard = try XCTUnwrap(game.selectCardForBotPlay(seat: game.currentSeat))
@@ -300,7 +301,6 @@ final class GamePlayCardErrorSurfaceTests: XCTestCase {
     /// if any throw is not a `GameError`.
     func test_playCard_anyInvalidAttempt_throwsOnlyGameError() throws {
         let game = Game()
-        game.startNewHand()
         try game.performExchange()
 
         var invalidAttempts = 0
@@ -329,7 +329,7 @@ final class GamePlayCardErrorSurfaceTests: XCTestCase {
 
         XCTAssertGreaterThan(invalidAttempts, 0)
         XCTAssertThrowsError(try game.playCard(Card(suit: .clubs, rank: .two), by: game.currentSeat)) { error in
-            XCTAssertEqual(error as? GameError, .handComplete)
+            XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingSettlement))
         }
     }
 }
@@ -354,6 +354,7 @@ final class GameEndHandTests: XCTestCase {
             [Card(suit: .clubs, rank: .five), Card(suit: .clubs, rank: .six)],
             [Card(suit: .hearts, rank: .seven), Card(suit: .hearts, rank: .eight)]
         ], configuration: configuration)
+        game.phase = .awaitingPlay(.south)
         try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
         try game.playCard(Card(suit: .clubs, rank: .three), by: .west)
         try game.playCard(Card(suit: .clubs, rank: .five), by: .north)
@@ -369,7 +370,7 @@ final class GameEndHandTests: XCTestCase {
         let game = try makeTwoTrickGame()
         game.totalScores[.north] = 40
 
-        let result = game.endHand()
+        let result = try game.endHand()
 
         XCTAssertEqual(result.roundScores, [1, 0, 1, 0])
         XCTAssertEqual(result.totalScores, [1, 0, 41, 0])
@@ -383,7 +384,7 @@ final class GameEndHandTests: XCTestCase {
         let spy = Spy()
         game.delegate = spy
 
-        let result = game.endHand()
+        let result = try game.endHand()
 
         XCTAssertEqual(spy.results, [result])
     }
@@ -391,7 +392,7 @@ final class GameEndHandTests: XCTestCase {
     func test_endHand_usesConfiguredScoring() throws {
         let game = try makeTwoTrickGame(configuration: .withJackBonus)
 
-        XCTAssertEqual(game.endHand(), game.scoring.settleHand(
+        XCTAssertEqual(try game.endHand(), game.scoring.settleHand(
             capturedCards: [
                 [Card(suit: .clubs, rank: .six), Card(suit: .hearts, rank: .eight),
                  Card(suit: .clubs, rank: .ace), Card(suit: .clubs, rank: .four)],

@@ -120,7 +120,9 @@ final class DeterminismTests: XCTestCase {
                             player4: fourPlayers[3], hands: hands, using: SeededRandomNumberGenerator(seed: 3))
         let reference = Game(using: SeededRandomNumberGenerator(seed: 3))
 
-        game.startNewHand()
+        // A one-card deal can never be played out; put the fixture straight into the settled state.
+        game.phase = .handComplete(game.scoring.settleHand(capturedCards: SeatMap(repeating: []), totalScores: game.totalScores))
+        try game.startNewHand()
 
         XCTAssertEqual(game.hands.mapValues(\.count), [13, 13, 13, 13])
         XCTAssertEqual(game.hands, reference.hands,

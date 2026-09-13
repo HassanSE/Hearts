@@ -56,6 +56,8 @@ extension HumanPlayerTests {
             [Card(suit: .clubs, rank: .eight), Card(suit: .clubs, rank: .nine)],
             [Card(suit: .clubs, rank: .jack), Card(suit: .clubs, rank: .queen)]
         ])
+        // Two-card hands cannot be exchanged; the fixture starts in play.
+        game.phase = .awaitingPlay(.south)
 
         return game
     }
@@ -80,58 +82,55 @@ final class HumanPlayerTests: XCTestCase {
         XCTAssertFalse(game.hands[.south].contains(card), "Card should be removed from hand after playing")
     }
 
-    func test_humanPlayer_playBotTurnsUntilHumanTurn_stopsAtHumanTurn() throws {
+    func test_humanPlayer_advance_stopsAtHumanTurn() throws {
         let game = makeHumanBotGame()
-        // Human (index 0) holds 2♣ and it's their turn — method should return immediately
+        // Human (south) holds 2♣ and it's their turn — advance should return immediately
         XCTAssertTrue(game.currentPlayer.type.isHuman)
 
-        try game.playBotTurnsUntilHumanTurn()
+        try game.advance()
 
-        // Should still be human's turn (no bots to advance before the human)
-        XCTAssertTrue(game.currentPlayer.type.isHuman)
+        XCTAssertEqual(game.phase, .awaitingPlay(.south))
         XCTAssertEqual(game.currentTrick.plays.count, 0, "No plays should have been made")
     }
 
-    func test_humanPlayer_playBotTurnsUntilHumanTurn_advancesBotsBeforeHuman() throws {
+    func test_humanPlayer_advance_playsBotsUntilTheHumanMustActAgain() throws {
         let game = makeHumanBotGame()
 
         // Human plays first (2♣ — required to open)
         try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
-
-        // Now it's Bot1's turn — advance bots until human turn comes back
         XCTAssertTrue(game.currentPlayer.type.isBot)
-        try game.playBotTurnsUntilHumanTurn()
 
-        // After all 3 bots play, the trick completes (4 cards total) and
-        // the winner leads next — since all clubs are played the winner leads
-        // and it will be a bot or the hand is complete with 1 trick.
-        // Either the hand completed or it's back to a bot / human.
-        // The key assertion: no crash and the trick had all 4 plays.
-        XCTAssertTrue(game.completedTricks.count >= 1 || game.currentTrick.plays.count > 0)
+        try game.advance()
+
+        // The three bots finish the trick; east wins it (J♣/Q♣ beat 2♣) and leads the second
+        // trick, so the human is next to act.
+        XCTAssertEqual(game.completedTricks.count, 1)
+        XCTAssertEqual(game.phase, .awaitingPlay(.south))
+        XCTAssertEqual(game.currentTrick.plays.map(\.seat), [.east])
     }
 
-    func test_humanPlayer_playBotTurnsUntilHumanTurn_completesIfNoHuman() throws {
-        let game = makeMinimalBotGame()
-        // All bots — the method should complete the entire hand
+    func test_humanPlayer_advance_completesTheHandIfNoHuman() throws {
+        let game = Game(configuration: GameConfiguration(winningScore: 1))
         XCTAssertTrue(game.currentPlayer.type.isBot)
 
-        try game.playBotTurnsUntilHumanTurn()
+        try game.advance()
 
-        // All 13 tricks should be completed, hand is over
+        // All 13 tricks are played and settled; a 1-point game is decided by the first hand or a tie-break.
         XCTAssertEqual(game.completedTricks.count, 13)
         XCTAssertTrue(game.isHandComplete)
+        guard case .gameOver = game.phase else { return XCTFail("expected gameOver, got \(game.phase)") }
     }
 
-    func test_humanPlayer_playBotTurnsUntilHumanTurn_isNoopWhenHandComplete() throws {
-        let game = makeMinimalBotGame()
-        try game.playCompleteHand()
+    func test_humanPlayer_advance_isNoopWhenGameOver() throws {
+        let game = Game(configuration: GameConfiguration(winningScore: 1))
+        try game.advance()
 
         XCTAssertTrue(game.isHandComplete)
         let completedCount = game.completedTricks.count
         let trickPlaysCount = game.currentTrick.plays.count
 
         // Should be a no-op — no crash, no state mutation
-        XCTAssertNoThrow(try game.playBotTurnsUntilHumanTurn())
+        XCTAssertNoThrow(try game.advance())
 
         XCTAssertEqual(game.completedTricks.count, completedCount, "No new tricks should be added after hand is complete")
         XCTAssertEqual(game.currentTrick.plays.count, trickPlaysCount, "Current trick should not change")
@@ -143,6 +142,7 @@ final class HumanPlayerTests: XCTestCase {
         let game = makeMinimalBotGame()
         let delegate = MockDelegate()
         game.delegate = delegate
+        try game.performExchange()
 
         let bot = game.currentSeat
         try game.playCard(Card(suit: .clubs, rank: .two), by: bot)
@@ -157,7 +157,7 @@ final class HumanPlayerTests: XCTestCase {
         let delegate = MockDelegate()
         game.delegate = delegate
 
-        try game.playBotTurnsUntilHumanTurn()
+        try game.playCompleteHand()
 
         // All-bot game: 4 players × 13 cards = 52 plays
         XCTAssertEqual(delegate.didPlayCardCalls.count, 52)
@@ -170,7 +170,7 @@ final class HumanPlayerTests: XCTestCase {
         let delegate = MockDelegate()
         game.delegate = delegate
 
-        try game.playBotTurnsUntilHumanTurn()
+        try game.playCompleteHand()
 
         // All-bot game: 13 tricks
         XCTAssertEqual(delegate.didCompleteTrickCalls.count, 13)
@@ -186,7 +186,7 @@ final class HumanPlayerTests: XCTestCase {
         let delegate = MockDelegate()
         game.delegate = delegate
 
-        try game.playBotTurnsUntilHumanTurn()
+        try game.playCompleteHand()
 
         // Each delegate call's winner should match the corresponding stored trick winner
         for (index, call) in delegate.didCompleteTrickCalls.enumerated() {
@@ -213,6 +213,7 @@ final class HumanPlayerTests: XCTestCase {
         game.currentTrick = Trick()
         game.completedTricks = []
         game.heartsBroken = false
+        game.phase = .awaitingPlay(.south)
 
         let delegate = MockDelegate()
         game.delegate = delegate
@@ -255,6 +256,7 @@ final class HumanPlayerTests: XCTestCase {
         try! priorTrick.play(Card(suit: .clubs, rank: .five), by: .east)
         game.completedTricks = [priorTrick]
         game.heartsBroken = true
+        game.phase = .awaitingPlay(.south)
 
         let delegate = MockDelegate()
         game.delegate = delegate
@@ -272,9 +274,7 @@ final class HumanPlayerTests: XCTestCase {
         let delegate = MockDelegate()
         game.delegate = delegate
 
-        // Play the one trick
-        try game.playBotTurnsUntilHumanTurn()
-        game.endHand()
+        try game.playCompleteHand()
 
         XCTAssertEqual(delegate.didEndHandCalls.count, 1)
     }
@@ -284,8 +284,7 @@ final class HumanPlayerTests: XCTestCase {
         let delegate = MockDelegate()
         game.delegate = delegate
 
-        try game.playBotTurnsUntilHumanTurn()
-        game.endHand()
+        try game.playCompleteHand()
 
         let result = delegate.didEndHandCalls[0]
         // One round score and one total per seat, matching the game's totals
@@ -298,15 +297,14 @@ final class HumanPlayerTests: XCTestCase {
         let delegate = MockDelegate()
         game.delegate = delegate
 
-        try game.playBotTurnsUntilHumanTurn()
-        game.endHand()
+        try game.playCompleteHand()
 
         XCTAssertNil(delegate.didEndHandCalls[0].moonShooter)
     }
 
     // MARK: - Delegate: didEndGame
 
-    func test_delegate_didEndGame_isCalledWhenGameOver() {
+    func test_delegate_didEndGame_isCalledWhenGameOver() throws {
         let game = Game()
         let delegate = MockDelegate()
         game.delegate = delegate
@@ -330,10 +328,12 @@ final class HumanPlayerTests: XCTestCase {
             try! trick.play(Card(suit: .clubs, rank: .five), by: .east)
             game.completedTricks.append(trick)
         }
+        game.phase = .awaitingSettlement
 
-        game.endHand()
+        try game.endHand()
 
         XCTAssertTrue(game.isGameOver)
+        XCTAssertEqual(game.phase, .gameOver(winner: .south))
         XCTAssertEqual(delegate.didEndGameCalls.count, 1)
         XCTAssertEqual(delegate.didEndGameCalls[0], game.gameWinner)
     }
@@ -344,8 +344,7 @@ final class HumanPlayerTests: XCTestCase {
         game.delegate = delegate
 
         // All scores are 0, game is not over
-        try! game.playBotTurnsUntilHumanTurn()
-        game.endHand()
+        try! game.playCompleteHand()
 
         XCTAssertFalse(game.isGameOver)
         XCTAssertEqual(delegate.didEndGameCalls.count, 0)
@@ -355,6 +354,7 @@ final class HumanPlayerTests: XCTestCase {
 
     func test_performExchange_humanCards_usesSpecifiedCards() throws {
         let game = makeHumanBotGame()
+        game.phase = .awaitingExchange
         // Give the human a 13-card hand so exchange precondition is satisfied
         game.hands[.south] = [
             Card(suit: .clubs, rank: .two),
@@ -425,7 +425,7 @@ final class HumanPlayerTests: XCTestCase {
 
         // Second call must throw and leave hands untouched
         XCTAssertThrowsError(try game.performExchange()) { error in
-            XCTAssertEqual(error as? GameError, .exchangeAlreadyPerformed)
+            XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingPlay(game.currentSeat)))
         }
 
         XCTAssertEqual(game.hands, handsAfterFirst, "Failed second exchange must not change hands")
@@ -436,10 +436,10 @@ final class HumanPlayerTests: XCTestCase {
     func test_performExchange_allowedAfterStartNewHand() throws {
         let game = Game()  // all bots
 
-        try game.performExchange()
+        try game.playCompleteHand()
 
-        // Start a new hand — exchange flag resets
-        game.startNewHand()
+        // Start a new hand — it opens with a fresh exchange
+        try game.startNewHand()
         let handsAfterNewHand = game.hands
 
         // Exchange again should work (hands change from fresh deal)

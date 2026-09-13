@@ -21,7 +21,8 @@ public struct GameSnapshot: Codable {
     public let heartsBroken: Bool
     public let currentSeat: Seat
     public let configuration: GameConfiguration
-    public let hasExchanged: Bool
+    /// Which mutator the game accepts next; see `GamePhase`.
+    public let phase: GamePhase
 
     public init(
         players: SeatMap<Player>,
@@ -34,7 +35,7 @@ public struct GameSnapshot: Codable {
         heartsBroken: Bool,
         currentSeat: Seat,
         configuration: GameConfiguration,
-        hasExchanged: Bool
+        phase: GamePhase
     ) {
         self.players = players
         self.hands = hands
@@ -46,7 +47,7 @@ public struct GameSnapshot: Codable {
         self.heartsBroken = heartsBroken
         self.currentSeat = currentSeat
         self.configuration = configuration
-        self.hasExchanged = hasExchanged
+        self.phase = phase
     }
 }
 
@@ -57,15 +58,16 @@ public enum GameError: Error, Equatable {
     case mustFollowSuit(required: Card.Suit)
     case cannotPlayPointsOnFirstTrick
     case heartsNotBroken
-    case handComplete
+    /// A mutator was called in a phase that does not accept it; carries the phase the game was in.
+    /// See `GamePhase` for which mutator each phase admits.
+    case wrongPhase(GamePhase)
+    /// A bot-only driver (`playCompleteHand`, `playCompleteGame`) reached a decision that `seat`,
+    /// a human, must make. Use `advance()` to stop at human decisions instead.
+    case humanInputRequired(seat: Seat)
     /// A trick winner was requested before the trick had received all four cards.
     case trickIncomplete
     /// A card was played into a trick that already holds all four cards.
     case trickAlreadyComplete
-    /// `performExchange` was called a second time in the same hand.
-    case exchangeAlreadyPerformed
-    /// `performExchange` was called after a card had already been played this hand.
-    case exchangeNotAllowedAfterPlay
     /// A human seat was given no exchange selection.
     case missingPassSelection(seat: Seat)
     /// A seat's exchange selection did not contain exactly three cards.
@@ -108,9 +110,9 @@ public class Game {
     /// Use it to value a trick or explain a `HandResult` without driving the engine.
     public let scoring: Scoring
 
-    /// Tracks whether the card exchange has been performed for the current hand.
-    /// Prevents double-exchange and lets the UI drive timing for human players.
-    private var hasExchanged = false
+    /// Where the game is in its lifecycle: the single source of truth for which mutator is accepted next.
+    /// Every change is reported through `GameEngineDelegate.game(_:didTransitionTo:)`.
+    public internal(set) var phase: GamePhase = .awaitingExchange
 
     /// Undo history: each entry is a snapshot taken before a state-mutating action.
     private var history: [GameSnapshot] = []
@@ -165,8 +167,12 @@ public class Game {
         players.filter { $0.value.type.isBot }.map(\.seat)
     }
 
+    /// Whether every card of the current hand has been played (settled or not).
     public var isHandComplete: Bool {
-        completedTricks.count == 13
+        switch phase {
+        case .awaitingSettlement, .handComplete, .gameOver: return true
+        case .awaitingExchange, .awaitingPlay: return false
+        }
     }
 
     /// Whether some seat has reached `winningScore`.
@@ -185,10 +191,10 @@ public class Game {
     }
 
     /// Returns the cards in `seat`'s hand that are legal to play right now.
-    /// Returns an empty array if it isn't `seat`'s turn or the hand is complete.
+    /// Returns an empty array unless the phase is `.awaitingPlay(seat)`.
     /// - Parameter seat: The seat asking.
     public func legalMoves(for seat: Seat) -> [Card] {
-        guard seat == currentSeat, !isHandComplete else { return [] }
+        guard phase == .awaitingPlay(seat) else { return [] }
         return playRules(for: seat).legalMoves()
     }
 
@@ -227,11 +233,12 @@ public class Game {
             heartsBroken: heartsBroken,
             currentSeat: currentSeat,
             configuration: configuration,
-            hasExchanged: hasExchanged
+            phase: phase
         )
     }
 
-    /// Restores game state from a snapshot and clears the undo history.
+    /// Restores game state (including `phase`) from a snapshot and clears the undo history.
+    /// The delegate receives `game(_:didTransitionTo:)` for the restored phase.
     /// - Note: `players` and `configuration` are not restored (they are immutable on `Game`).
     public func restore(from snapshot: GameSnapshot) {
         applySnapshot(snapshot)
@@ -241,8 +248,8 @@ public class Game {
     /// Whether there is a prior state available to undo to.
     public var canUndo: Bool { !history.isEmpty }
 
-    /// Reverts to the state before the last `playCard` or `performExchange` call.
-    /// No-op if history is empty.
+    /// Reverts to the state before the last `playCard`, `performExchange` or `endHand` call.
+    /// No-op if history is empty. The delegate receives `game(_:didTransitionTo:)` for the restored phase.
     public func undo() {
         guard !history.isEmpty else { return }
         applySnapshot(history.removeLast())
@@ -257,7 +264,13 @@ public class Game {
         completedTricks = snapshot.completedTricks
         heartsBroken = snapshot.heartsBroken
         currentSeat = snapshot.currentSeat
-        hasExchanged = snapshot.hasExchanged
+        transition(to: snapshot.phase)
+    }
+
+    /// The only place `phase` changes: records the new phase and notifies the delegate.
+    private func transition(to newPhase: GamePhase) {
+        phase = newPhase
+        delegate?.game(self, didTransitionTo: newPhase)
     }
 
     /// Creates a game and deals the first hand.
@@ -376,15 +389,11 @@ public class Game {
     ///
     /// - Parameter selections: Three distinct cards to pass, keyed by seat.
     ///   Entries for bot seats override the bot's own choice.
-    /// - Throws: `GameError.exchangeAlreadyPerformed` if called twice in one hand;
-    ///   `.exchangeNotAllowedAfterPlay` if any card has been played this hand;
+    /// - Throws: `GameError.wrongPhase` unless `phase` is `.awaitingExchange`;
     ///   `.missingPassSelection` for a human seat with no entry;
     ///   `.wrongPassCount`, `.duplicatePassCards`, or `.passedCardNotInHand` for a bad selection.
     public func performExchange(selections: [Seat: [Card]] = [:]) throws {
-        guard !hasExchanged else { throw GameError.exchangeAlreadyPerformed }
-        guard currentTrick.plays.isEmpty && completedTricks.isEmpty else {
-            throw GameError.exchangeNotAllowedAfterPlay
-        }
+        guard phase == .awaitingExchange else { throw GameError.wrongPhase(phase) }
 
         // Validate and compute before touching any state so a failed exchange is a no-op.
         var newHands = hands
@@ -399,10 +408,10 @@ public class Game {
 
         history.append(snapshot())
         hands = newHands
-        hasExchanged = true
 
         // Re-identify who holds 2♣ — exchange may have moved it to a different seat
         seatLeader()
+        transition(to: .awaitingPlay(currentSeat))
     }
 
     // MARK: - Trick-Taking Gameplay
@@ -412,18 +421,16 @@ public class Game {
     ///   - card: The card to play
     ///   - seat: The seat playing the card
     /// - Throws: `GameError` if the play is invalid:
-    ///   `.notPlayersTurn`, `.handComplete`, `.cardNotInHand`, `.mustLeadWithTwoOfClubs`,
-    ///   `.cannotPlayPointsOnFirstTrick`, `.heartsNotBroken`, `.mustFollowSuit(required:)`.
-    ///   This is the only error type this method throws.
+    ///   `.wrongPhase` unless `phase` is `.awaitingPlay`, `.notPlayersTurn`, `.cardNotInHand`,
+    ///   `.mustLeadWithTwoOfClubs`, `.cannotPlayPointsOnFirstTrick`, `.heartsNotBroken`,
+    ///   `.mustFollowSuit(required:)`. This is the only error type this method throws.
     public func playCard(_ card: Card, by seat: Seat) throws {
-        // 1. Validate it's this seat's turn
-        guard seat == currentSeat else {
-            throw GameError.notPlayersTurn
+        // 1. Validate the game is waiting for a card from this seat
+        guard case .awaitingPlay(let seatToPlay) = phase else {
+            throw GameError.wrongPhase(phase)
         }
-
-        // 2. Validate hand is not complete
-        guard !isHandComplete else {
-            throw GameError.handComplete
+        guard seat == seatToPlay else {
+            throw GameError.notPlayersTurn
         }
 
         // 3. Let the rules oracle check card-in-hand and the four play rules
@@ -447,12 +454,16 @@ public class Game {
             delegate?.game(self, didBreakHearts: card, by: seat)
         }
 
-        // 7. Check if trick is complete
+        // 7. Resolve the trick or pass the turn, then report where the game now stands
         if currentTrick.isComplete {
             completeTrick()
         } else {
-            // Advance to next seat
             advanceTurn()
+        }
+        if hands.values.allSatisfy(\.isEmpty) {
+            transition(to: .awaitingSettlement)
+        } else {
+            transition(to: .awaitingPlay(currentSeat))
         }
     }
 
@@ -500,13 +511,17 @@ public class Game {
     /// always agrees with the points reported per trick. The same result is delivered to
     /// `GameEngineDelegate.game(_:didEndHand:)`, followed by `game(_:didEndGame:)` if a winner emerged.
     ///
-    /// - Precondition (by contract, not enforced until phases exist): all 13 tricks have been played.
-    ///   Calling it earlier scores whatever tricks are complete.
+    /// Moves to `.gameOver(winner:)` if a seat has reached the winning score with a unique lowest total,
+    /// otherwise to `.handComplete(result)` — including when the game is tied and another hand is needed.
+    ///
+    /// - Throws: `GameError.wrongPhase` unless `phase` is `.awaitingSettlement`.
     /// - Returns: Per-seat round scores (after any moon-shot adjustment), the new totals, and the moon shooter.
     @discardableResult
-    public func endHand() -> HandResult {
+    public func endHand() throws -> HandResult {
+        guard phase == .awaitingSettlement else { throw GameError.wrongPhase(phase) }
         let result = scoring.settleHand(capturedCards: capturedCards(), totalScores: totalScores)
 
+        history.append(snapshot())
         totalScores = result.totalScores
         roundScores = SeatMap(repeating: 0)
         roundNumber += 1
@@ -514,6 +529,9 @@ public class Game {
         delegate?.game(self, didEndHand: result)
         if let winner = gameWinner {
             delegate?.game(self, didEndGame: winner)
+            transition(to: .gameOver(winner: winner))
+        } else {
+            transition(to: .handComplete(result))
         }
         return result
     }
@@ -559,111 +577,114 @@ public class Game {
         )
     }
 
-    /// Advances bot plays in the current trick until it's a human seat's turn or the trick completes.
+    // MARK: - Game Orchestration
+
+    /// Performs every step that needs no human input and stops when one does, or when the game is over.
     ///
-    /// Safe to call in mixed human/bot games. Stops when:
-    /// - The current seat is human (waits for UI input via `playCard(_:by:)`)
-    /// - The current trick completes naturally
-    /// - The hand is already complete
-    public func playBotTurnsUntilHumanTurn() throws {
-        while !currentTrick.isComplete && !isHandComplete {
-            let seat = currentSeat
-            guard let card = selectCardForBotPlay(seat: seat) else { return }
-            try playCard(card, by: seat)
+    /// Bot seats exchange and play, complete hands are settled, and the next hand is dealt, until:
+    /// - `phase` is `.awaitingExchange` and a human seat must choose cards (never when
+    ///   `exchangeDirection` is `.none`: that exchange is performed automatically);
+    /// - `phase` is `.awaitingPlay(seat)` and `seat` is human;
+    /// - `phase` is `.gameOver`.
+    ///
+    /// An all-bot game therefore runs to completion in one call. A UI loop is just:
+    /// ```swift
+    /// while true {
+    ///     try game.advance()
+    ///     switch game.phase {
+    ///     case .awaitingExchange: try game.performExchange(selections: [seat: askForThree()])
+    ///     case .awaitingPlay(let seat): try game.playCard(askForCard(), by: seat)
+    ///     case .gameOver: return
+    ///     default: continue
+    ///     }
+    /// }
+    /// ```
+    /// - Throws: `GameError` only if a bot strategy produces an illegal play.
+    public func advance() throws {
+        _ = try step(until: { _ in false })
+    }
+
+    /// Runs the current hand to settlement: exchange (if pending), every trick, and `endHand()`.
+    /// - Throws: `GameError.wrongPhase` unless the hand is in progress (`.awaitingExchange`,
+    ///   `.awaitingPlay` or `.awaitingSettlement`); `.humanInputRequired` if a human seat must act.
+    public func playCompleteHand() throws {
+        switch phase {
+        case .awaitingExchange, .awaitingPlay, .awaitingSettlement: break
+        case .handComplete, .gameOver: throw GameError.wrongPhase(phase)
+        }
+        if let seat = try step(until: { $0.isHandSettled }) {
+            throw GameError.humanInputRequired(seat: seat)
         }
     }
 
-    // MARK: - Game Orchestration
+    /// Plays hands until the game is decided, starting from whatever phase the game is in.
+    /// Returns immediately if the game is already over.
+    /// - Throws: `GameError.humanInputRequired` if a human seat must act.
+    /// - Returns: The winning seat.
+    @discardableResult
+    public func playCompleteGame() throws -> Seat {
+        if let seat = try step(until: { _ in false }) {
+            throw GameError.humanInputRequired(seat: seat)
+        }
+        guard case .gameOver(let winner) = phase else { throw GameError.wrongPhase(phase) }
+        return winner
+    }
 
-    /// Play one complete trick with all 4 seats (auto-plays bot cards)
-    /// - Throws: `GameError.handComplete` if all 13 tricks have been played;
-    ///   `.notPlayersTurn` if a human seat's turn is encountered
+    /// Plays bot turns until the current trick is complete.
+    /// - Throws: `GameError.wrongPhase` unless `phase` is `.awaitingPlay`;
+    ///   `.humanInputRequired` if a human seat's turn is reached.
     /// - Returns: The seat that won the trick
     @discardableResult
     func playCompleteTrick() throws -> Seat {
-        guard !isHandComplete else { throw GameError.handComplete }
-
+        guard case .awaitingPlay = phase else { throw GameError.wrongPhase(phase) }
         let initialCompletedCount = completedTricks.count
-
-        // Play until the trick completes (a partial trick needs fewer than four plays)
-        while completedTricks.count == initialCompletedCount {
-            let seat = currentSeat
-
-            // A human seat can't be auto-played
-            guard let card = selectCardForBotPlay(seat: seat) else {
-                throw GameError.notPlayersTurn  // Reusing error for "need human input"
-            }
-
-            try playCard(card, by: seat)
+        if let seat = try step(until: { _ in self.completedTricks.count > initialCompletedCount }) {
+            throw GameError.humanInputRequired(seat: seat)
         }
-
-        // Return the winner of the just-completed trick
-        guard initialCompletedCount < completedTricks.count,
-              let winner = completedTricks[initialCompletedCount].winner else {
+        guard let winner = completedTricks[initialCompletedCount].winner else {
             throw GameError.trickIncomplete
         }
         return winner
     }
 
-    /// Play a complete hand (card exchange + 13 tricks)
-    /// - Throws: `GameError.handComplete` if the hand is already complete;
-    ///   `.notPlayersTurn` if a human seat is encountered
-    public func playCompleteHand() throws {
-        guard !isHandComplete else { throw GameError.handComplete }
-
-        // Exchange for bots unless the caller already did it this hand
-        if !hasExchanged {
-            try performExchange()
-        }
-
-        // Play all 13 tricks
-        while !isHandComplete {
-            try playCompleteTrick()
-        }
-
-        // End the hand and calculate scores
-        endHand()
-    }
-
-    /// Play a complete game (multiple hands until someone reaches winning score)
-    /// - Throws: GameError if a human seat is encountered
-    /// - Returns: The winning seat
-    @discardableResult
-    public func playCompleteGame() throws -> Seat {
-        if let winner = gameWinner { return winner }
-        while true {
-            // Check if we need to start a new hand
-            if isHandComplete {
-                startNewHand()
+    /// The single stepper behind every driver: performs bot-only steps until `shouldStop(phase)`
+    /// holds, the game is over, or a human must act.
+    /// - Returns: The human seat whose input is needed, or `nil` if it stopped for another reason.
+    private func step(until shouldStop: (GamePhase) -> Bool) throws -> Seat? {
+        while !shouldStop(phase) {
+            switch phase {
+            case .awaitingExchange:
+                if exchangeDirection != .none, let human = humanSeats.first { return human }
+                try performExchange()
+            case .awaitingPlay(let seat):
+                guard let card = selectCardForBotPlay(seat: seat) else { return seat }
+                try playCard(card, by: seat)
+            case .awaitingSettlement:
+                try endHand()
+            case .handComplete:
+                try startNewHand()
+            case .gameOver:
+                return nil
             }
-
-            // Play the hand; a tie keeps the loop going
-            try playCompleteHand()
-            if let winner = gameWinner { return winner }
         }
+        return nil
     }
 
     // MARK: - Game Setup
 
-    /// Start a new hand by dealing cards and performing exchange
-    public func startNewHand() {
-        // Clear all hands first
-        hands = SeatMap(repeating: [])
+    /// Deals the next hand and moves to `.awaitingExchange`. Clears the undo history.
+    /// - Throws: `GameError.wrongPhase` unless `phase` is `.handComplete`.
+    public func startNewHand() throws {
+        guard case .handComplete = phase else { throw GameError.wrongPhase(phase) }
 
-        // Deal new cards
         deal()
 
-        // Reset exchange flag so performExchange() can run for the new hand.
-        // For all-bot games playCompleteHand() calls it automatically.
-        // For human games the UI calls performExchange(selections:) after showing the hand.
-        hasExchanged = false
-
-        // Reset game state
         currentTrick = Trick()
         completedTricks = []
         heartsBroken = false
         history = []
 
         seatLeader()
+        transition(to: .awaitingExchange)
     }
 }

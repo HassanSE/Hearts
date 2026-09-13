@@ -66,6 +66,7 @@ final class SeatIdentityTests: XCTestCase {
 
     func test_game_hands_areLiveAndKeyedBySeat() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
+        try game.performExchange()
         let leader = game.currentSeat
         let card = Card(suit: .clubs, rank: .two)
         XCTAssertTrue(game.hands[leader].contains(card))
@@ -92,8 +93,9 @@ final class SeatIdentityTests: XCTestCase {
         XCTAssertEqual(Game().humanSeats, [])
     }
 
-    func test_playCard_byWrongSeat_throwsNotPlayersTurn() {
+    func test_playCard_byWrongSeat_throwsNotPlayersTurn() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
+        try game.performExchange()
         let wrongSeat = game.currentSeat.next
         XCTAssertThrowsError(try game.playCard(game.hands[wrongSeat][0], by: wrongSeat)) { error in
             XCTAssertEqual(error as? GameError, .notPlayersTurn)

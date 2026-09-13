@@ -11,6 +11,10 @@
 /// All methods have default no-op implementations — conformers only need to
 /// implement the events they care about.
 public protocol GameEngineDelegate: AnyObject {
+    /// Called whenever `Game.phase` changes, after the event that caused it (for example
+    /// `didCompleteTrick` or `didEndHand`). Also fires on `undo()` and `restore(from:)`.
+    func game(_ game: Game, didTransitionTo phase: GamePhase)
+
     /// Called after each card is played.
     func game(_ game: Game, didPlayCard card: Card, by seat: Seat)
 
@@ -29,6 +33,7 @@ public protocol GameEngineDelegate: AnyObject {
 }
 
 public extension GameEngineDelegate {
+    func game(_ game: Game, didTransitionTo phase: GamePhase) {}
     func game(_ game: Game, didPlayCard card: Card, by seat: Seat) {}
     func game(_ game: Game, didCompleteTrick trick: Trick, winner: Seat, points: Int) {}
     func game(_ game: Game, didBreakHearts card: Card, by seat: Seat) {}

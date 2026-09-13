@@ -117,24 +117,24 @@ final class CardExchangeTests: XCTestCase {
 
     // MARK: - Phase guards
 
-    func test_performExchange_calledTwice_throwsExchangeAlreadyPerformed() throws {
+    func test_performExchange_calledTwice_throwsWrongPhase() throws {
         let game = makeGame(types: [.human, .bot(difficulty: .easy), .bot(difficulty: .easy), .bot(difficulty: .easy)])
         try game.performExchange(selections: [.south: cards(.clubs, .ace, .king, .queen)])
         let handsAfterFirst = game.hands
 
         XCTAssertThrowsError(try game.performExchange(selections: [.south: cards(.clubs, .two, .three, .four)])) { error in
-            XCTAssertEqual(error as? GameError, .exchangeAlreadyPerformed)
+            XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingPlay(.south)))
         }
         XCTAssertEqual(game.hands, handsAfterFirst)
     }
 
-    func test_performExchange_afterCardPlayed_throwsExchangeNotAllowedAfterPlay() throws {
+    func test_performExchange_afterCardPlayed_throwsWrongPhase() throws {
         let game = makeGame(types: [.human, .bot(difficulty: .easy), .bot(difficulty: .easy), .bot(difficulty: .easy)])
-        game.currentSeat = .south
+        game.phase = .awaitingPlay(.south)
         try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
 
         XCTAssertThrowsError(try game.performExchange(selections: [.south: cards(.clubs, .ace, .king, .queen)])) { error in
-            XCTAssertEqual(error as? GameError, .exchangeNotAllowedAfterPlay)
+            XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingPlay(.west)))
         }
     }
 
@@ -150,8 +150,9 @@ final class CardExchangeTests: XCTestCase {
         try game.performExchange(selections: [.south: []])
 
         XCTAssertEqual(game.hands, handsBefore)
+        XCTAssertEqual(game.phase, .awaitingPlay(.south))
         XCTAssertThrowsError(try game.performExchange()) { error in
-            XCTAssertEqual(error as? GameError, .exchangeAlreadyPerformed)
+            XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingPlay(.south)))
         }
     }
 

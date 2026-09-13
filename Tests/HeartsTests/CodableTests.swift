@@ -169,7 +169,7 @@ final class CodableTests: XCTestCase {
             heartsBroken: true,
             currentSeat: .west,
             configuration: .withJackBonus,
-            hasExchanged: true
+            phase: .awaitingPlay(.west)
         )
 
         let data = try JSONEncoder().encode(snapshot)
@@ -184,7 +184,7 @@ final class CodableTests: XCTestCase {
         XCTAssertEqual(decoded.heartsBroken, true)
         XCTAssertEqual(decoded.currentSeat, .west)
         XCTAssertEqual(decoded.configuration.jackOfDiamondsBonus, true)
-        XCTAssertEqual(decoded.hasExchanged, true)
+        XCTAssertEqual(decoded.phase, .awaitingPlay(.west))
     }
 
     func test_gameSnapshot_with_completed_tricks_round_trips() throws {
@@ -205,7 +205,7 @@ final class CodableTests: XCTestCase {
             heartsBroken: false,
             currentSeat: .north,
             configuration: .standard,
-            hasExchanged: false
+            phase: .awaitingExchange
         )
 
         let data = try JSONEncoder().encode(snapshot)

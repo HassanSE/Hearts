@@ -14,6 +14,7 @@ final class OrchestrationTests: XCTestCase {
 
     func test_debug_game_setup() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
+        try game.performExchange()
 
         // Basic assertions
         XCTAssertEqual(game.players.values.count, 4)
@@ -36,8 +37,9 @@ final class OrchestrationTests: XCTestCase {
 
     // MARK: - playCompleteTrick Tests
 
-    func test_playCompleteTrick_completes_one_trick() {
+    func test_playCompleteTrick_completes_one_trick() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))  // All bots by default
+        try game.performExchange()
 
         let initialTrickCount = game.completedTricks.count
         let winner = try! game.playCompleteTrick()
@@ -52,8 +54,9 @@ final class OrchestrationTests: XCTestCase {
         XCTAssertEqual(game.currentSeat, winner)
     }
 
-    func test_playCompleteTrick_plays_all_4_seats() {
+    func test_playCompleteTrick_plays_all_4_seats() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
+        try game.performExchange()
 
         let completedTrick = game.completedTricks.count
         try! game.playCompleteTrick()
@@ -64,8 +67,9 @@ final class OrchestrationTests: XCTestCase {
         XCTAssertEqual(Set(trick.seats), Set(Seat.allCases))
     }
 
-    func test_playCompleteTrick_first_card_is_two_of_clubs() {
+    func test_playCompleteTrick_first_card_is_two_of_clubs() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
+        try game.performExchange()
 
         try! game.playCompleteTrick()
 
