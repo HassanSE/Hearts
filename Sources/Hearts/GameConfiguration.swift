@@ -31,7 +31,7 @@ public enum MoonShotVariant: Codable {
 /// let customConfig = GameConfiguration(jackOfDiamondsBonus: true, winningScore: 50)
 /// let game = Game(player1: p1, player2: p2, player3: p3, player4: p4, configuration: customConfig)
 /// ```
-public struct GameConfiguration: Codable {
+public struct GameConfiguration: Equatable, Codable {
     /// When true, the Jack of Diamonds reduces the trick winner's score by 10 points.
     ///
     /// This is a popular Hearts variant. When combined with shooting the moon:

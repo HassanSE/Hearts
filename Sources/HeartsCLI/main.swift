@@ -130,6 +130,8 @@ func formatGameError(_ error: GameError) -> String {
     case .duplicatePassCards: return "Cards must be distinct."
     case .passedCardNotInHand(_, let card): return "\(formatCard(card)) isn't in your hand."
     case .invalidDeal: return "The deal must give each seat a hand with no card repeated."
+    case .snapshotFromDifferentGame: return "That saved game belongs to a different table or rule set."
+    case .inconsistentSnapshot: return "That saved game is corrupt and can't be loaded."
     }
 }
 

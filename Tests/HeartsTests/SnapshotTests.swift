@@ -62,7 +62,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(game.roundNumber, 1)
 
         // Restore
-        game.restore(from: snap)
+        try game.restore(from: snap)
 
         // All state matches original
         XCTAssertEqual(game.hands, handsBefore)
@@ -87,7 +87,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertFalse(game.hands[firstSeat].contains(firstCard))
 
         // Restore to before-exchange snapshot
-        game.restore(from: snap)
+        try game.restore(from: snap)
 
         // Exchange again — same direction
         try game.performExchange()
@@ -107,7 +107,7 @@ final class SnapshotTests: XCTestCase {
 
         // Explicit restore should wipe history
         let snap = game.snapshot()
-        game.restore(from: snap)
+        try game.restore(from: snap)
 
         XCTAssertFalse(game.canUndo)
     }
@@ -211,7 +211,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertFalse(game.canUndo)
     }
 
-    func test_startNewHand_clears_undo_history() throws {
+    func test_startNewHand_keeps_undo_history() throws {
         let game = Game()
         try game.performExchange()
         try! game.playCompleteHand()
@@ -220,6 +220,6 @@ final class SnapshotTests: XCTestCase {
 
         try game.startNewHand()
 
-        XCTAssertFalse(game.canUndo)
+        XCTAssertTrue(game.canUndo, "the deal is undoable; see HistoryTests for the rewind itself")
     }
 }

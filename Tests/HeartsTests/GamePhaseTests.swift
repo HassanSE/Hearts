@@ -362,7 +362,7 @@ final class GamePhaseTests: XCTestCase {
         game.undo()
         XCTAssertEqual(spy.phases, [.awaitingPlay(game.currentSeat)])
 
-        game.restore(from: snap)
+        try game.restore(from: snap)
         XCTAssertEqual(spy.phases.last, snap.phase)
         XCTAssertEqual(game.phase, snap.phase)
     }
@@ -377,7 +377,7 @@ final class GamePhaseTests: XCTestCase {
         try game.startNewHand()
         XCTAssertEqual(game.phase, .awaitingExchange)
 
-        game.restore(from: snap)
+        try game.restore(from: snap)
         XCTAssertEqual(game.phase, snap.phase)
         XCTAssertTrue(game.isHandComplete)
     }

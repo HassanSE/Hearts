@@ -30,6 +30,11 @@ public protocol GameEngineDelegate: AnyObject {
 
     /// Called when the game ends, providing the winning seat.
     func game(_ game: Game, didEndGame winner: Seat)
+
+    /// Called after `undo()` or `restore(from:)` has replaced the game's state wholesale, before the
+    /// accompanying `didTransitionTo`. Unlike forward events, nothing incremental can be inferred:
+    /// rebuild any view from `game`. Not called when `restore(from:)` rejects a snapshot.
+    func game(_ game: Game, didRestoreTo phase: GamePhase)
 }
 
 public extension GameEngineDelegate {
@@ -39,4 +44,5 @@ public extension GameEngineDelegate {
     func game(_ game: Game, didBreakHearts card: Card, by seat: Seat) {}
     func game(_ game: Game, didEndHand result: HandResult) {}
     func game(_ game: Game, didEndGame winner: Seat) {}
+    func game(_ game: Game, didRestoreTo phase: GamePhase) {}
 }

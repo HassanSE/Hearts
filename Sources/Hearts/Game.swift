@@ -7,50 +7,6 @@
 
 import Foundation
 
-/// A serializable snapshot of all game state, suitable for persistence or undo support.
-///
-/// Per-seat state (hands and scores) is stored once, keyed by seat; tricks reference seats only.
-public struct GameSnapshot: Codable {
-    public let players: SeatMap<Player>
-    public let hands: SeatMap<[Card]>
-    public let roundScores: SeatMap<Int>
-    public let totalScores: SeatMap<Int>
-    public let roundNumber: Int
-    public let currentTrick: Trick
-    public let completedTricks: [Trick]
-    public let heartsBroken: Bool
-    public let currentSeat: Seat
-    public let configuration: GameConfiguration
-    /// Which mutator the game accepts next; see `GamePhase`.
-    public let phase: GamePhase
-
-    public init(
-        players: SeatMap<Player>,
-        hands: SeatMap<[Card]>,
-        roundScores: SeatMap<Int>,
-        totalScores: SeatMap<Int>,
-        roundNumber: Int,
-        currentTrick: Trick,
-        completedTricks: [Trick],
-        heartsBroken: Bool,
-        currentSeat: Seat,
-        configuration: GameConfiguration,
-        phase: GamePhase
-    ) {
-        self.players = players
-        self.hands = hands
-        self.roundScores = roundScores
-        self.totalScores = totalScores
-        self.roundNumber = roundNumber
-        self.currentTrick = currentTrick
-        self.completedTricks = completedTricks
-        self.heartsBroken = heartsBroken
-        self.currentSeat = currentSeat
-        self.configuration = configuration
-        self.phase = phase
-    }
-}
-
 public enum GameError: Error, Equatable {
     case notPlayersTurn
     case cardNotInHand
@@ -78,6 +34,11 @@ public enum GameError: Error, Equatable {
     case passedCardNotInHand(seat: Seat, card: Card)
     /// A fixed deal did not supply one hand per player, or listed the same card twice.
     case invalidDeal
+    /// `restore(from:)` was given a snapshot whose players or configuration differ from this game's.
+    case snapshotFromDifferentGame
+    /// `restore(from:)` was given a snapshot that no game could have produced: its cards are not a
+    /// permutation of a full deck, or its phase disagrees with its cards and scores.
+    case inconsistentSnapshot
 }
 
 public class Game {
@@ -238,9 +199,19 @@ public class Game {
     }
 
     /// Restores game state (including `phase`) from a snapshot and clears the undo history.
-    /// The delegate receives `game(_:didTransitionTo:)` for the restored phase.
-    /// - Note: `players` and `configuration` are not restored (they are immutable on `Game`).
-    public func restore(from snapshot: GameSnapshot) {
+    /// The delegate receives `game(_:didRestoreTo:)` then `game(_:didTransitionTo:)` for the restored phase.
+    ///
+    /// The snapshot is validated first, and on failure nothing changes — not even the undo history.
+    /// Validation requires a full 52-card deck, so snapshots of a game created from a partial fixed
+    /// deal (`init(player1:player2:player3:player4:hands:...)`) cannot be restored.
+    /// - Throws: `GameError.snapshotFromDifferentGame` if the snapshot's players or configuration
+    ///   are not this game's; `.inconsistentSnapshot` if its cards and phase do not describe a state
+    ///   the engine could have reached.
+    public func restore(from snapshot: GameSnapshot) throws {
+        guard snapshot.players == players, snapshot.configuration == configuration else {
+            throw GameError.snapshotFromDifferentGame
+        }
+        try snapshot.checkConsistency(scoring: scoring)
         applySnapshot(snapshot)
         history = []
     }
@@ -248,8 +219,9 @@ public class Game {
     /// Whether there is a prior state available to undo to.
     public var canUndo: Bool { !history.isEmpty }
 
-    /// Reverts to the state before the last `playCard`, `performExchange` or `endHand` call.
-    /// No-op if history is empty. The delegate receives `game(_:didTransitionTo:)` for the restored phase.
+    /// Reverts to the state before the last `performExchange`, `playCard`, `endHand` or `startNewHand`
+    /// call, across hand boundaries. No-op if history is empty. The delegate receives
+    /// `game(_:didRestoreTo:)` then `game(_:didTransitionTo:)` for the restored phase.
     public func undo() {
         guard !history.isEmpty else { return }
         applySnapshot(history.removeLast())
@@ -264,6 +236,7 @@ public class Game {
         completedTricks = snapshot.completedTricks
         heartsBroken = snapshot.heartsBroken
         currentSeat = snapshot.currentSeat
+        delegate?.game(self, didRestoreTo: snapshot.phase)
         transition(to: snapshot.phase)
     }
 
@@ -672,17 +645,20 @@ public class Game {
 
     // MARK: - Game Setup
 
-    /// Deals the next hand and moves to `.awaitingExchange`. Clears the undo history.
+    /// Deals the next hand and moves to `.awaitingExchange`.
+    ///
+    /// Undoable like every other mutator: `undo()` returns to `.handComplete` with the settled
+    /// hand's tricks. Redoing the deal draws fresh cards, since the random source is not rewound.
     /// - Throws: `GameError.wrongPhase` unless `phase` is `.handComplete`.
     public func startNewHand() throws {
         guard case .handComplete = phase else { throw GameError.wrongPhase(phase) }
 
+        history.append(snapshot())
         deal()
 
         currentTrick = Trick()
         completedTricks = []
         heartsBroken = false
-        history = []
 
         seatLeader()
         transition(to: .awaitingExchange)

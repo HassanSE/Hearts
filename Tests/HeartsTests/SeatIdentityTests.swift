@@ -177,7 +177,7 @@ final class SeatIdentityTests: XCTestCase {
         let before = game.snapshot()
         try game.playCompleteTrick()
 
-        game.restore(from: before)
+        try game.restore(from: before)
 
         XCTAssertEqual(game.hands, before.hands)
         XCTAssertEqual(game.roundScores, before.roundScores)
