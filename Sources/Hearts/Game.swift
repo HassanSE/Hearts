@@ -119,6 +119,10 @@ public class Game {
     /// Not part of snapshots: undoing a play does not rewind the generator.
     private var randomSource: RandomSource
 
+    /// One strategy per bot seat, held for the life of the game so a strategy can remember what it
+    /// has seen. Human seats have no entry.
+    private let strategies: [Seat: AIStrategy]
+
     /// Delegate to receive game event notifications.
     public weak var delegate: GameEngineDelegate?
 
@@ -129,13 +133,15 @@ public class Game {
     /// Creates an all-bot game of four medium-difficulty players.
     /// - Parameters:
     ///   - configuration: Rule variants and the winning score.
+    ///   - strategies: Custom strategies for bot seats; see `init(player1:player2:player3:player4:configuration:strategies:using:)`.
     ///   - generator: Source of randomness for every deal and every random-strategy decision in this
     ///     game. Pass a `SeededRandomNumberGenerator` for a reproducible game.
     public convenience init(configuration: GameConfiguration = .standard,
+                            strategies: [Seat: AIStrategy] = [:],
                             using generator: some RandomNumberGenerator = SystemRandomNumberGenerator()) {
         let players = Player.makeBotPlayers()
         self.init(player1: players[0], player2: players[1], player3: players[2], player4: players[3],
-                  configuration: configuration, using: generator)
+                  configuration: configuration, strategies: strategies, using: generator)
     }
 
     /// The seat holding 2♣ — the one that leads the first trick of the hand — or `nil` once it has been played.
@@ -258,6 +264,8 @@ public class Game {
     /// - Parameters:
     ///   - player1: The profile for `Seat.south`; `player2`…`player4` take west, north and east.
     ///   - configuration: Rule variants and the winning score.
+    ///   - strategies: Strategies to use instead of the one implied by a bot seat's `BotDifficulty`.
+    ///     Entries for human seats are ignored. Each instance is kept for the life of the game.
     ///   - generator: Source of randomness for every deal and every random-strategy decision in this
     ///     game. Pass a `SeededRandomNumberGenerator` for a reproducible game.
     public init(player1: Player,
@@ -265,6 +273,7 @@ public class Game {
          player3: Player,
          player4: Player,
          configuration: GameConfiguration = .standard,
+         strategies: [Seat: AIStrategy] = [:],
          using generator: some RandomNumberGenerator = SystemRandomNumberGenerator()) {
         self.configuration = configuration
         self.scoring = Scoring(configuration: configuration)
@@ -272,7 +281,9 @@ public class Game {
         self.hands = SeatMap(repeating: [])
         self.roundScores = SeatMap(repeating: 0)
         self.totalScores = SeatMap(repeating: 0)
-        self.randomSource = RandomSource(generator)
+        let randomSource = RandomSource(generator)
+        self.randomSource = randomSource
+        self.strategies = Game.seatStrategies(players: players, overrides: strategies, randomSource: randomSource)
         deal()
 
         seatLeader()
@@ -287,6 +298,8 @@ public class Game {
     /// - Parameters:
     ///   - hands: One hand per seat, in seat order (`hands[0]` goes to `player1` at south).
     ///   - configuration: Rule variants and the winning score.
+    ///   - strategies: Strategies to use instead of the one implied by a bot seat's `BotDifficulty`.
+    ///     Entries for human seats are ignored. Each instance is kept for the life of the game.
     ///   - generator: Source of randomness for later deals and random-strategy decisions.
     /// - Throws: `GameError.invalidDeal` if `hands.count` is not four or a card appears twice.
     public init(player1: Player,
@@ -295,6 +308,7 @@ public class Game {
                 player4: Player,
                 hands: [[Card]],
                 configuration: GameConfiguration = .standard,
+                strategies: [Seat: AIStrategy] = [:],
                 using generator: some RandomNumberGenerator = SystemRandomNumberGenerator()) throws {
         let sortedCards = hands.flatMap { $0 }.sorted()
         let hasDuplicate = zip(sortedCards, sortedCards.dropFirst()).contains { $0 == $1 }
@@ -307,8 +321,21 @@ public class Game {
         self.hands = SeatMap { hands[$0.rawValue] }
         self.roundScores = SeatMap(repeating: 0)
         self.totalScores = SeatMap(repeating: 0)
-        self.randomSource = RandomSource(generator)
+        let randomSource = RandomSource(generator)
+        self.randomSource = randomSource
+        self.strategies = Game.seatStrategies(players: players, overrides: strategies, randomSource: randomSource)
         seatLeader()
+    }
+
+    /// One strategy per bot seat: the caller's override if given, else the difficulty's built-in.
+    private static func seatStrategies(players: SeatMap<Player>, overrides: [Seat: AIStrategy],
+                                       randomSource: RandomSource) -> [Seat: AIStrategy] {
+        var strategies: [Seat: AIStrategy] = [:]
+        for (seat, player) in players {
+            guard let difficulty = player.type.botDifficulty else { continue }
+            strategies[seat] = overrides[seat] ?? difficulty.makeStrategy(randomSource: randomSource)
+        }
+        return strategies
     }
 
     private static func seatPlayers(_ player1: Player, _ player2: Player, _ player3: Player, _ player4: Player) -> SeatMap<Player> {
@@ -364,7 +391,7 @@ public class Game {
         if exchangeDirection != .none {
             var allSelections = selections
             for seat in botSeats where allSelections[seat] == nil {
-                let passed = selectCardsForBotExchange(seat: seat)
+                guard let passed = selectCardsForBotExchange(seat: seat) else { continue }
                 allSelections[seat] = [passed.first, passed.second, passed.third]
             }
             newHands = try CardExchange.apply(hands: newHands, selections: allSelections, direction: exchangeDirection)
@@ -505,36 +532,31 @@ public class Game {
 
     /// Select cards for a bot seat to pass during card exchange
     /// - Parameter seat: The bot seat
-    /// - Returns: Three cards selected by the bot's AI strategy
-    /// - Precondition: The seat must be a bot
-    func selectCardsForBotExchange(seat: Seat) -> PassedCards {
-        let strategy = botStrategy(for: seat)
-        return strategy.selectCardsToPass(from: hands[seat], direction: exchangeDirection)
+    /// - Returns: Three cards selected by the seat's strategy, or `nil` for a human seat
+    func selectCardsForBotExchange(seat: Seat) -> PassedCards? {
+        strategies[seat]?.selectCardsToPass(from: hands[seat], direction: exchangeDirection)
     }
 
     /// Select a card for a bot seat to play
     /// - Parameter seat: The bot seat
-    /// - Returns: A legal card selected by the bot's AI strategy
-    /// - Precondition: The seat must be a bot
-    func selectCardForBotPlay(seat: Seat) -> Card {
-        let strategy = botStrategy(for: seat)
-        let context = TrickContext(
+    /// - Returns: A legal card selected by the seat's strategy, or `nil` for a human seat
+    func selectCardForBotPlay(seat: Seat) -> Card? {
+        strategies[seat]?.selectCardToPlay(context: trickContext(for: seat))
+    }
+
+    /// The decision context for `seat`, built from the live game state.
+    private func trickContext(for seat: Seat) -> TrickContext {
+        TrickContext(
+            seat: seat,
             hand: hands[seat],
             currentTrick: currentTrick,
             heartsBroken: heartsBroken,
             isFirstTrick: completedTricks.isEmpty,
-            completedTricks: completedTricks
+            completedTricks: completedTricks,
+            roundScores: roundScores,
+            totalScores: totalScores,
+            roundNumber: roundNumber
         )
-
-        return strategy.selectCardToPlay(context: context)
-    }
-
-    /// The strategy for a bot seat. Ticket 13 will hold one instance per seat and drop the precondition.
-    private func botStrategy(for seat: Seat) -> AIStrategy {
-        guard let difficulty = players[seat].type.botDifficulty else {
-            preconditionFailure("Seat \(seat) must be a bot to use AI selection")
-        }
-        return difficulty.makeStrategy(randomSource: randomSource)
     }
 
     /// Advances bot plays in the current trick until it's a human seat's turn or the trick completes.
@@ -546,8 +568,7 @@ public class Game {
     public func playBotTurnsUntilHumanTurn() throws {
         while !currentTrick.isComplete && !isHandComplete {
             let seat = currentSeat
-            guard players[seat].type.isBot else { return }
-            let card = selectCardForBotPlay(seat: seat)
+            guard let card = selectCardForBotPlay(seat: seat) else { return }
             try playCard(card, by: seat)
         }
     }
@@ -555,28 +576,24 @@ public class Game {
     // MARK: - Game Orchestration
 
     /// Play one complete trick with all 4 seats (auto-plays bot cards)
-    /// - Throws: GameError if a human seat's turn is encountered
+    /// - Throws: `GameError.handComplete` if all 13 tricks have been played;
+    ///   `.notPlayersTurn` if a human seat's turn is encountered
     /// - Returns: The seat that won the trick
     @discardableResult
     func playCompleteTrick() throws -> Seat {
-        precondition(!currentTrick.isComplete, "Cannot play trick - current trick is already complete")
-        precondition(!isHandComplete, "Cannot play trick - hand is complete")
+        guard !isHandComplete else { throw GameError.handComplete }
 
         let initialCompletedCount = completedTricks.count
 
-        // Play 4 cards to complete the trick
-        for _ in 0..<4 {
+        // Play until the trick completes (a partial trick needs fewer than four plays)
+        while completedTricks.count == initialCompletedCount {
             let seat = currentSeat
 
-            // If human seat, we can't auto-play
-            if players[seat].type.isHuman {
+            // A human seat can't be auto-played
+            guard let card = selectCardForBotPlay(seat: seat) else {
                 throw GameError.notPlayersTurn  // Reusing error for "need human input"
             }
 
-            // Select card using AI
-            let card = selectCardForBotPlay(seat: seat)
-
-            // Play the card
             try playCard(card, by: seat)
         }
 
@@ -589,9 +606,10 @@ public class Game {
     }
 
     /// Play a complete hand (card exchange + 13 tricks)
-    /// - Throws: GameError if a human seat is encountered
+    /// - Throws: `GameError.handComplete` if the hand is already complete;
+    ///   `.notPlayersTurn` if a human seat is encountered
     public func playCompleteHand() throws {
-        precondition(!isHandComplete, "Hand is already complete")
+        guard !isHandComplete else { throw GameError.handComplete }
 
         // Exchange for bots unless the caller already did it this hand
         if !hasExchanged {
@@ -612,20 +630,17 @@ public class Game {
     /// - Returns: The winning seat
     @discardableResult
     public func playCompleteGame() throws -> Seat {
-        while !isGameOver || isGameTied {
+        if let winner = gameWinner { return winner }
+        while true {
             // Check if we need to start a new hand
             if isHandComplete {
                 startNewHand()
             }
 
-            // Play the hand
+            // Play the hand; a tie keeps the loop going
             try playCompleteHand()
+            if let winner = gameWinner { return winner }
         }
-
-        guard let winner = gameWinner else {
-            preconditionFailure("Game is over and not tied, but gameWinner is nil")
-        }
-        return winner
     }
 
     // MARK: - Game Setup

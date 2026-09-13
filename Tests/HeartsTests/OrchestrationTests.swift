@@ -12,7 +12,7 @@ final class OrchestrationTests: XCTestCase {
 
     // MARK: - Debug Tests
 
-    func test_debug_game_setup() {
+    func test_debug_game_setup() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         // Basic assertions
@@ -20,13 +20,13 @@ final class OrchestrationTests: XCTestCase {
         XCTAssertFalse(game.hands[game.currentSeat].isEmpty, "Current seat should have cards")
 
         // Try to select a card for bot
-        let card = game.selectCardForBotPlay(seat: game.currentSeat)
+        let card = try XCTUnwrap(game.selectCardForBotPlay(seat: game.currentSeat))
         XCTAssertTrue(game.hands[game.currentSeat].contains(card), "Selected card should be in hand")
 
         // Try to play a complete trick manually
         for _ in 0..<4 {
             let seat = game.currentSeat
-            let selectedCard = game.selectCardForBotPlay(seat: seat)
+            let selectedCard = try XCTUnwrap(game.selectCardForBotPlay(seat: seat))
             try! game.playCard(selectedCard, by: seat)
         }
 

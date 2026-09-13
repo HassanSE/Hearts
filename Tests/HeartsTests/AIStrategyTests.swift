@@ -538,13 +538,13 @@ final class AIStrategyTests: XCTestCase {
 
     // MARK: - 2.1 Direction Parameter Tests
 
-    func test_selectCardsForBotExchange_passesExchangeDirection() {
+    func test_selectCardsForBotExchange_passesExchangeDirection() throws {
         let game = Game()  // roundNumber=0 → .left
         let hand = game.hands[.south]
 
         // We can verify the direction is forwarded by checking the game's exchangeDirection
         // and confirming selectCardsForBotExchange does not crash and returns 3 valid cards.
-        let cards = game.selectCardsForBotExchange(seat: .south)
+        let cards = try XCTUnwrap(game.selectCardsForBotExchange(seat: .south))
         XCTAssertTrue(hand.contains(cards.first))
         XCTAssertTrue(hand.contains(cards.second))
         XCTAssertTrue(hand.contains(cards.third))
@@ -718,6 +718,79 @@ final class AIStrategyTests: XCTestCase {
         let selected = strategy.selectCardToPlay(context: context)
 
         XCTAssertEqual(selected, Card(suit: .hearts, rank: .king), "Should play highest heart in moon-shot following mode")
+    }
+
+    func test_advancedAIStrategy_abandonsMoonShot_onceAnotherSeatHasTakenAPoint() throws {
+        let strategy = AdvancedAIStrategy()
+        // Earlier this hand, west won a trick containing a heart: the moon is now impossible for south.
+        var spoiled = Trick()
+        try spoiled.play(Card(suit: .clubs, rank: .four), by: .south)
+        try spoiled.play(Card(suit: .clubs, rank: .ace), by: .west)
+        try spoiled.play(Card(suit: .hearts, rank: .two), by: .north)
+        try spoiled.play(Card(suit: .clubs, rank: .five), by: .east)
+        XCTAssertEqual(spoiled.winner, .west)
+
+        // South still holds a textbook moon hand: 8 hearts + Q♠, plus a low club to lead safely.
+        let hand: [Card] = [
+            Card(suit: .hearts, rank: .ace),
+            Card(suit: .hearts, rank: .king),
+            Card(suit: .hearts, rank: .queen),
+            Card(suit: .hearts, rank: .jack),
+            Card(suit: .hearts, rank: .ten),
+            Card(suit: .hearts, rank: .nine),
+            Card(suit: .hearts, rank: .eight),
+            Card(suit: .hearts, rank: .seven),
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .clubs, rank: .three),
+        ]
+        let context = TrickContext(
+            seat: .south,
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: true,
+            isFirstTrick: false,
+            completedTricks: [spoiled]
+        )
+
+        let selected = strategy.selectCardToPlay(context: context)
+
+        XCTAssertNotEqual(selected, Card(suit: .hearts, rank: .ace),
+            "Once another seat holds a point the moon is off; stop leading high hearts")
+        XCTAssertLessThan(selected.rank, .ace, "Normal-mode lead never opens with the top heart")
+    }
+
+    func test_advancedAIStrategy_keepsMoonShot_whenOnlyItHasTakenPoints() throws {
+        let strategy = AdvancedAIStrategy()
+        // South itself captured the only points so far: the moon is still on.
+        var mine = Trick()
+        try mine.play(Card(suit: .clubs, rank: .ace), by: .south)
+        try mine.play(Card(suit: .clubs, rank: .four), by: .west)
+        try mine.play(Card(suit: .hearts, rank: .two), by: .north)
+        try mine.play(Card(suit: .clubs, rank: .five), by: .east)
+        XCTAssertEqual(mine.winner, .south)
+
+        let hand: [Card] = [
+            Card(suit: .hearts, rank: .ace),
+            Card(suit: .hearts, rank: .king),
+            Card(suit: .hearts, rank: .queen),
+            Card(suit: .hearts, rank: .jack),
+            Card(suit: .hearts, rank: .ten),
+            Card(suit: .hearts, rank: .nine),
+            Card(suit: .hearts, rank: .eight),
+            Card(suit: .hearts, rank: .seven),
+            Card(suit: .spades, rank: .queen),
+            Card(suit: .clubs, rank: .three),
+        ]
+        let context = TrickContext(
+            seat: .south,
+            hand: hand,
+            currentTrick: Trick(),
+            heartsBroken: true,
+            isFirstTrick: false,
+            completedTricks: [mine]
+        )
+
+        XCTAssertEqual(strategy.selectCardToPlay(context: context), Card(suit: .hearts, rank: .ace))
     }
 
     func test_advancedAIStrategy_doesNotAttemptMoonShot_withTooFewHearts() {
@@ -910,6 +983,38 @@ final class AIStrategyTests: XCTestCase {
         let card = AdvancedAIStrategy().selectCardToPlay(context: context)
         XCTAssertTrue(aiHand.contains(card),
             "AI must return a card from hand even when all suits have known voids")
+    }
+
+    func test_advancedAI_ignoresOwnOffSuitPlay_whenInferringVoids() throws {
+        // Only the deciding seat (west) played off-suit when clubs was led. That says nothing about
+        // the opponents, so clubs must still be considered a safe lead.
+        var pastTrick = Trick()
+        try pastTrick.play(Card(suit: .clubs, rank: .five), by: .south)
+        try pastTrick.play(Card(suit: .diamonds, rank: .king), by: .west)  // we discarded, not an opponent
+        try pastTrick.play(Card(suit: .clubs, rank: .three), by: .north)
+        try pastTrick.play(Card(suit: .clubs, rank: .ace), by: .east)
+
+        // Clubs is our longest suit; the normal lead is its middle card (8♣).
+        let aiHand: [Card] = [
+            Card(suit: .clubs, rank: .six),
+            Card(suit: .clubs, rank: .eight),
+            Card(suit: .clubs, rank: .ten),
+            Card(suit: .diamonds, rank: .four),
+            Card(suit: .spades, rank: .two),
+        ]
+
+        let context = TrickContext(
+            seat: .west,
+            hand: aiHand,
+            currentTrick: Trick(),
+            heartsBroken: false,
+            isFirstTrick: false,
+            completedTricks: [pastTrick]
+        )
+
+        let card = AdvancedAIStrategy().selectCardToPlay(context: context)
+        XCTAssertEqual(card, Card(suit: .clubs, rank: .eight),
+            "Our own off-suit play must not mark clubs as an opponent void")
     }
 
     func test_advancedAI_does_not_avoid_suit_with_no_void_history() throws {

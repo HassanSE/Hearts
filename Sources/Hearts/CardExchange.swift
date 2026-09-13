@@ -39,7 +39,7 @@ public enum CardExchangeDirection: Codable {
 }
 
 /// Three cards chosen to pass, as returned by an AI strategy.
-typealias PassedCards = (first: Card, second: Card, third: Card)
+public typealias PassedCards = (first: Card, second: Card, third: Card)
 
 /// Number of cards each seat passes during an exchange.
 let cardsPerExchange = 3

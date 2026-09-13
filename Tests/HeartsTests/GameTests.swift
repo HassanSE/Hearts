@@ -147,11 +147,11 @@ final class GameTests: XCTestCase {
 
     // MARK: - AI Integration Tests
 
-    func test_selectCardsForBotExchange_returns_3_cards_from_hand() {
+    func test_selectCardsForBotExchange_returns_3_cards_from_hand() throws {
         let game = Game()  // All seats are bots in default init
         let hand = game.hands[.south]
 
-        let selectedCards = game.selectCardsForBotExchange(seat: .south)
+        let selectedCards = try XCTUnwrap(game.selectCardsForBotExchange(seat: .south))
 
         // Should return 3 cards from the bot's hand
         XCTAssertTrue(hand.contains(selectedCards.0))
@@ -164,11 +164,11 @@ final class GameTests: XCTestCase {
         XCTAssertNotEqual(selectedCards.1, selectedCards.2)
     }
 
-    func test_selectCardForBotPlay_returns_legal_card() {
+    func test_selectCardForBotPlay_returns_legal_card() throws {
         let game = Game()
         let seat = game.currentSeat
 
-        let selectedCard = game.selectCardForBotPlay(seat: seat)
+        let selectedCard = try XCTUnwrap(game.selectCardForBotPlay(seat: seat))
 
         // Should return a card from the bot's hand
         XCTAssertTrue(game.hands[seat].contains(selectedCard))
@@ -180,7 +180,7 @@ final class GameTests: XCTestCase {
         }
     }
 
-    func test_selectCardForBotPlay_respects_follow_suit_rule() {
+    func test_selectCardForBotPlay_respects_follow_suit_rule() throws {
         let botPlayer1 = Player(name: "Bot1", type: .bot(difficulty: .medium))
         let botPlayer2 = Player(name: "Bot2", type: .bot(difficulty: .medium))
         let botPlayer3 = Player(name: "Bot3", type: .bot(difficulty: .medium))
@@ -189,12 +189,12 @@ final class GameTests: XCTestCase {
         let game = Game(player1: botPlayer1, player2: botPlayer2, player3: botPlayer3, player4: botPlayer4)
 
         // Play first card (2 of clubs)
-        let firstCard = game.selectCardForBotPlay(seat: game.currentSeat)
+        let firstCard = try XCTUnwrap(game.selectCardForBotPlay(seat: game.currentSeat))
         try! game.playCard(firstCard, by: game.currentSeat)
 
         // Next seat must follow suit if possible
         let secondSeat = game.currentSeat
-        let secondCard = game.selectCardForBotPlay(seat: secondSeat)
+        let secondCard = try XCTUnwrap(game.selectCardForBotPlay(seat: secondSeat))
 
         // If the seat has clubs, it must play a club
         let hasClubs = game.hands[secondSeat].contains(where: { $0.suit == .clubs })

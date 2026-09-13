@@ -80,7 +80,7 @@ final class SnapshotTests: XCTestCase {
         // Record the first card that will be played
         try game.performExchange()
         let firstSeat = game.currentSeat
-        let firstCard = game.selectCardForBotPlay(seat: firstSeat)
+        let firstCard = try XCTUnwrap(game.selectCardForBotPlay(seat: firstSeat))
 
         // Play one card
         try! game.playCard(firstCard, by: firstSeat)
@@ -124,7 +124,7 @@ final class SnapshotTests: XCTestCase {
         try game.performExchange()
 
         let seat = game.currentSeat
-        let card = game.selectCardForBotPlay(seat: seat)
+        let card = try XCTUnwrap(game.selectCardForBotPlay(seat: seat))
         try! game.playCard(card, by: seat)
 
         XCTAssertTrue(game.canUndo)
@@ -136,7 +136,7 @@ final class SnapshotTests: XCTestCase {
 
         let handsBefore = game.hands
         let seat = game.currentSeat
-        let card = game.selectCardForBotPlay(seat: seat)
+        let card = try XCTUnwrap(game.selectCardForBotPlay(seat: seat))
 
         try! game.playCard(card, by: seat)
 
@@ -202,7 +202,7 @@ final class SnapshotTests: XCTestCase {
         try game.performExchange()
 
         let seat = game.currentSeat
-        let card = game.selectCardForBotPlay(seat: seat)
+        let card = try XCTUnwrap(game.selectCardForBotPlay(seat: seat))
         try! game.playCard(card, by: seat)
 
         // 2 history entries: one from exchange, one from playCard
