@@ -56,6 +56,8 @@ public enum GameError: Error, Equatable {
     case handComplete
     /// A trick winner was requested before the trick had received all four cards.
     case trickIncomplete
+    /// A card was played into a trick that already holds all four cards.
+    case trickAlreadyComplete
 }
 
 public class Game {
@@ -303,7 +305,10 @@ public class Game {
     /// - Parameters:
     ///   - card: The card to play
     ///   - player: The player playing the card
-    /// - Throws: GameError or TrickError if the play is invalid
+    /// - Throws: `GameError` if the play is invalid:
+    ///   `.notPlayersTurn`, `.handComplete`, `.cardNotInHand`, `.mustLeadWithTwoOfClubs`,
+    ///   `.cannotPlayPointsOnFirstTrick`, `.heartsNotBroken`, `.mustFollowSuit(required:)`.
+    ///   This is the only error type this method throws.
     public func playCard(_ card: Card, by player: Player) throws {
         // 1. Validate it's this player's turn
         guard player == currentPlayer else {

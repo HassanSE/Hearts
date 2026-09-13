@@ -7,11 +7,6 @@
 
 import Foundation
 
-enum TrickError: Error, Equatable {
-    case trickAlreadyComplete
-    case playerAlreadyPlayed
-}
-
 public struct Trick: Codable {
     /// A single card play within a trick, associating a player with the card they played.
     public struct Play: Codable {
@@ -66,14 +61,15 @@ public struct Trick: Codable {
     /// - Parameters:
     ///   - card: The card to play
     ///   - player: The player playing the card
-    /// - Throws: `TrickError.trickAlreadyComplete` or `TrickError.playerAlreadyPlayed`
+    /// - Throws: `GameError.trickAlreadyComplete` if the trick already holds four cards,
+    ///   or `GameError.notPlayersTurn` if this player has already played in it
     mutating func play(_ card: Card, by player: Player) throws {
         guard !isComplete else {
-            throw TrickError.trickAlreadyComplete
+            throw GameError.trickAlreadyComplete
         }
 
         guard !hasPlayed(player) else {
-            throw TrickError.playerAlreadyPlayed
+            throw GameError.notPlayersTurn
         }
 
         plays.append(Play(player: player, card: card))

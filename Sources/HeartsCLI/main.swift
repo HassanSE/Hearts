@@ -147,6 +147,7 @@ func formatGameError(_ error: GameError) -> String {
     case .heartsNotBroken: return "Hearts haven't been broken yet."
     case .handComplete: return "The hand is already complete."
     case .trickIncomplete: return "The trick isn't finished yet."
+    case .trickAlreadyComplete: return "The trick is already complete."
     }
 }
 
@@ -167,7 +168,7 @@ func printTrickState(_ trick: Trick) {
     }
 }
 
-func promptHumanPlay(game: Game) {
+func promptHumanPlay(game: Game) throws {
     printTrickState(game.currentTrick)
     let human = game.players[0]
     printNumberedHand(game.hand(for: human), label: "Your hand:")
@@ -189,9 +190,8 @@ func promptHumanPlay(game: Game) {
             try game.playCard(card, by: human)
             return
         } catch let error as GameError {
+            // playCard throws only GameError; anything else propagates to the caller.
             print("Invalid play: \(formatGameError(error))")
-        } catch {
-            print("Unexpected error: \(error)")
         }
     }
 }
@@ -202,7 +202,7 @@ func runOneTrick(game: Game) throws {
     try game.playBotTurnsUntilHumanTurn()
 
     if game.completedTricks.count == preCount && !game.isHandComplete {
-        promptHumanPlay(game: game)
+        try promptHumanPlay(game: game)
         try game.playBotTurnsUntilHumanTurn()
     }
 

@@ -218,7 +218,7 @@ final class TrickTests: XCTestCase {
     
     // Try to play 5th card
     XCTAssertThrowsError(try trick.play(cards[4], by: players[4])) { error in
-      XCTAssertEqual(error as? TrickError, TrickError.trickAlreadyComplete)
+      XCTAssertEqual(error as? GameError, GameError.trickAlreadyComplete)
     }
   }
 
@@ -232,7 +232,7 @@ final class TrickTests: XCTestCase {
 
     // Same player tries to play again
     XCTAssertThrowsError(try trick.play(card2, by: player)) { error in
-      XCTAssertEqual(error as? TrickError, TrickError.playerAlreadyPlayed)
+      XCTAssertEqual(error as? GameError, GameError.notPlayersTurn)
     }
   }
 

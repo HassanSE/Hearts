@@ -297,3 +297,47 @@ final class GameTrickPointsTests: XCTestCase {
         XCTAssertTrue(game.completedTricks.contains { $0.cards.contains(Card(suit: .diamonds, rank: .jack)) })
     }
 }
+
+// MARK: - Public error surface
+
+final class GamePlayCardErrorSurfaceTests: XCTestCase {
+    /// Every error that leaves `Game.playCard` must be a `GameError`, so library
+    /// consumers can catch it by name. Before each legal play in a full bot hand,
+    /// this attempts every card held by every player (including cards not in the
+    /// current player's hand, out-of-turn plays, and rule violations) and fails
+    /// if any throw is not a `GameError`.
+    func test_playCard_anyInvalidAttempt_throwsOnlyGameError() throws {
+        let game = Game()
+        game.startNewHand()
+        game.performExchange()
+
+        var invalidAttempts = 0
+        while !game.isHandComplete {
+            for player in game.players {
+                for card in game.hand(for: player) {
+                    let legal = game.legalMoves(for: player).contains(card)
+                    if legal { continue }
+                    do {
+                        try game.playCard(card, by: player)
+                        XCTFail("Illegal play \(card) by \(player.name) was accepted")
+                    } catch let error as GameError {
+                        invalidAttempts += 1
+                        _ = error
+                    } catch {
+                        XCTFail("Non-GameError escaped playCard: \(error)")
+                    }
+                }
+            }
+            let current = game.currentPlayer
+            guard let move = game.legalMoves(for: current).first else {
+                return XCTFail("No legal move for \(current.name)")
+            }
+            try game.playCard(move, by: current)
+        }
+
+        XCTAssertGreaterThan(invalidAttempts, 0)
+        XCTAssertThrowsError(try game.playCard(Card(suit: .clubs, rank: .two), by: game.currentPlayer)) { error in
+            XCTAssertEqual(error as? GameError, .handComplete)
+        }
+    }
+}
