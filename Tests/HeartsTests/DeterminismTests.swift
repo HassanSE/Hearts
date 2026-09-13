@@ -17,15 +17,15 @@ final class DeterminismTests: XCTestCase {
         let first = Game(using: SeededRandomNumberGenerator(seed: 42))
         let second = Game(using: SeededRandomNumberGenerator(seed: 42))
 
-        XCTAssertEqual(first.players.map(\.hand), second.players.map(\.hand))
-        XCTAssertEqual(first.currentPlayerIndex, second.currentPlayerIndex)
+        XCTAssertEqual(first.hands, second.hands)
+        XCTAssertEqual(first.currentSeat, second.currentSeat)
     }
 
     func test_init_withDifferentSeeds_dealsDifferentHands() {
         let first = Game(using: SeededRandomNumberGenerator(seed: 1))
         let second = Game(using: SeededRandomNumberGenerator(seed: 2))
 
-        XCTAssertNotEqual(first.players.map(\.hand), second.players.map(\.hand))
+        XCTAssertNotEqual(first.hands, second.hands)
     }
 
     // MARK: - Seeded full games
@@ -45,10 +45,10 @@ final class DeterminismTests: XCTestCase {
         let firstWinner = try first.playCompleteGame()
         let secondWinner = try second.playCompleteGame()
 
-        XCTAssertEqual(first.players.map(\.totalScore), second.players.map(\.totalScore))
+        XCTAssertEqual(first.totalScores, second.totalScores)
         XCTAssertEqual(first.roundNumber, second.roundNumber)
-        XCTAssertEqual(first.completedTricks.map(\.cards), second.completedTricks.map(\.cards))
-        XCTAssertEqual(first.players.firstIndex(of: firstWinner), second.players.firstIndex(of: secondWinner))
+        XCTAssertEqual(first.completedTricks, second.completedTricks)
+        XCTAssertEqual(firstWinner, secondWinner)
     }
 
     // MARK: - Random strategy
@@ -90,8 +90,8 @@ final class DeterminismTests: XCTestCase {
 
         let game = try makeFixedDealGame(hands: hands)
 
-        XCTAssertEqual(game.players.map(\.hand), hands)
-        XCTAssertEqual(game.currentPlayerIndex, 1)
+        XCTAssertEqual(game.hands.values, hands)
+        XCTAssertEqual(game.currentSeat, .west)
         XCTAssertTrue(game.completedTricks.isEmpty)
         XCTAssertFalse(game.heartsBroken)
     }
@@ -122,8 +122,8 @@ final class DeterminismTests: XCTestCase {
 
         game.startNewHand()
 
-        XCTAssertEqual(game.players.map(\.hand.count), [13, 13, 13, 13])
-        XCTAssertEqual(game.players.map(\.hand), reference.players.map(\.hand),
+        XCTAssertEqual(game.hands.mapValues(\.count), [13, 13, 13, 13])
+        XCTAssertEqual(game.hands, reference.hands,
                        "the fixed deal consumes no randomness, so the next deal matches a fresh seeded game")
     }
 }

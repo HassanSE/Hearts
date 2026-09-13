@@ -41,27 +41,25 @@ public struct Scoring {
     }
 }
 
-/// The outcome of settling one hand.
-///
-/// All arrays are indexed by seat (`0..<4`), matching `Game.players`.
+/// The outcome of settling one hand, keyed by seat.
 public struct HandResult: Equatable, Codable {
     /// Points each seat adds to its total for this hand, after any moon-shot adjustment.
-    public let roundScores: [Int]
+    public let roundScores: SeatMap<Int>
     /// Each seat's total after this hand's `roundScores` were applied.
-    public let totalScores: [Int]
+    public let totalScores: SeatMap<Int>
     /// The seat that shot the moon this hand, or `nil` if nobody did.
-    public let moonShooter: Int?
+    public let moonShooter: Seat?
 }
 
 extension Scoring {
     /// Settles a hand: values every seat's captured cards and adds them to the running totals.
     ///
     /// - Parameters:
-    ///   - capturedCards: The cards each seat won in tricks this hand, indexed by seat.
-    ///   - totalScores: Each seat's total before this hand, indexed by seat.
+    ///   - capturedCards: The cards each seat won in tricks this hand.
+    ///   - totalScores: Each seat's total before this hand.
     /// - Returns: The per-seat round scores, the new totals, and the moon shooter if any.
-    public func settleHand(capturedCards: [[Card]], totalScores: [Int]) -> HandResult {
-        var roundScores = capturedCards.map { cards in cards.reduce(0) { $0 + points(for: $1) } }
+    public func settleHand(capturedCards: SeatMap<[Card]>, totalScores: SeatMap<Int>) -> HandResult {
+        var roundScores = capturedCards.mapValues { cards in cards.reduce(0) { $0 + points(for: $1) } }
         let moonShooter = self.moonShooter(capturedCards: capturedCards)
 
         if let shooter = moonShooter {
@@ -69,7 +67,7 @@ extension Scoring {
             roundScores[shooter] -= Scoring.moonShotPoints
             switch configuration.moonShotVariant {
             case .addToOthers:
-                for seat in roundScores.indices where seat != shooter {
+                for seat in Seat.allCases where seat != shooter {
                     roundScores[seat] += Scoring.moonShotPoints
                 }
             case .subtractFromSelf:
@@ -79,19 +77,19 @@ extension Scoring {
 
         return HandResult(
             roundScores: roundScores,
-            totalScores: zip(totalScores, roundScores).map(+),
+            totalScores: SeatMap { totalScores[$0] + roundScores[$0] },
             moonShooter: moonShooter
         )
     }
 
     /// The seat that captured every heart and Q♠ this hand, or `nil` if nobody did.
-    /// - Parameter capturedCards: The cards each seat won in tricks this hand, indexed by seat.
-    /// - Returns: The moon shooter's seat index.
-    public func moonShooter(capturedCards: [[Card]]) -> Int? {
-        capturedCards.firstIndex { cards in
+    /// - Parameter capturedCards: The cards each seat won in tricks this hand.
+    /// - Returns: The moon shooter's seat.
+    public func moonShooter(capturedCards: SeatMap<[Card]>) -> Seat? {
+        capturedCards.first { _, cards in
             cards.filter { $0.suit == .hearts }.count == 13
                 && cards.contains(Card(suit: .spades, rank: .queen))
-        }
+        }?.seat
     }
 
     /// The combined value of all thirteen hearts and Q♠.
@@ -100,25 +98,25 @@ extension Scoring {
 
 extension Scoring {
     /// Whether the game has ended: some seat has reached `configuration.winningScore`.
-    /// - Parameter totalScores: Each seat's running total, indexed by seat.
-    public func isGameOver(totalScores: [Int]) -> Bool {
-        totalScores.contains { $0 >= configuration.winningScore }
+    /// - Parameter totalScores: Each seat's running total.
+    public func isGameOver(totalScores: SeatMap<Int>) -> Bool {
+        totalScores.values.contains { $0 >= configuration.winningScore }
     }
 
     /// Whether the game has ended with more than one seat sharing the lowest total,
     /// in which case there is no winner and another hand must be played.
-    /// - Parameter totalScores: Each seat's running total, indexed by seat.
-    public func isTied(totalScores: [Int]) -> Bool {
-        guard isGameOver(totalScores: totalScores), let lowest = totalScores.min() else { return false }
-        return totalScores.filter { $0 == lowest }.count > 1
+    /// - Parameter totalScores: Each seat's running total.
+    public func isTied(totalScores: SeatMap<Int>) -> Bool {
+        guard isGameOver(totalScores: totalScores), let lowest = totalScores.values.min() else { return false }
+        return totalScores.values.filter { $0 == lowest }.count > 1
     }
 
     /// The seat with the unique lowest total once the game is over.
-    /// - Parameter totalScores: Each seat's running total, indexed by seat.
+    /// - Parameter totalScores: Each seat's running total.
     /// - Returns: The winning seat, or `nil` if the game is not over or is tied.
-    public func winner(totalScores: [Int]) -> Int? {
+    public func winner(totalScores: SeatMap<Int>) -> Seat? {
         guard isGameOver(totalScores: totalScores), !isTied(totalScores: totalScores),
-              let lowest = totalScores.min() else { return nil }
-        return totalScores.firstIndex(of: lowest)
+              let lowest = totalScores.values.min() else { return nil }
+        return totalScores.first { $0.value == lowest }?.seat
     }
 }

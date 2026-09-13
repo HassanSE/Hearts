@@ -12,30 +12,10 @@ final class PlayerTests: XCTestCase {
 
     // MARK: - Initialization Tests
 
-    func test_init_player_has_default_scores() {
-        let player = Player(name: "Bilal")
-
-        XCTAssertEqual(player.roundScore, 0)
-        XCTAssertEqual(player.totalScore, 0)
-    }
-
-    func test_init_player_with_custom_scores() {
-        let player = Player(name: "Khubaib", roundScore: 13, totalScore: 26)
-
-        XCTAssertEqual(player.roundScore, 13)
-        XCTAssertEqual(player.totalScore, 26)
-    }
-
-    func test_init_player_has_empty_hand_by_default() {
-        let player = Player(name: "Charlie")
-
-        XCTAssertTrue(player.hand.isEmpty)
-        XCTAssertEqual(player.hand.count, 0)
-    }
-
     func test_init_player_defaults_to_human_type() {
         let player = Player(name: "Alice")
 
+        XCTAssertEqual(player.name, "Alice")
         XCTAssertTrue(player.type.isHuman)
         XCTAssertFalse(player.type.isBot)
     }
@@ -48,93 +28,34 @@ final class PlayerTests: XCTestCase {
         XCTAssertEqual(player.type.botDifficulty, .medium)
     }
 
-    // MARK: - Score Tracking Tests
+    // MARK: - Equatable / Hashable Tests
 
-    func test_roundScore_can_be_updated() {
-        var player = Player(name: "Kashif")
-
-        player.roundScore = 5
-        XCTAssertEqual(player.roundScore, 5)
-
-        player.roundScore += 8
-        XCTAssertEqual(player.roundScore, 13)
+    func test_players_with_same_profile_are_equal() {
+        XCTAssertEqual(Player(name: "Hannah"), Player(name: "Hannah"))
+        XCTAssertEqual(Player(name: "Bot", type: .bot(difficulty: .hard)), Player(name: "Bot", type: .bot(difficulty: .hard)))
     }
 
-    func test_totalScore_can_be_updated() {
-        var player = Player(name: "Tehreem")
-
-        player.totalScore = 26
-        XCTAssertEqual(player.totalScore, 26)
-
-        player.totalScore += 13
-        XCTAssertEqual(player.totalScore, 39)
+    func test_players_with_different_name_or_type_are_not_equal() {
+        XCTAssertNotEqual(Player(name: "Hannah"), Player(name: "George"))
+        XCTAssertNotEqual(Player(name: "Hannah"), Player(name: "Hannah", type: .bot(difficulty: .easy)))
     }
-
-    func test_roundScore_and_totalScore_are_independent() {
-        var player = Player(name: "Frank")
-
-        player.roundScore = 10
-        player.totalScore = 50
-
-        XCTAssertEqual(player.roundScore, 10)
-        XCTAssertEqual(player.totalScore, 50)
-
-        player.roundScore = 0
-        XCTAssertEqual(player.totalScore, 50, "Total score should not change when round score changes")
-    }
-
-    // MARK: - Equatable Tests
-
-    func test_players_with_same_id_are_equal() {
-        let player1 = Player(name: "George")
-        let player2 = player1
-
-        XCTAssertEqual(player1, player2)
-    }
-
-    func test_players_with_different_ids_are_not_equal() {
-        let player1 = Player(name: "Hannah")
-        let player2 = Player(name: "Hannah")
-
-        XCTAssertNotEqual(player1, player2)
-    }
-
-    // MARK: - Hashable Tests
 
     func test_player_can_be_added_to_set() {
-        let player1 = Player(name: "Ian")
-        let player2 = Player(name: "Jane")
-        let player3 = player1
+        let playerSet: Set<Player> = [Player(name: "Ian"), Player(name: "Jane"), Player(name: "Ian")]
 
-        let playerSet: Set<Player> = [player1, player2, player3]
-
-        XCTAssertEqual(playerSet.count, 2, "Set should only contain 2 unique players")
-        XCTAssertTrue(playerSet.contains(player1))
-        XCTAssertTrue(playerSet.contains(player2))
-    }
-
-    func test_player_can_be_used_as_dictionary_key() {
-        let player1 = Player(name: "Kevin")
-        let player2 = Player(name: "Laura")
-
-        var scores: [Player: Int] = [:]
-        scores[player1] = 26
-        scores[player2] = 13
-
-        XCTAssertEqual(scores[player1], 26)
-        XCTAssertEqual(scores[player2], 13)
+        XCTAssertEqual(playerSet.count, 2, "Set should only contain 2 unique profiles")
     }
 
     // MARK: - Debug Description Tests
 
-    func test_debugDescription_includes_all_info() {
-        let player = Player(name: "Mike", roundScore: 5, totalScore: 30)
+    func test_debugDescription_includes_name_and_type() {
+        let human = Player(name: "Alice", type: .human)
+        let bot = Player(name: "BotBob", type: .bot(difficulty: .hard))
 
-        let description = player.debugDescription
-
-        XCTAssertTrue(description.contains("Mike"))
-        XCTAssertTrue(description.contains("5"))
-        XCTAssertTrue(description.contains("30"))
+        XCTAssertTrue(human.debugDescription.contains("Alice"))
+        XCTAssertTrue(human.debugDescription.contains("human"))
+        XCTAssertTrue(bot.debugDescription.contains("bot"))
+        XCTAssertTrue(bot.debugDescription.contains("hard"))
     }
 
     // MARK: - Player Type Tests
@@ -202,14 +123,5 @@ final class PlayerTests: XCTestCase {
         XCTAssertTrue(easyStrategy is RandomAIStrategy)
         XCTAssertTrue(mediumStrategy is BasicAIStrategy)
         XCTAssertTrue(hardStrategy is AdvancedAIStrategy)
-    }
-
-    func test_debugDescription_includes_player_type() {
-        let human = Player(name: "Alice", type: .human)
-        let bot = Player(name: "BotBob", type: .bot(difficulty: .hard))
-
-        XCTAssertTrue(human.debugDescription.contains("human"))
-        XCTAssertTrue(bot.debugDescription.contains("bot"))
-        XCTAssertTrue(bot.debugDescription.contains("hard"))
     }
 }

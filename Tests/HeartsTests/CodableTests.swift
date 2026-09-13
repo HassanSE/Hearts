@@ -75,14 +75,8 @@ final class CodableTests: XCTestCase {
     // MARK: - Player
 
     func test_player_round_trips() throws {
-        let player = Player(name: "Alice", type: .human, hand: [Card(suit: .hearts, rank: .ace)], roundScore: 3, totalScore: 42)
-        let decoded = try roundTrip(player)
-        XCTAssertEqual(decoded.id, player.id)
-        XCTAssertEqual(decoded.name, player.name)
-        XCTAssertEqual(decoded.type, player.type)
-        XCTAssertEqual(decoded.hand, player.hand)
-        XCTAssertEqual(decoded.roundScore, player.roundScore)
-        XCTAssertEqual(decoded.totalScore, player.totalScore)
+        let player = Player(name: "Alice", type: .human)
+        XCTAssertEqual(try roundTrip(player), player)
     }
 
     func test_player_bot_round_trips() throws {
@@ -139,21 +133,25 @@ final class CodableTests: XCTestCase {
 
     func test_trick_with_plays_round_trips() throws {
         var trick = Trick()
-        let player1 = Player(name: "A")
-        let player2 = Player(name: "B")
-        try trick.play(Card(suit: .clubs, rank: .two), by: player1)
-        try trick.play(Card(suit: .clubs, rank: .ace), by: player2)
+        try trick.play(Card(suit: .clubs, rank: .two), by: .east)
+        try trick.play(Card(suit: .clubs, rank: .ace), by: .south)
 
         let data = try JSONEncoder().encode(trick)
         let decoded = try JSONDecoder().decode(Trick.self, from: data)
 
-        XCTAssertEqual(decoded.plays.count, 2)
+        XCTAssertEqual(decoded, trick)
         XCTAssertEqual(decoded.leadSuit, .clubs)
-        XCTAssertEqual(decoded.cards, trick.cards)
-        XCTAssertEqual(decoded.plays[0].player, player1)
+        XCTAssertEqual(decoded.plays[0].seat, .east)
         XCTAssertEqual(decoded.plays[0].card, Card(suit: .clubs, rank: .two))
-        XCTAssertEqual(decoded.plays[1].player, player2)
+        XCTAssertEqual(decoded.plays[1].seat, .south)
         XCTAssertEqual(decoded.plays[1].card, Card(suit: .clubs, rank: .ace))
+    }
+
+    // MARK: - HandResult
+
+    func test_handResult_round_trips() throws {
+        let result = HandResult(roundScores: [26, 0, 26, 26], totalScores: [30, 5, 40, 50], moonShooter: .west)
+        XCTAssertEqual(try roundTrip(result), result)
     }
 
     // MARK: - GameSnapshot
@@ -161,12 +159,15 @@ final class CodableTests: XCTestCase {
     func test_gameSnapshot_round_trips() throws {
         let players = Player.makeBotPlayers()
         let snapshot = GameSnapshot(
-            players: players,
+            players: SeatMap { players[$0.rawValue] },
+            hands: [[Card(suit: .hearts, rank: .ace)], [], [Card(suit: .clubs, rank: .two)], []],
+            roundScores: [1, 0, 0, 0],
+            totalScores: [10, 20, 30, 40],
             roundNumber: 2,
             currentTrick: Trick(),
             completedTricks: [],
             heartsBroken: true,
-            currentPlayerIndex: 1,
+            currentSeat: .west,
             configuration: .withJackBonus,
             hasExchanged: true
         )
@@ -174,34 +175,35 @@ final class CodableTests: XCTestCase {
         let data = try JSONEncoder().encode(snapshot)
         let decoded = try JSONDecoder().decode(GameSnapshot.self, from: data)
 
-        XCTAssertEqual(decoded.players.map(\.name), players.map(\.name))
+        XCTAssertEqual(decoded.players, snapshot.players)
+        XCTAssertEqual(decoded.hands, snapshot.hands)
+        XCTAssertEqual(decoded.roundScores, snapshot.roundScores)
+        XCTAssertEqual(decoded.totalScores, snapshot.totalScores)
         XCTAssertEqual(decoded.roundNumber, 2)
         XCTAssertEqual(decoded.completedTricks.count, 0)
         XCTAssertEqual(decoded.heartsBroken, true)
-        XCTAssertEqual(decoded.currentPlayerIndex, 1)
+        XCTAssertEqual(decoded.currentSeat, .west)
         XCTAssertEqual(decoded.configuration.jackOfDiamondsBonus, true)
         XCTAssertEqual(decoded.hasExchanged, true)
     }
 
     func test_gameSnapshot_with_completed_tricks_round_trips() throws {
-        let player1 = Player(name: "A")
-        let player2 = Player(name: "B")
-        let player3 = Player(name: "C")
-        let player4 = Player(name: "D")
-
         var completedTrick = Trick()
-        try completedTrick.play(Card(suit: .clubs, rank: .two), by: player1)
-        try completedTrick.play(Card(suit: .clubs, rank: .five), by: player2)
-        try completedTrick.play(Card(suit: .clubs, rank: .king), by: player3)
-        try completedTrick.play(Card(suit: .clubs, rank: .three), by: player4)
+        try completedTrick.play(Card(suit: .clubs, rank: .two), by: .south)
+        try completedTrick.play(Card(suit: .clubs, rank: .five), by: .west)
+        try completedTrick.play(Card(suit: .clubs, rank: .king), by: .north)
+        try completedTrick.play(Card(suit: .clubs, rank: .three), by: .east)
 
         let snapshot = GameSnapshot(
-            players: [player1, player2, player3, player4],
+            players: SeatMap { Player(name: "\($0)") },
+            hands: SeatMap(repeating: []),
+            roundScores: SeatMap(repeating: 0),
+            totalScores: SeatMap(repeating: 0),
             roundNumber: 0,
             currentTrick: Trick(),
             completedTricks: [completedTrick],
             heartsBroken: false,
-            currentPlayerIndex: 2,
+            currentSeat: .north,
             configuration: .standard,
             hasExchanged: false
         )
@@ -209,8 +211,7 @@ final class CodableTests: XCTestCase {
         let data = try JSONEncoder().encode(snapshot)
         let decoded = try JSONDecoder().decode(GameSnapshot.self, from: data)
 
-        XCTAssertEqual(decoded.completedTricks.count, 1)
-        XCTAssertEqual(decoded.completedTricks[0].cards, completedTrick.cards)
-        XCTAssertEqual(decoded.completedTricks[0].winner, player3)
+        XCTAssertEqual(decoded.completedTricks, [completedTrick])
+        XCTAssertEqual(decoded.completedTricks[0].winner, .north)
     }
 }

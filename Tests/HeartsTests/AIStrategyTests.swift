@@ -300,7 +300,7 @@ final class AIStrategyTests: XCTestCase {
     func test_legalMoves_matchesPlayRulesForSameInputs() {
         // Rule coverage lives in PlayRulesTests; the context only forwards its inputs to the oracle.
         var trick = Trick()
-        try! trick.play(Card(suit: .clubs, rank: .ace), by: Player(name: "Leader", type: .bot(difficulty: .easy)))
+        try! trick.play(Card(suit: .clubs, rank: .ace), by: .south)
         let hand: Hand = [
             Card(suit: .hearts, rank: .seven),
             Card(suit: .spades, rank: .queen),
@@ -318,8 +318,7 @@ final class AIStrategyTests: XCTestCase {
     func test_basicAIStrategy_selectCardToPlay_followsSuit_playsLowest() {
         let strategy = BasicAIStrategy()
         var trick = Trick()
-        let leader = Player(name: "Leader", type: .bot(difficulty: .easy))
-        try! trick.play(Card(suit: .spades, rank: .ace), by: leader)
+        try! trick.play(Card(suit: .spades, rank: .ace), by: .south)
 
         let hand: Hand = [
             Card(suit: .spades, rank: .king),
@@ -353,8 +352,7 @@ final class AIStrategyTests: XCTestCase {
     func test_advancedAIStrategy_selectCardToPlay_followsSuit_ducksUnder() {
         let strategy = AdvancedAIStrategy()
         var trick = Trick()
-        let leader = Player(name: "Leader", type: .bot(difficulty: .hard))
-        try! trick.play(Card(suit: .clubs, rank: .king), by: leader)
+        try! trick.play(Card(suit: .clubs, rank: .king), by: .south)
 
         let hand: Hand = [
             Card(suit: .clubs, rank: .ace),    // Would win
@@ -371,9 +369,8 @@ final class AIStrategyTests: XCTestCase {
     func test_advancedAIStrategy_selectCardToPlay_cantDuck_trickHasPoints_playsLowest() {
         let strategy = AdvancedAIStrategy()
         var trick = Trick()
-        let leader = Player(name: "Leader", type: .bot(difficulty: .hard))
         // Lead with Q♠ (13 pts) - any spade follower must win it
-        try! trick.play(Card(suit: .spades, rank: .queen), by: leader)
+        try! trick.play(Card(suit: .spades, rank: .queen), by: .south)
 
         let hand: Hand = [
             Card(suit: .spades, rank: .ace),   // Both beat Q♠ — can't duck
@@ -390,8 +387,7 @@ final class AIStrategyTests: XCTestCase {
     func test_advancedAIStrategy_selectCardToPlay_cantDuck_noPoints_playsMiddle() {
         let strategy = AdvancedAIStrategy()
         var trick = Trick()
-        let leader = Player(name: "Leader", type: .bot(difficulty: .hard))
-        try! trick.play(Card(suit: .clubs, rank: .two), by: leader)
+        try! trick.play(Card(suit: .clubs, rank: .two), by: .south)
 
         // All three cards beat the 2♣ lead — can't duck, no points in trick
         let hand: Hand = [
@@ -410,8 +406,7 @@ final class AIStrategyTests: XCTestCase {
     func test_advancedAIStrategy_selectCardToPlay_cantDuck_noPoints_fewCards_playsLowest() {
         let strategy = AdvancedAIStrategy()
         var trick = Trick()
-        let leader = Player(name: "Leader", type: .bot(difficulty: .hard))
-        try! trick.play(Card(suit: .clubs, rank: .two), by: leader)
+        try! trick.play(Card(suit: .clubs, rank: .two), by: .south)
 
         // Only 2 clubs — can't duck, no points, < 3 legal cards → play lowest
         let hand: Hand = [
@@ -545,14 +540,14 @@ final class AIStrategyTests: XCTestCase {
 
     func test_selectCardsForBotExchange_passesExchangeDirection() {
         let game = Game()  // roundNumber=0 → .left
-        let botPlayer = game.players[0]
+        let hand = game.hands[.south]
 
         // We can verify the direction is forwarded by checking the game's exchangeDirection
         // and confirming selectCardsForBotExchange does not crash and returns 3 valid cards.
-        let cards = game.selectCardsForBotExchange(player: botPlayer)
-        XCTAssertTrue(botPlayer.hand.contains(cards.first))
-        XCTAssertTrue(botPlayer.hand.contains(cards.second))
-        XCTAssertTrue(botPlayer.hand.contains(cards.third))
+        let cards = game.selectCardsForBotExchange(seat: .south)
+        XCTAssertTrue(hand.contains(cards.first))
+        XCTAssertTrue(hand.contains(cards.second))
+        XCTAssertTrue(hand.contains(cards.third))
         XCTAssertEqual(game.exchangeDirection, .left)
     }
 
@@ -581,20 +576,16 @@ final class AIStrategyTests: XCTestCase {
     func test_trickContext_playedCards_flattensCompletedTricks() {
         var trick1 = Trick()
         var trick2 = Trick()
-        let p1 = Player(name: "P1", type: .bot(difficulty: .easy))
-        let p2 = Player(name: "P2", type: .bot(difficulty: .easy))
-        let p3 = Player(name: "P3", type: .bot(difficulty: .easy))
-        let p4 = Player(name: "P4", type: .bot(difficulty: .easy))
 
-        try! trick1.play(Card(suit: .clubs, rank: .two), by: p1)
-        try! trick1.play(Card(suit: .clubs, rank: .three), by: p2)
-        try! trick1.play(Card(suit: .clubs, rank: .four), by: p3)
-        try! trick1.play(Card(suit: .clubs, rank: .five), by: p4)
+        try! trick1.play(Card(suit: .clubs, rank: .two), by: .south)
+        try! trick1.play(Card(suit: .clubs, rank: .three), by: .west)
+        try! trick1.play(Card(suit: .clubs, rank: .four), by: .north)
+        try! trick1.play(Card(suit: .clubs, rank: .five), by: .east)
 
-        try! trick2.play(Card(suit: .diamonds, rank: .ace), by: p1)
-        try! trick2.play(Card(suit: .diamonds, rank: .king), by: p2)
-        try! trick2.play(Card(suit: .diamonds, rank: .queen), by: p3)
-        try! trick2.play(Card(suit: .diamonds, rank: .jack), by: p4)
+        try! trick2.play(Card(suit: .diamonds, rank: .ace), by: .south)
+        try! trick2.play(Card(suit: .diamonds, rank: .king), by: .west)
+        try! trick2.play(Card(suit: .diamonds, rank: .queen), by: .north)
+        try! trick2.play(Card(suit: .diamonds, rank: .jack), by: .east)
 
         let context = TrickContext(
             hand: [],
@@ -623,17 +614,13 @@ final class AIStrategyTests: XCTestCase {
 
     func test_advancedAIStrategy_leadsQueenOfSpades_whenAceAndKingAlreadyPlayed() {
         let strategy = AdvancedAIStrategy()
-        let p1 = Player(name: "P1", type: .bot(difficulty: .hard))
-        let p2 = Player(name: "P2", type: .bot(difficulty: .hard))
-        let p3 = Player(name: "P3", type: .bot(difficulty: .hard))
-        let p4 = Player(name: "P4", type: .bot(difficulty: .hard))
 
         // Build a completed trick containing A♠ and K♠
         var trick = Trick()
-        try! trick.play(Card(suit: .spades, rank: .ace), by: p1)
-        try! trick.play(Card(suit: .spades, rank: .king), by: p2)
-        try! trick.play(Card(suit: .clubs, rank: .two), by: p3)
-        try! trick.play(Card(suit: .clubs, rank: .three), by: p4)
+        try! trick.play(Card(suit: .spades, rank: .ace), by: .south)
+        try! trick.play(Card(suit: .spades, rank: .king), by: .west)
+        try! trick.play(Card(suit: .clubs, rank: .two), by: .north)
+        try! trick.play(Card(suit: .clubs, rank: .three), by: .east)
 
         let hand: Hand = [
             Card(suit: .spades, rank: .queen),  // Only card — should be led
@@ -713,8 +700,7 @@ final class AIStrategyTests: XCTestCase {
     func test_advancedAIStrategy_playsHighestFollowing_inMoonShotMode() {
         let strategy = AdvancedAIStrategy()
         var trick = Trick()
-        let leader = Player(name: "Leader", type: .bot(difficulty: .easy))
-        try! trick.play(Card(suit: .hearts, rank: .three), by: leader)
+        try! trick.play(Card(suit: .hearts, rank: .three), by: .south)
 
         // Hand: 7+ hearts + Q♠ → moon-shot mode; following hearts → play highest
         let hand: Hand = [
@@ -858,16 +844,12 @@ final class AIStrategyTests: XCTestCase {
     func test_advancedAI_avoids_leading_suit_opponent_is_void_in() throws {
         // Build a completed trick where clubs was led and one opponent played off-suit,
         // revealing they are void in clubs.
-        let playerA = Player(name: "A")
-        let playerB = Player(name: "B")  // void in clubs — played hearts when clubs was led
-        let playerC = Player(name: "C")
-        let playerD = Player(name: "D")  // AI's positional stand-in
 
         var pastTrick = Trick()
-        try pastTrick.play(Card(suit: .clubs, rank: .five), by: playerA)
-        try pastTrick.play(Card(suit: .hearts, rank: .king), by: playerB)  // B is void in clubs
-        try pastTrick.play(Card(suit: .clubs, rank: .three), by: playerC)
-        try pastTrick.play(Card(suit: .clubs, rank: .ace), by: playerD)
+        try pastTrick.play(Card(suit: .clubs, rank: .five), by: .south)
+        try pastTrick.play(Card(suit: .hearts, rank: .king), by: .west)  // B is void in clubs
+        try pastTrick.play(Card(suit: .clubs, rank: .three), by: .north)
+        try pastTrick.play(Card(suit: .clubs, rank: .ace), by: .east)
 
         // AI hand: clubs is the longest suit (3 cards), diamonds and spades are alternatives.
         // Without void avoidance the AI would lead the middle club.
@@ -895,24 +877,20 @@ final class AIStrategyTests: XCTestCase {
 
     func test_advancedAI_leads_any_valid_card_when_all_suits_are_voided() throws {
         // Make clubs and spades both voided so the only legal non-heart leads are constrained.
-        let p1 = Player(name: "P1")
-        let p2 = Player(name: "P2")
-        let p3 = Player(name: "P3")
-        let p4 = Player(name: "P4")
 
         // Trick where clubs was led but p2 played off-suit → p2 void in clubs
         var trick1 = Trick()
-        try trick1.play(Card(suit: .clubs, rank: .three), by: p1)
-        try trick1.play(Card(suit: .spades, rank: .two), by: p2)   // p2 void in clubs
-        try trick1.play(Card(suit: .clubs, rank: .four), by: p3)
-        try trick1.play(Card(suit: .clubs, rank: .five), by: p4)
+        try trick1.play(Card(suit: .clubs, rank: .three), by: .south)
+        try trick1.play(Card(suit: .spades, rank: .two), by: .west)   // p2 void in clubs
+        try trick1.play(Card(suit: .clubs, rank: .four), by: .north)
+        try trick1.play(Card(suit: .clubs, rank: .five), by: .east)
 
         // Trick where diamonds was led but p3 played off-suit → p3 void in diamonds
         var trick2 = Trick()
-        try trick2.play(Card(suit: .diamonds, rank: .three), by: p1)
-        try trick2.play(Card(suit: .diamonds, rank: .four), by: p2)
-        try trick2.play(Card(suit: .clubs, rank: .six), by: p3)    // p3 void in diamonds
-        try trick2.play(Card(suit: .diamonds, rank: .five), by: p4)
+        try trick2.play(Card(suit: .diamonds, rank: .three), by: .south)
+        try trick2.play(Card(suit: .diamonds, rank: .four), by: .west)
+        try trick2.play(Card(suit: .clubs, rank: .six), by: .north)    // p3 void in diamonds
+        try trick2.play(Card(suit: .diamonds, rank: .five), by: .east)
 
         // AI hand: only spades remain to lead (hearts not broken)
         let aiHand: Hand = [

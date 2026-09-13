@@ -11,29 +11,29 @@ import XCTest
 // MARK: - Mock Delegate
 
 private class MockDelegate: GameEngineDelegate {
-    var didPlayCardCalls: [(card: Card, player: Player)] = []
-    var didCompleteTrickCalls: [(trick: Trick, winner: Player, points: Int)] = []
-    var didBreakHeartsCalls: [(card: Card, player: Player)] = []
+    var didPlayCardCalls: [(card: Card, seat: Seat)] = []
+    var didCompleteTrickCalls: [(trick: Trick, winner: Seat, points: Int)] = []
+    var didBreakHeartsCalls: [(card: Card, seat: Seat)] = []
     var didEndHandCalls: [HandResult] = []
-    var didEndGameCalls: [Player] = []
+    var didEndGameCalls: [Seat] = []
 
-    func game(_ game: Game, didPlayCard card: Card, by player: Player) {
-        didPlayCardCalls.append((card, player))
+    func game(_ game: Game, didPlayCard card: Card, by seat: Seat) {
+        didPlayCardCalls.append((card, seat))
     }
 
-    func game(_ game: Game, didCompleteTrick trick: Trick, winner: Player, points: Int) {
+    func game(_ game: Game, didCompleteTrick trick: Trick, winner: Seat, points: Int) {
         didCompleteTrickCalls.append((trick, winner, points))
     }
 
-    func game(_ game: Game, didBreakHearts card: Card, by player: Player) {
-        didBreakHeartsCalls.append((card, player))
+    func game(_ game: Game, didBreakHearts card: Card, by seat: Seat) {
+        didBreakHeartsCalls.append((card, seat))
     }
 
     func game(_ game: Game, didEndHand result: HandResult) {
         didEndHandCalls.append(result)
     }
 
-    func game(_ game: Game, didEndGame winner: Player) {
+    func game(_ game: Game, didEndGame winner: Seat) {
         didEndGameCalls.append(winner)
     }
 }
@@ -74,12 +74,10 @@ final class HumanPlayerTests: XCTestCase {
 
     func test_humanPlayer_canPlayCard_viaPlayCard() throws {
         let game = makeHumanBotGame()
-        let human = game.players[0]
         let card = Card(suit: .clubs, rank: .two)
 
-        XCTAssertNoThrow(try game.playCard(card, by: human))
-        // Check game's copy of the player's hand (Player is a value type)
-        XCTAssertFalse(game.players[0].hand.contains(card), "Card should be removed from hand after playing")
+        XCTAssertNoThrow(try game.playCard(card, by: .south))
+        XCTAssertFalse(game.hands[.south].contains(card), "Card should be removed from hand after playing")
     }
 
     func test_humanPlayer_playBotTurnsUntilHumanTurn_stopsAtHumanTurn() throws {
@@ -98,8 +96,7 @@ final class HumanPlayerTests: XCTestCase {
         let game = makeHumanBotGame()
 
         // Human plays first (2♣ — required to open)
-        let human = game.players[0]
-        try game.playCard(Card(suit: .clubs, rank: .two), by: human)
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
 
         // Now it's Bot1's turn — advance bots until human turn comes back
         XCTAssertTrue(game.currentPlayer.type.isBot)
@@ -147,12 +144,12 @@ final class HumanPlayerTests: XCTestCase {
         let delegate = MockDelegate()
         game.delegate = delegate
 
-        let bot = game.currentPlayer
+        let bot = game.currentSeat
         try game.playCard(Card(suit: .clubs, rank: .two), by: bot)
 
         XCTAssertEqual(delegate.didPlayCardCalls.count, 1)
         XCTAssertEqual(delegate.didPlayCardCalls[0].card, Card(suit: .clubs, rank: .two))
-        XCTAssertEqual(delegate.didPlayCardCalls[0].player, bot)
+        XCTAssertEqual(delegate.didPlayCardCalls[0].seat, bot)
     }
 
     func test_delegate_didPlayCard_isCalledForEveryCardInHand() throws {
@@ -208,11 +205,11 @@ final class HumanPlayerTests: XCTestCase {
         let game = Game(player1: bot0, player2: bot1, player3: bot2, player4: bot3)
 
         // Give bot0 all clubs + one heart; bot1/2/3 have no clubs (forced to sluff hearts)
-        game.players[0].hand = [Card(suit: .clubs, rank: .two), Card(suit: .hearts, rank: .three)]
-        game.players[1].hand = [Card(suit: .hearts, rank: .four), Card(suit: .hearts, rank: .five)]
-        game.players[2].hand = [Card(suit: .hearts, rank: .six), Card(suit: .hearts, rank: .seven)]
-        game.players[3].hand = [Card(suit: .hearts, rank: .eight), Card(suit: .hearts, rank: .nine)]
-        game.currentPlayerIndex = 0
+        game.hands[.south] = [Card(suit: .clubs, rank: .two), Card(suit: .hearts, rank: .three)]
+        game.hands[.west] = [Card(suit: .hearts, rank: .four), Card(suit: .hearts, rank: .five)]
+        game.hands[.north] = [Card(suit: .hearts, rank: .six), Card(suit: .hearts, rank: .seven)]
+        game.hands[.east] = [Card(suit: .hearts, rank: .eight), Card(suit: .hearts, rank: .nine)]
+        game.currentSeat = .south
         game.currentTrick = Trick()
         game.completedTricks = []
         game.heartsBroken = false
@@ -221,12 +218,12 @@ final class HumanPlayerTests: XCTestCase {
         game.delegate = delegate
 
         // Play 2♣ — bot1/2/3 have no clubs, so they play hearts → hearts break
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
         // Manually drive bot plays for the rest of the trick
         for _ in 0..<3 {
-            let player = game.currentPlayer
-            let card = player.hand.first!
-            try game.playCard(card, by: player)
+            let seat = game.currentSeat
+            let card = game.hands[seat].first!
+            try game.playCard(card, by: seat)
         }
 
         // Hearts should be broken now
@@ -244,18 +241,18 @@ final class HumanPlayerTests: XCTestCase {
         let game = Game(player1: bot0, player2: bot1, player3: bot2, player4: bot3)
 
         // Give bot0 only hearts so it's forced to play a heart as the first card
-        game.players[0].hand = [Card(suit: .hearts, rank: .two), Card(suit: .hearts, rank: .three)]
-        game.players[1].hand = [Card(suit: .hearts, rank: .four), Card(suit: .hearts, rank: .five)]
-        game.players[2].hand = [Card(suit: .hearts, rank: .six), Card(suit: .hearts, rank: .seven)]
-        game.players[3].hand = [Card(suit: .hearts, rank: .eight), Card(suit: .hearts, rank: .nine)]
-        game.currentPlayerIndex = 0
+        game.hands[.south] = [Card(suit: .hearts, rank: .two), Card(suit: .hearts, rank: .three)]
+        game.hands[.west] = [Card(suit: .hearts, rank: .four), Card(suit: .hearts, rank: .five)]
+        game.hands[.north] = [Card(suit: .hearts, rank: .six), Card(suit: .hearts, rank: .seven)]
+        game.hands[.east] = [Card(suit: .hearts, rank: .eight), Card(suit: .hearts, rank: .nine)]
+        game.currentSeat = .south
         game.currentTrick = Trick()
         // Hearts already broken, simulate at least one prior trick so we're not on trick 1
         var priorTrick = Trick()
-        try! priorTrick.play(Card(suit: .clubs, rank: .two), by: bot0)
-        try! priorTrick.play(Card(suit: .clubs, rank: .three), by: bot1)
-        try! priorTrick.play(Card(suit: .clubs, rank: .four), by: bot2)
-        try! priorTrick.play(Card(suit: .clubs, rank: .five), by: bot3)
+        try! priorTrick.play(Card(suit: .clubs, rank: .two), by: .south)
+        try! priorTrick.play(Card(suit: .clubs, rank: .three), by: .west)
+        try! priorTrick.play(Card(suit: .clubs, rank: .four), by: .north)
+        try! priorTrick.play(Card(suit: .clubs, rank: .five), by: .east)
         game.completedTricks = [priorTrick]
         game.heartsBroken = true
 
@@ -263,7 +260,7 @@ final class HumanPlayerTests: XCTestCase {
         game.delegate = delegate
 
         // Play a heart — hearts already broken, delegate should NOT fire again
-        try game.playCard(Card(suit: .hearts, rank: .two), by: game.players[0])
+        try game.playCard(Card(suit: .hearts, rank: .two), by: .south)
 
         XCTAssertEqual(delegate.didBreakHeartsCalls.count, 0)
     }
@@ -292,8 +289,8 @@ final class HumanPlayerTests: XCTestCase {
 
         let result = delegate.didEndHandCalls[0]
         // One round score and one total per seat, matching the game's totals
-        XCTAssertEqual(result.roundScores.count, 4)
-        XCTAssertEqual(result.totalScores, game.players.map(\.totalScore))
+        XCTAssertEqual(result.roundScores.values.count, 4)
+        XCTAssertEqual(result.totalScores, game.totalScores)
     }
 
     func test_delegate_didEndHand_moonShooterIsNilWhenNoMoonShot() throws {
@@ -316,26 +313,21 @@ final class HumanPlayerTests: XCTestCase {
 
         // Drive one player past the winning score threshold; give others distinct scores
         // so there is a clear winner (no tie) and gameWinner is non-nil.
-        game.players[0].totalScore = 30   // Clear winner (lowest)
-        game.players[1].totalScore = game.winningScore  // Triggers isGameOver
-        game.players[2].totalScore = 60
-        game.players[3].totalScore = 45
+        game.totalScores[.south] = 30   // Clear winner (lowest)
+        game.totalScores[.west] = game.winningScore  // Triggers isGameOver
+        game.totalScores[.north] = 60
+        game.totalScores[.east] = 45
 
         // endHand on a complete hand — requires completedTricks to be full
         // Build 13 fake completed tricks (no points, so no moon shot)
-        let p0 = game.players[0]
-        let p1 = game.players[1]
-        let p2 = game.players[2]
-        let p3 = game.players[3]
-
         for i in 0..<13 {
             var trick = Trick()
             let rankOffset = i % 13
             let rank = Card.Rank.allCases[rankOffset]
-            try! trick.play(Card(suit: .clubs, rank: rank), by: p0)
-            try! trick.play(Card(suit: .clubs, rank: .three), by: p1)
-            try! trick.play(Card(suit: .clubs, rank: .four), by: p2)
-            try! trick.play(Card(suit: .clubs, rank: .five), by: p3)
+            try! trick.play(Card(suit: .clubs, rank: rank), by: .south)
+            try! trick.play(Card(suit: .clubs, rank: .three), by: .west)
+            try! trick.play(Card(suit: .clubs, rank: .four), by: .north)
+            try! trick.play(Card(suit: .clubs, rank: .five), by: .east)
             game.completedTricks.append(trick)
         }
 
@@ -364,7 +356,7 @@ final class HumanPlayerTests: XCTestCase {
     func test_performExchange_humanCards_usesSpecifiedCards() throws {
         let game = makeHumanBotGame()
         // Give the human a 13-card hand so exchange precondition is satisfied
-        game.players[0].hand = [
+        game.hands[.south] = [
             Card(suit: .clubs, rank: .two),
             Card(suit: .clubs, rank: .three),
             Card(suit: .clubs, rank: .four),
@@ -379,7 +371,7 @@ final class HumanPlayerTests: XCTestCase {
             Card(suit: .clubs, rank: .king),
             Card(suit: .clubs, rank: .ace)
         ]
-        game.players[1].hand = Array(repeating: Card(suit: .diamonds, rank: .two), count: 0)
+        game.hands[.west] = Array(repeating: Card(suit: .diamonds, rank: .two), count: 0)
         // Give bots valid 13-card hands
         let botCards: [[Card]] = [
             [Card(suit: .diamonds, rank: .two), Card(suit: .diamonds, rank: .three),
@@ -404,45 +396,41 @@ final class HumanPlayerTests: XCTestCase {
              Card(suit: .spades, rank: .queen), Card(suit: .spades, rank: .king),
              Card(suit: .spades, rank: .ace)]
         ]
-        game.players[1].hand = botCards[0]
-        game.players[2].hand = botCards[1]
-        game.players[3].hand = botCards[2]
+        game.hands[.west] = botCards[0]
+        game.hands[.north] = botCards[1]
+        game.hands[.east] = botCards[2]
 
         let card1 = Card(suit: .clubs, rank: .ace)
         let card2 = Card(suit: .clubs, rank: .king)
         let card3 = Card(suit: .clubs, rank: .queen)
         // roundNumber=0 → .left exchange (human passes to player at index 1)
-        try game.performExchange(selections: [0: [card1, card2, card3]])
+        try game.performExchange(selections: [.south: [card1, card2, card3]])
 
-        XCTAssertFalse(game.players[0].hand.contains(card1), "Human should no longer hold the passed card1")
-        XCTAssertFalse(game.players[0].hand.contains(card2), "Human should no longer hold the passed card2")
-        XCTAssertFalse(game.players[0].hand.contains(card3), "Human should no longer hold the passed card3")
-        XCTAssertTrue(game.players[1].hand.contains(card1), "Bot1 should have received card1 from human")
-        XCTAssertTrue(game.players[1].hand.contains(card2), "Bot1 should have received card2 from human")
-        XCTAssertTrue(game.players[1].hand.contains(card3), "Bot1 should have received card3 from human")
-        XCTAssertEqual(game.players[0].hand.count, 13)
-        XCTAssertEqual(game.players[1].hand.count, 13)
+        XCTAssertFalse(game.hands[.south].contains(card1), "Human should no longer hold the passed card1")
+        XCTAssertFalse(game.hands[.south].contains(card2), "Human should no longer hold the passed card2")
+        XCTAssertFalse(game.hands[.south].contains(card3), "Human should no longer hold the passed card3")
+        XCTAssertTrue(game.hands[.west].contains(card1), "Bot1 should have received card1 from human")
+        XCTAssertTrue(game.hands[.west].contains(card2), "Bot1 should have received card2 from human")
+        XCTAssertTrue(game.hands[.west].contains(card3), "Bot1 should have received card3 from human")
+        XCTAssertEqual(game.hands[.south].count, 13)
+        XCTAssertEqual(game.hands[.west].count, 13)
     }
 
     func test_performExchange_preventedOnSecondCall() throws {
         let game = Game()  // all bots
-        let handsBefore = game.players.map { $0.hand }
+        let handsBefore = game.hands
 
         try game.performExchange()
-        let handsAfterFirst = game.players.map { $0.hand }
+        let handsAfterFirst = game.hands
 
         // Second call must throw and leave hands untouched
         XCTAssertThrowsError(try game.performExchange()) { error in
             XCTAssertEqual(error as? GameError, .exchangeAlreadyPerformed)
         }
 
-        XCTAssertEqual(game.players[0].hand, handsAfterFirst[0], "Failed second exchange must not change hands")
-        XCTAssertEqual(game.players[1].hand, handsAfterFirst[1])
-        XCTAssertEqual(game.players[2].hand, handsAfterFirst[2])
-        XCTAssertEqual(game.players[3].hand, handsAfterFirst[3])
+        XCTAssertEqual(game.hands, handsAfterFirst, "Failed second exchange must not change hands")
         // First exchange should have changed hands
-        let anyHandChanged = zip(handsBefore, handsAfterFirst).contains { $0 != $1 }
-        XCTAssertTrue(anyHandChanged, "First exchange should change hands")
+        XCTAssertNotEqual(handsBefore, handsAfterFirst, "First exchange should change hands")
     }
 
     func test_performExchange_allowedAfterStartNewHand() throws {
@@ -452,27 +440,24 @@ final class HumanPlayerTests: XCTestCase {
 
         // Start a new hand — exchange flag resets
         game.startNewHand()
-        let handsAfterNewHand = game.players.map { $0.hand }
+        let handsAfterNewHand = game.hands
 
         // Exchange again should work (hands change from fresh deal)
         try game.performExchange()
-        let handsAfterSecondExchange = game.players.map { $0.hand }
+        let handsAfterSecondExchange = game.hands
 
         // After startNewHand the hands are re-dealt (not the same as before)
         // After the second exchange, some cards should have moved again
-        let anyHandChanged = zip(handsAfterNewHand, handsAfterSecondExchange).contains { $0 != $1 }
-        XCTAssertTrue(anyHandChanged, "Exchange after startNewHand should change hands")
+        XCTAssertNotEqual(handsAfterNewHand, handsAfterSecondExchange, "Exchange after startNewHand should change hands")
     }
 
     func test_performExchange_noPassRound_doesNothing() throws {
         let game = Game()  // all bots
         game.roundNumber = 3  // .none direction
-        let handsBefore = game.players.map { $0.hand }
+        let handsBefore = game.hands
 
         try game.performExchange()  // should be a no-op (direction is .none)
 
-        for i in 0..<4 {
-            XCTAssertEqual(game.players[i].hand, handsBefore[i], "Hands should not change when direction is .none")
-        }
+        XCTAssertEqual(game.hands, handsBefore, "Hands should not change when direction is .none")
     }
 }

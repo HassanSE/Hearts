@@ -7,10 +7,13 @@
 
 import Foundation
 
-public struct Trick: Codable {
-    /// A single card play within a trick, associating a player with the card they played.
-    public struct Play: Codable {
-        public let player: Player
+/// The cards played in one round of the table, in play order, each tagged with the seat that played it.
+public struct Trick: Codable, Equatable {
+    /// A single card play within a trick: which seat played which card.
+    public struct Play: Codable, Equatable {
+        /// The seat that played `card`.
+        public let seat: Seat
+        /// The card played.
         public let card: Card
     }
 
@@ -33,13 +36,13 @@ public struct Trick: Codable {
         plays.reduce(0) { $0 + $1.card.points }
     }
 
-    /// The player who won this trick (highest card of lead suit)
-    public var winner: Player? {
+    /// The seat that won this trick (highest card of the lead suit), or `nil` until it is complete.
+    public var winner: Seat? {
         guard isComplete, let leadSuit = leadSuit else { return nil }
         return plays
             .filter { $0.card.suit == leadSuit }
             .max(by: { $0.card.rank < $1.card.rank })?
-            .player
+            .seat
     }
 
     /// All cards played in this trick
@@ -47,14 +50,15 @@ public struct Trick: Codable {
         plays.map { $0.card }
     }
 
-    /// All players who have played in this trick
-    public var players: [Player] {
-        plays.map { $0.player }
+    /// The seats that have played in this trick, in play order.
+    public var seats: [Seat] {
+        plays.map { $0.seat }
     }
 
-    /// Check if a specific player has already played in this trick
-    public func hasPlayed(_ player: Player) -> Bool {
-        plays.contains(where: { $0.player == player })
+    /// Whether `seat` has already played in this trick.
+    /// - Parameter seat: The seat to check.
+    public func hasPlayed(_ seat: Seat) -> Bool {
+        plays.contains(where: { $0.seat == seat })
     }
 
     /// Play a card in this trick.
@@ -62,26 +66,26 @@ public struct Trick: Codable {
     /// Card legality (card-in-hand, follow-suit) is validated by `Game` before this is called.
     /// - Parameters:
     ///   - card: The card to play
-    ///   - player: The player playing the card
+    ///   - seat: The seat playing the card
     /// - Throws: `GameError.trickAlreadyComplete` if the trick already holds four cards,
-    ///   or `GameError.notPlayersTurn` if this player has already played in it
-    mutating func play(_ card: Card, by player: Player) throws {
+    ///   or `GameError.notPlayersTurn` if this seat has already played in it
+    mutating func play(_ card: Card, by seat: Seat) throws {
         guard !isComplete else {
             throw GameError.trickAlreadyComplete
         }
 
-        guard !hasPlayed(player) else {
+        guard !hasPlayed(seat) else {
             throw GameError.notPlayersTurn
         }
 
-        plays.append(Play(player: player, card: card))
+        plays.append(Play(seat: seat, card: card))
     }
 }
 
 extension Trick: CustomDebugStringConvertible {
     public var debugDescription: String {
-        let playsDesc = plays.map { "\($0.player.name): \($0.card)" }.joined(separator: ", ")
-        let winnerDesc = winner.map { " | Winner: \($0.name)" } ?? ""
+        let playsDesc = plays.map { "\($0.seat): \($0.card)" }.joined(separator: ", ")
+        let winnerDesc = winner.map { " | Winner: \($0)" } ?? ""
         return "Trick[\(playsDesc)\(winnerDesc)]"
     }
 }

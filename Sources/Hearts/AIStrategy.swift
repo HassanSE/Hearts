@@ -46,7 +46,7 @@ protocol AIStrategy {
 
 // MARK: - Bot Difficulty
 
-public enum BotDifficulty: Codable {
+public enum BotDifficulty: Hashable, Codable {
     case easy
     case medium
     case hard

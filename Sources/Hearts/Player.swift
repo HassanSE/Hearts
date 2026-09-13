@@ -7,21 +7,25 @@
 
 import Foundation
 
-public struct Player: Codable {
-    public let id: UUID
+/// Who occupies a seat: a display name and whether a human or a bot makes the decisions.
+///
+/// `Player` is an immutable profile. Everything that changes during play — the hand, round and
+/// total scores, whose turn it is — belongs to `Game` and is keyed by `Seat`, so a `Player` value
+/// can be held indefinitely without going stale. Two players with the same name and type are equal;
+/// identity at the table is the `Seat`, not the profile.
+public struct Player: Codable, Hashable {
+    /// Display name.
     public let name: String
+    /// Whether this seat is played by a human (needs input) or a bot (chooses via its strategy).
     public let type: PlayerType
-    public internal(set) var hand: [Card]
-    public internal(set) var roundScore: Int
-    public internal(set) var totalScore: Int
 
-    public init(name: String, type: PlayerType = .human, hand: [Card] = [], roundScore: Int = 0, totalScore: Int = 0) {
-        self.id = UUID()
+    /// Creates a profile.
+    /// - Parameters:
+    ///   - name: Display name.
+    ///   - type: Human by default.
+    public init(name: String, type: PlayerType = .human) {
         self.name = name
         self.type = type
-        self.hand = hand
-        self.roundScore = roundScore
-        self.totalScore = totalScore
     }
 }
 
@@ -34,18 +38,6 @@ extension Player {
     }
 }
 
-extension Player: Equatable {
-    public static func ==(lhs: Player, rhs: Player) -> Bool {
-        lhs.id == rhs.id
-    }
-}
-
-extension Player: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
-
 extension Player: CustomDebugStringConvertible {
     public var debugDescription: String {
         let typeDescription: String
@@ -55,6 +47,6 @@ extension Player: CustomDebugStringConvertible {
         case .bot(let difficulty):
             typeDescription = "bot(\(difficulty))"
         }
-        return "Player(id: \(id), name: \(name), type: \(typeDescription), roundScore: \(roundScore), totalScore: \(totalScore))"
+        return "Player(name: \(name), type: \(typeDescription))"
     }
 }

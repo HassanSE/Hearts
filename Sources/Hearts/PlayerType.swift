@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum PlayerType: Equatable, Codable {
+public enum PlayerType: Hashable, Codable {
     case human
     case bot(difficulty: BotDifficulty)
 

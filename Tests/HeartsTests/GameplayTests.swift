@@ -46,11 +46,11 @@ final class GameplayTests: XCTestCase {
         return game
     }
 
-    /// Helper to simulate player capturing all hearts + Q♠ (shooting the moon)
-    /// Creates completed tricks where the specified player won all point cards
-    func simulateMoonShot(by moonShooter: Player, in game: Game, includeJackOfDiamonds: Bool = false) {
-        // Get other players for trick construction
-        let otherPlayers = game.players.filter { $0.id != moonShooter.id }
+    /// Helper to simulate a seat capturing all hearts + Q♠ (shooting the moon)
+    /// Creates completed tricks where the specified seat won all point cards
+    func simulateMoonShot(by moonShooter: Seat, in game: Game, includeJackOfDiamonds: Bool = false) {
+        // Get other seats for trick construction
+        let otherPlayers = Seat.allCases.filter { $0 != moonShooter }
 
         // Create 13 separate tricks, one for each heart rank
         let heartRanks = Card.Rank.allCases
@@ -82,10 +82,7 @@ final class GameplayTests: XCTestCase {
         game.completedTricks.append(queenTrick)
 
         // Calculate and set round scores (points were awarded during tricks in real game)
-        let expectedPoints = includeJackOfDiamonds ? 16 : 26
-        if let shooterIndex = game.players.firstIndex(where: { $0.id == moonShooter.id }) {
-            game.players[shooterIndex].roundScore = expectedPoints
-        }
+        game.roundScores[moonShooter] = includeJackOfDiamonds ? 16 : 26
     }
 
     /// Appends completed tricks so that each seat has captured exactly `points[seat]` hearts,
@@ -93,17 +90,17 @@ final class GameplayTests: XCTestCase {
     /// distinct hearts are used across seats, so the sum must not exceed 13.
     func simulateCapturedHearts(_ points: [Int], in game: Game) {
         var hearts = Card.Rank.allCases.map { Card(suit: .hearts, rank: $0) }
-        for (seat, count) in points.enumerated() {
-            let others = game.players.indices.filter { $0 != seat }
+        for (seat, count) in zip(Seat.allCases, points) {
+            let others = Seat.allCases.filter { $0 != seat }
             for _ in 0..<count {
                 var trick = Trick()
                 // The winner leads a heart; the others discard low clubs.
-                try! trick.play(hearts.removeLast(), by: game.players[seat])
-                try! trick.play(Card(suit: .clubs, rank: .two), by: game.players[others[0]])
-                try! trick.play(Card(suit: .clubs, rank: .three), by: game.players[others[1]])
-                try! trick.play(Card(suit: .clubs, rank: .four), by: game.players[others[2]])
+                try! trick.play(hearts.removeLast(), by: seat)
+                try! trick.play(Card(suit: .clubs, rank: .two), by: others[0])
+                try! trick.play(Card(suit: .clubs, rank: .three), by: others[1])
+                try! trick.play(Card(suit: .clubs, rank: .four), by: others[2])
                 game.completedTricks.append(trick)
-                game.players[seat].roundScore += 1
+                game.roundScores[seat] += 1
             }
         }
     }
@@ -113,8 +110,8 @@ final class GameplayTests: XCTestCase {
     func test_playCard_throws_when_not_players_turn() throws {
         let game = makeTestGame()
 
-        let wrongPlayer = game.players[1]
-        let card = wrongPlayer.hand[0]
+        let wrongPlayer: Seat = .west
+        let card = game.hands[wrongPlayer][0]
 
         XCTAssertThrowsError(try game.playCard(card, by: wrongPlayer)) { error in
             XCTAssertEqual(error as? GameError, GameError.notPlayersTurn)
@@ -124,33 +121,33 @@ final class GameplayTests: XCTestCase {
     func test_playCard_succeeds_when_players_turn() throws {
         let game = makeTestGame()
 
-        let currentPlayer = game.currentPlayer
+        let currentSeat = game.currentSeat
         let card = Card(suit: .clubs, rank: .two)
 
-        XCTAssertNoThrow(try game.playCard(card, by: currentPlayer))
+        XCTAssertNoThrow(try game.playCard(card, by: currentSeat))
     }
 
     func test_playCard_advances_turn_after_play() throws {
         let game = makeTestGame()
 
-        let player1 = game.players[0]
+        let player1: Seat = .south
         let card = Card(suit: .clubs, rank: .two)
 
         try game.playCard(card, by: player1)
 
-        XCTAssertEqual(game.currentPlayerIndex, 1, "Turn should advance to next player")
+        XCTAssertEqual(game.currentSeat, .west, "Turn should advance to next player")
     }
 
     // MARK: - First Trick Rules Tests
 
     func test_playCard_throws_when_first_card_is_not_two_of_clubs() throws {
         let game = makeTestGame()
-        game.players[0].hand = [
+        game.hands[.south] = [
             Card(suit: .clubs, rank: .three),
             Card(suit: .clubs, rank: .two)
         ]
 
-        let player = game.players[0]
+        let player: Seat = .south
         let wrongCard = Card(suit: .clubs, rank: .three)
 
         XCTAssertThrowsError(try game.playCard(wrongCard, by: player)) { error in
@@ -161,7 +158,7 @@ final class GameplayTests: XCTestCase {
     func test_playCard_allows_two_of_clubs_as_first_card() throws {
         let game = makeTestGame()
 
-        let player = game.players[0]
+        let player: Seat = .south
         let card = Card(suit: .clubs, rank: .two)
 
         XCTAssertNoThrow(try game.playCard(card, by: player))
@@ -171,10 +168,10 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Play 2♣ first
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
 
         // Try to play a heart on first trick
-        let player2 = game.players[1]
+        let player2: Seat = .west
         let heartCard = Card(suit: .hearts, rank: .six)
 
         XCTAssertThrowsError(try game.playCard(heartCard, by: player2)) { error in
@@ -186,16 +183,16 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Set up player with only hearts
-        game.players[1].hand = [
+        game.hands[.west] = [
             Card(suit: .hearts, rank: .six),
             Card(suit: .hearts, rank: .seven)
         ]
 
         // Play 2♣ first
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
 
         // Should allow heart since player has no other cards
-        let player2 = game.players[1]
+        let player2: Seat = .west
         let heartCard = Card(suit: .hearts, rank: .six)
 
         XCTAssertNoThrow(try game.playCard(heartCard, by: player2))
@@ -209,12 +206,12 @@ final class GameplayTests: XCTestCase {
         // Set up game state after first trick
         game.completedTricks = [Trick()]
         game.heartsBroken = false
-        game.players[0].hand = [
+        game.hands[.south] = [
             Card(suit: .hearts, rank: .three),
             Card(suit: .diamonds, rank: .four)
         ]
 
-        let player = game.players[0]
+        let player: Seat = .south
         let heartCard = Card(suit: .hearts, rank: .three)
 
         XCTAssertThrowsError(try game.playCard(heartCard, by: player)) { error in
@@ -228,9 +225,9 @@ final class GameplayTests: XCTestCase {
         // Set up game state with hearts broken
         game.completedTricks = [Trick()]
         game.heartsBroken = true
-        game.players[0].hand = [Card(suit: .hearts, rank: .three)]
+        game.hands[.south] = [Card(suit: .hearts, rank: .three)]
 
-        let player = game.players[0]
+        let player: Seat = .south
         let heartCard = Card(suit: .hearts, rank: .three)
 
         XCTAssertNoThrow(try game.playCard(heartCard, by: player))
@@ -242,12 +239,12 @@ final class GameplayTests: XCTestCase {
         // Set up game state with only hearts
         game.completedTricks = [Trick()]
         game.heartsBroken = false
-        game.players[0].hand = [
+        game.hands[.south] = [
             Card(suit: .hearts, rank: .three),
             Card(suit: .hearts, rank: .four)
         ]
 
-        let player = game.players[0]
+        let player: Seat = .south
         let heartCard = Card(suit: .hearts, rank: .three)
 
         XCTAssertNoThrow(try game.playCard(heartCard, by: player))
@@ -257,24 +254,24 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Complete first trick with no points (to avoid first trick restrictions)
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
-        try game.playCard(Card(suit: .clubs, rank: .five), by: game.players[1])
-        try game.playCard(Card(suit: .clubs, rank: .eight), by: game.players[2])
-        try game.playCard(Card(suit: .clubs, rank: .jack), by: game.players[3])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
+        try game.playCard(Card(suit: .clubs, rank: .five), by: .west)
+        try game.playCard(Card(suit: .clubs, rank: .eight), by: .north)
+        try game.playCard(Card(suit: .clubs, rank: .jack), by: .east)
 
         XCTAssertFalse(game.heartsBroken, "Hearts should not be broken yet")
         XCTAssertEqual(game.completedTricks.count, 1)
 
         // Player 3 won, now leading second trick
         // Set up player 3 to lead diamonds, then player 0 has no diamonds so plays heart
-        game.players[3].hand = [Card(suit: .diamonds, rank: .king)]
-        game.players[0].hand = [
+        game.hands[.east] = [Card(suit: .diamonds, rank: .king)]
+        game.hands[.south] = [
             Card(suit: .hearts, rank: .three),
             Card(suit: .clubs, rank: .three)
         ]
 
-        try game.playCard(Card(suit: .diamonds, rank: .king), by: game.players[3])
-        try game.playCard(Card(suit: .hearts, rank: .three), by: game.players[0])
+        try game.playCard(Card(suit: .diamonds, rank: .king), by: .east)
+        try game.playCard(Card(suit: .hearts, rank: .three), by: .south)
 
         XCTAssertTrue(game.heartsBroken, "Hearts should be broken after playing a heart")
     }
@@ -288,10 +285,10 @@ final class GameplayTests: XCTestCase {
         XCTAssertFalse(game.currentTrick.isComplete)
 
         // Play all 4 cards
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
-        try game.playCard(Card(suit: .clubs, rank: .five), by: game.players[1])
-        try game.playCard(Card(suit: .clubs, rank: .eight), by: game.players[2])
-        try game.playCard(Card(suit: .clubs, rank: .jack), by: game.players[3])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
+        try game.playCard(Card(suit: .clubs, rank: .five), by: .west)
+        try game.playCard(Card(suit: .clubs, rank: .eight), by: .north)
+        try game.playCard(Card(suit: .clubs, rank: .jack), by: .east)
 
         XCTAssertEqual(game.completedTricks.count, 1, "Trick should be completed")
         XCTAssertEqual(game.currentTrick.plays.count, 0, "New trick should be started")
@@ -301,31 +298,31 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Set up a trick with points
-        game.players[0].hand = [Card(suit: .clubs, rank: .two)]
-        game.players[1].hand = [Card(suit: .hearts, rank: .six)] // 1 point
-        game.players[2].hand = [Card(suit: .hearts, rank: .nine)] // 1 point
-        game.players[3].hand = [Card(suit: .clubs, rank: .jack)] // Wins trick
+        game.hands[.south] = [Card(suit: .clubs, rank: .two)]
+        game.hands[.west] = [Card(suit: .hearts, rank: .six)] // 1 point
+        game.hands[.north] = [Card(suit: .hearts, rank: .nine)] // 1 point
+        game.hands[.east] = [Card(suit: .clubs, rank: .jack)] // Wins trick
 
-        let initialScore = game.players[3].roundScore
+        let initialScore = game.roundScores[.east]
 
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
-        try game.playCard(Card(suit: .hearts, rank: .six), by: game.players[1])
-        try game.playCard(Card(suit: .hearts, rank: .nine), by: game.players[2])
-        try game.playCard(Card(suit: .clubs, rank: .jack), by: game.players[3])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
+        try game.playCard(Card(suit: .hearts, rank: .six), by: .west)
+        try game.playCard(Card(suit: .hearts, rank: .nine), by: .north)
+        try game.playCard(Card(suit: .clubs, rank: .jack), by: .east)
 
-        XCTAssertEqual(game.players[3].roundScore, initialScore + 2, "Winner should get 2 points")
+        XCTAssertEqual(game.roundScores[.east], initialScore + 2, "Winner should get 2 points")
     }
 
     func test_playCard_winner_leads_next_trick() throws {
         let game = makeTestGame()
 
         // Player 3 will win with jack of clubs
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
-        try game.playCard(Card(suit: .clubs, rank: .five), by: game.players[1])
-        try game.playCard(Card(suit: .clubs, rank: .eight), by: game.players[2])
-        try game.playCard(Card(suit: .clubs, rank: .jack), by: game.players[3])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
+        try game.playCard(Card(suit: .clubs, rank: .five), by: .west)
+        try game.playCard(Card(suit: .clubs, rank: .eight), by: .north)
+        try game.playCard(Card(suit: .clubs, rank: .jack), by: .east)
 
-        XCTAssertEqual(game.currentPlayerIndex, 3, "Winner should lead next trick")
+        XCTAssertEqual(game.currentSeat, .east, "Winner should lead next trick")
     }
 
     // MARK: - Card Removal Tests
@@ -333,14 +330,14 @@ final class GameplayTests: XCTestCase {
     func test_playCard_removes_card_from_hand() throws {
         let game = makeTestGame()
 
-        let player = game.players[0]
+        let player: Seat = .south
         let card = Card(suit: .clubs, rank: .two)
-        let initialHandSize = player.hand.count
+        let initialHandSize = game.hands[player].count
 
         try game.playCard(card, by: player)
 
-        XCTAssertEqual(game.players[0].hand.count, initialHandSize - 1)
-        XCTAssertFalse(game.players[0].hand.contains(card))
+        XCTAssertEqual(game.hands[.south].count, initialHandSize - 1)
+        XCTAssertFalse(game.hands[.south].contains(card))
     }
 
     // MARK: - Hand Completion Tests
@@ -370,8 +367,8 @@ final class GameplayTests: XCTestCase {
             game.completedTricks.append(Trick())
         }
 
-        let player = game.players[0]
-        let card = game.players[0].hand[0]
+        let player: Seat = .south
+        let card = game.hands[.south][0]
 
         XCTAssertThrowsError(try game.playCard(card, by: player)) { error in
             XCTAssertEqual(error as? GameError, GameError.handComplete)
@@ -389,24 +386,24 @@ final class GameplayTests: XCTestCase {
         let eightOfClubs = Card(suit: .clubs, rank: .eight)
         let jackOfClubs = Card(suit: .clubs, rank: .jack)
 
-        try game.playCard(twoOfClubs, by: game.players[0])
-        XCTAssertEqual(game.currentPlayerIndex, 1)
+        try game.playCard(twoOfClubs, by: .south)
+        XCTAssertEqual(game.currentSeat, .west)
         XCTAssertEqual(game.currentTrick.plays.count, 1)
 
-        try game.playCard(fiveOfClubs, by: game.players[1])
-        XCTAssertEqual(game.currentPlayerIndex, 2)
+        try game.playCard(fiveOfClubs, by: .west)
+        XCTAssertEqual(game.currentSeat, .north)
         XCTAssertEqual(game.currentTrick.plays.count, 2)
 
-        try game.playCard(eightOfClubs, by: game.players[2])
-        XCTAssertEqual(game.currentPlayerIndex, 3)
+        try game.playCard(eightOfClubs, by: .north)
+        XCTAssertEqual(game.currentSeat, .east)
         XCTAssertEqual(game.currentTrick.plays.count, 3)
 
-        try game.playCard(jackOfClubs, by: game.players[3])
+        try game.playCard(jackOfClubs, by: .east)
 
         // After trick completes
         XCTAssertEqual(game.completedTricks.count, 1)
         XCTAssertEqual(game.currentTrick.plays.count, 0)
-        XCTAssertEqual(game.currentPlayerIndex, 3, "Winner leads next")
+        XCTAssertEqual(game.currentSeat, .east, "Winner leads next")
     }
 
     // MARK: - Multi-Round Tests
@@ -417,14 +414,14 @@ final class GameplayTests: XCTestCase {
         // Seats capture 4, 3, 0 and 6 hearts respectively
         simulateCapturedHearts([4, 3, 0, 6], in: game)
 
-        let initialTotals = game.players.map { $0.totalScore }
+        let initialTotals = game.totalScores
 
         game.endHand()
 
-        XCTAssertEqual(game.players[0].totalScore, initialTotals[0] + 4)
-        XCTAssertEqual(game.players[1].totalScore, initialTotals[1] + 3)
-        XCTAssertEqual(game.players[2].totalScore, initialTotals[2] + 0)
-        XCTAssertEqual(game.players[3].totalScore, initialTotals[3] + 6)
+        XCTAssertEqual(game.totalScores[.south], initialTotals[.south] + 4)
+        XCTAssertEqual(game.totalScores[.west], initialTotals[.west] + 3)
+        XCTAssertEqual(game.totalScores[.north], initialTotals[.north] + 0)
+        XCTAssertEqual(game.totalScores[.east], initialTotals[.east] + 6)
     }
 
     func test_endHand_resets_round_scores_to_zero() {
@@ -434,10 +431,10 @@ final class GameplayTests: XCTestCase {
 
         game.endHand()
 
-        XCTAssertEqual(game.players[0].roundScore, 0)
-        XCTAssertEqual(game.players[1].roundScore, 0)
-        XCTAssertEqual(game.players[2].roundScore, 0)
-        XCTAssertEqual(game.players[3].roundScore, 0)
+        XCTAssertEqual(game.roundScores[.south], 0)
+        XCTAssertEqual(game.roundScores[.west], 0)
+        XCTAssertEqual(game.roundScores[.north], 0)
+        XCTAssertEqual(game.roundScores[.east], 0)
     }
 
     func test_endHand_increments_round_number() {
@@ -454,17 +451,17 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Clear hands
-        game.players[0].hand = []
-        game.players[1].hand = []
-        game.players[2].hand = []
-        game.players[3].hand = []
+        game.hands[.south] = []
+        game.hands[.west] = []
+        game.hands[.north] = []
+        game.hands[.east] = []
 
         game.startNewHand()
 
-        XCTAssertEqual(game.players[0].hand.count, 13)
-        XCTAssertEqual(game.players[1].hand.count, 13)
-        XCTAssertEqual(game.players[2].hand.count, 13)
-        XCTAssertEqual(game.players[3].hand.count, 13)
+        XCTAssertEqual(game.hands[.south].count, 13)
+        XCTAssertEqual(game.hands[.west].count, 13)
+        XCTAssertEqual(game.hands[.north].count, 13)
+        XCTAssertEqual(game.hands[.east].count, 13)
     }
 
     func test_startNewHand_resets_trick_state() {
@@ -487,17 +484,17 @@ final class GameplayTests: XCTestCase {
         game.startNewHand()
 
         // Verify current player has 2 of clubs
-        let currentPlayer = game.currentPlayer
-        XCTAssertTrue(currentPlayer.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }))
+        let currentSeat = game.currentSeat
+        XCTAssertTrue(game.hands[currentSeat].contains(where: { $0.suit == .clubs && $0.rank == .two }))
     }
 
     func test_isGameOver_is_false_when_no_player_reaches_winning_score() {
         let game = makeTestGame()
 
-        game.players[0].totalScore = 50
-        game.players[1].totalScore = 60
-        game.players[2].totalScore = 70
-        game.players[3].totalScore = 80
+        game.totalScores[.south] = 50
+        game.totalScores[.west] = 60
+        game.totalScores[.north] = 70
+        game.totalScores[.east] = 80
 
         XCTAssertFalse(game.isGameOver)
     }
@@ -505,10 +502,10 @@ final class GameplayTests: XCTestCase {
     func test_isGameOver_is_true_when_player_reaches_winning_score() {
         let game = makeTestGame()
 
-        game.players[0].totalScore = 50
-        game.players[1].totalScore = 100
-        game.players[2].totalScore = 70
-        game.players[3].totalScore = 80
+        game.totalScores[.south] = 50
+        game.totalScores[.west] = 100
+        game.totalScores[.north] = 70
+        game.totalScores[.east] = 80
 
         XCTAssertTrue(game.isGameOver)
     }
@@ -516,8 +513,8 @@ final class GameplayTests: XCTestCase {
     func test_gameWinner_is_nil_when_game_not_over() {
         let game = makeTestGame()
 
-        game.players[0].totalScore = 50
-        game.players[1].totalScore = 60
+        game.totalScores[.south] = 50
+        game.totalScores[.west] = 60
 
         XCTAssertNil(game.gameWinner)
     }
@@ -525,21 +522,21 @@ final class GameplayTests: XCTestCase {
     func test_gameWinner_returns_player_with_lowest_score() {
         let game = makeTestGame()
 
-        game.players[0].totalScore = 105
-        game.players[1].totalScore = 100
-        game.players[2].totalScore = 110
-        game.players[3].totalScore = 95  // Lowest score - winner!
+        game.totalScores[.south] = 105
+        game.totalScores[.west] = 100
+        game.totalScores[.north] = 110
+        game.totalScores[.east] = 95  // Lowest score - winner!
 
         let winner = game.gameWinner
 
-        XCTAssertEqual(winner, game.players[3])
+        XCTAssertEqual(winner, .east)
     }
 
     func test_isGameTied_is_false_when_game_not_over() {
         let game = makeTestGame()
 
-        game.players[0].totalScore = 40
-        game.players[1].totalScore = 40
+        game.totalScores[.south] = 40
+        game.totalScores[.west] = 40
 
         XCTAssertFalse(game.isGameTied)
     }
@@ -547,10 +544,10 @@ final class GameplayTests: XCTestCase {
     func test_isGameTied_is_false_when_one_clear_winner() {
         let game = makeTestGame()
 
-        game.players[0].totalScore = 105
-        game.players[1].totalScore = 100
-        game.players[2].totalScore = 110
-        game.players[3].totalScore = 95  // Unique lowest — clear winner
+        game.totalScores[.south] = 105
+        game.totalScores[.west] = 100
+        game.totalScores[.north] = 110
+        game.totalScores[.east] = 95  // Unique lowest — clear winner
 
         XCTAssertFalse(game.isGameTied)
     }
@@ -559,22 +556,22 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Players 1 and 2 are tied at 100, but player 3 has a uniquely lower score
-        game.players[0].totalScore = 100
-        game.players[1].totalScore = 100
-        game.players[2].totalScore = 110
-        game.players[3].totalScore = 60  // Clear winner
+        game.totalScores[.south] = 100
+        game.totalScores[.west] = 100
+        game.totalScores[.north] = 110
+        game.totalScores[.east] = 60  // Clear winner
 
         XCTAssertFalse(game.isGameTied)
-        XCTAssertEqual(game.gameWinner, game.players[3])
+        XCTAssertEqual(game.gameWinner, .east)
     }
 
     func test_isGameTied_is_true_when_two_players_share_minimum() {
         let game = makeTestGame()
 
-        game.players[0].totalScore = 100  // Threshold crossed
-        game.players[1].totalScore = 50   // Tied minimum
-        game.players[2].totalScore = 80
-        game.players[3].totalScore = 50   // Tied minimum
+        game.totalScores[.south] = 100  // Threshold crossed
+        game.totalScores[.west] = 50   // Tied minimum
+        game.totalScores[.north] = 80
+        game.totalScores[.east] = 50   // Tied minimum
 
         XCTAssertTrue(game.isGameTied)
         XCTAssertNil(game.gameWinner)
@@ -583,10 +580,10 @@ final class GameplayTests: XCTestCase {
     func test_isGameTied_is_true_when_all_players_share_minimum() {
         let game = makeTestGame()
 
-        game.players[0].totalScore = 100  // Threshold crossed
-        game.players[1].totalScore = 100
-        game.players[2].totalScore = 100
-        game.players[3].totalScore = 100
+        game.totalScores[.south] = 100  // Threshold crossed
+        game.totalScores[.west] = 100
+        game.totalScores[.north] = 100
+        game.totalScores[.east] = 100
 
         XCTAssertTrue(game.isGameTied)
         XCTAssertNil(game.gameWinner)
@@ -602,14 +599,14 @@ final class GameplayTests: XCTestCase {
         game.endHand()
 
         XCTAssertEqual(game.roundNumber, 1)
-        XCTAssertEqual(game.players[0].totalScore, 4)
-        XCTAssertEqual(game.players[3].totalScore, 6)
-        XCTAssertEqual(game.players[0].roundScore, 0)
+        XCTAssertEqual(game.totalScores[.south], 4)
+        XCTAssertEqual(game.totalScores[.east], 6)
+        XCTAssertEqual(game.roundScores[.south], 0)
 
         // Start second hand
         game.startNewHand()
 
-        XCTAssertEqual(game.players[0].hand.count, 13)
+        XCTAssertEqual(game.hands[.south].count, 13)
         XCTAssertEqual(game.completedTricks.count, 0)
         XCTAssertFalse(game.heartsBroken)
 
@@ -629,20 +626,20 @@ final class GameplayTests: XCTestCase {
         )
 
         // Set up first trick with Jack of Diamonds
-        game.players[0].hand = [Card(suit: .clubs, rank: .two)]
-        game.players[1].hand = [Card(suit: .clubs, rank: .three)]
-        game.players[2].hand = [Card(suit: .clubs, rank: .four)]
-        game.players[3].hand = [Card(suit: .diamonds, rank: .jack), Card(suit: .clubs, rank: .ace)]  // Will win
+        game.hands[.south] = [Card(suit: .clubs, rank: .two)]
+        game.hands[.west] = [Card(suit: .clubs, rank: .three)]
+        game.hands[.north] = [Card(suit: .clubs, rank: .four)]
+        game.hands[.east] = [Card(suit: .diamonds, rank: .jack), Card(suit: .clubs, rank: .ace)]  // Will win
 
-        game.currentPlayerIndex = 0
+        game.currentSeat = .south
 
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
-        try game.playCard(Card(suit: .clubs, rank: .three), by: game.players[1])
-        try game.playCard(Card(suit: .clubs, rank: .four), by: game.players[2])
-        try game.playCard(Card(suit: .clubs, rank: .ace), by: game.players[3])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
+        try game.playCard(Card(suit: .clubs, rank: .three), by: .west)
+        try game.playCard(Card(suit: .clubs, rank: .four), by: .north)
+        try game.playCard(Card(suit: .clubs, rank: .ace), by: .east)
 
         // Player 3 won but no bonus applied
-        XCTAssertEqual(game.players[3].roundScore, 0, "Jack of Diamonds should not apply bonus in standard config")
+        XCTAssertEqual(game.roundScores[.east], 0, "Jack of Diamonds should not apply bonus in standard config")
     }
 
     func test_jackOfDiamonds_applies_bonus_with_jackBonus_config() throws {
@@ -655,22 +652,22 @@ final class GameplayTests: XCTestCase {
         )
 
         // Set up trick where player wins Jack of Diamonds
-        game.players[0].hand = [Card(suit: .diamonds, rank: .king)]
-        game.players[1].hand = [Card(suit: .diamonds, rank: .jack)]  // J♦
-        game.players[2].hand = [Card(suit: .diamonds, rank: .three)]
-        game.players[3].hand = [Card(suit: .diamonds, rank: .ace)]  // Will win
+        game.hands[.south] = [Card(suit: .diamonds, rank: .king)]
+        game.hands[.west] = [Card(suit: .diamonds, rank: .jack)]  // J♦
+        game.hands[.north] = [Card(suit: .diamonds, rank: .three)]
+        game.hands[.east] = [Card(suit: .diamonds, rank: .ace)]  // Will win
 
         // Can't use 2♣ for first trick here, so manually set up state
         game.completedTricks = [Trick()]
-        game.currentPlayerIndex = 0
+        game.currentSeat = .south
 
-        try game.playCard(Card(suit: .diamonds, rank: .king), by: game.players[0])
-        try game.playCard(Card(suit: .diamonds, rank: .jack), by: game.players[1])
-        try game.playCard(Card(suit: .diamonds, rank: .three), by: game.players[2])
-        try game.playCard(Card(suit: .diamonds, rank: .ace), by: game.players[3])
+        try game.playCard(Card(suit: .diamonds, rank: .king), by: .south)
+        try game.playCard(Card(suit: .diamonds, rank: .jack), by: .west)
+        try game.playCard(Card(suit: .diamonds, rank: .three), by: .north)
+        try game.playCard(Card(suit: .diamonds, rank: .ace), by: .east)
 
         // Player 3 won and should get -10 points
-        XCTAssertEqual(game.players[3].roundScore, -10, "Jack of Diamonds should apply -10 bonus")
+        XCTAssertEqual(game.roundScores[.east], -10, "Jack of Diamonds should apply -10 bonus")
     }
 
     func test_jackOfDiamonds_bonus_with_hearts_in_same_trick() throws {
@@ -683,22 +680,22 @@ final class GameplayTests: XCTestCase {
         )
 
         // Set up trick with hearts and J♦
-        game.players[0].hand = [Card(suit: .diamonds, rank: .king)]
-        game.players[1].hand = [Card(suit: .diamonds, rank: .jack)]  // J♦
-        game.players[2].hand = [Card(suit: .hearts, rank: .three)]   // 1 point
-        game.players[3].hand = [Card(suit: .diamonds, rank: .ace)]   // Will win
+        game.hands[.south] = [Card(suit: .diamonds, rank: .king)]
+        game.hands[.west] = [Card(suit: .diamonds, rank: .jack)]  // J♦
+        game.hands[.north] = [Card(suit: .hearts, rank: .three)]   // 1 point
+        game.hands[.east] = [Card(suit: .diamonds, rank: .ace)]   // Will win
 
         game.completedTricks = [Trick()]
-        game.currentPlayerIndex = 0
+        game.currentSeat = .south
         game.heartsBroken = true  // Allow hearts to be played
 
-        try game.playCard(Card(suit: .diamonds, rank: .king), by: game.players[0])
-        try game.playCard(Card(suit: .diamonds, rank: .jack), by: game.players[1])
-        try game.playCard(Card(suit: .hearts, rank: .three), by: game.players[2])
-        try game.playCard(Card(suit: .diamonds, rank: .ace), by: game.players[3])
+        try game.playCard(Card(suit: .diamonds, rank: .king), by: .south)
+        try game.playCard(Card(suit: .diamonds, rank: .jack), by: .west)
+        try game.playCard(Card(suit: .hearts, rank: .three), by: .north)
+        try game.playCard(Card(suit: .diamonds, rank: .ace), by: .east)
 
         // Player 3 should get 1 (heart) - 10 (J♦) = -9 points
-        XCTAssertEqual(game.players[3].roundScore, -9)
+        XCTAssertEqual(game.roundScores[.east], -9)
     }
 
     func test_gameConfiguration_custom_winning_score() {
@@ -713,7 +710,7 @@ final class GameplayTests: XCTestCase {
 
         XCTAssertEqual(game.winningScore, 50)
 
-        game.players[0].totalScore = 50
+        game.totalScores[.south] = 50
         XCTAssertTrue(game.isGameOver)
     }
 
@@ -728,19 +725,19 @@ final class GameplayTests: XCTestCase {
 
         // Player takes only J♦, no other point cards
         game.completedTricks = [Trick()]
-        game.players[0].hand = [Card(suit: .diamonds, rank: .two)]
-        game.players[1].hand = [Card(suit: .diamonds, rank: .jack)]
-        game.players[2].hand = [Card(suit: .diamonds, rank: .three)]
-        game.players[3].hand = [Card(suit: .diamonds, rank: .ace)]  // Wins
+        game.hands[.south] = [Card(suit: .diamonds, rank: .two)]
+        game.hands[.west] = [Card(suit: .diamonds, rank: .jack)]
+        game.hands[.north] = [Card(suit: .diamonds, rank: .three)]
+        game.hands[.east] = [Card(suit: .diamonds, rank: .ace)]  // Wins
 
-        game.currentPlayerIndex = 0
+        game.currentSeat = .south
 
-        try game.playCard(Card(suit: .diamonds, rank: .two), by: game.players[0])
-        try game.playCard(Card(suit: .diamonds, rank: .jack), by: game.players[1])
-        try game.playCard(Card(suit: .diamonds, rank: .three), by: game.players[2])
-        try game.playCard(Card(suit: .diamonds, rank: .ace), by: game.players[3])
+        try game.playCard(Card(suit: .diamonds, rank: .two), by: .south)
+        try game.playCard(Card(suit: .diamonds, rank: .jack), by: .west)
+        try game.playCard(Card(suit: .diamonds, rank: .three), by: .north)
+        try game.playCard(Card(suit: .diamonds, rank: .ace), by: .east)
 
-        XCTAssertEqual(game.players[3].roundScore, -10)
+        XCTAssertEqual(game.roundScores[.east], -10)
     }
 
     func test_shootTheMoon_with_jackBonus_shooter_gets_negative_10() {
@@ -753,15 +750,15 @@ final class GameplayTests: XCTestCase {
         )
 
         // Player 0 shoots the moon and also captures J♦
-        simulateMoonShot(by: game.players[0], in: game, includeJackOfDiamonds: true)
+        simulateMoonShot(by: .south, in: game, includeJackOfDiamonds: true)
 
         game.endHand()
 
         // Moon shooter gets -10, others get 26
-        XCTAssertEqual(game.players[0].totalScore, -10, "Moon shooter with J♦ bonus gets -10")
-        XCTAssertEqual(game.players[1].totalScore, 26)
-        XCTAssertEqual(game.players[2].totalScore, 26)
-        XCTAssertEqual(game.players[3].totalScore, 26)
+        XCTAssertEqual(game.totalScores[.south], -10, "Moon shooter with J♦ bonus gets -10")
+        XCTAssertEqual(game.totalScores[.west], 26)
+        XCTAssertEqual(game.totalScores[.north], 26)
+        XCTAssertEqual(game.totalScores[.east], 26)
     }
 
     // MARK: - Shooting the Moon Tests
@@ -770,62 +767,62 @@ final class GameplayTests: XCTestCase {
         let game = makeTestGame()
 
         // Player 2 shoots the moon (no J♦ bonus in standard config)
-        simulateMoonShot(by: game.players[2], in: game, includeJackOfDiamonds: false)
+        simulateMoonShot(by: .north, in: game, includeJackOfDiamonds: false)
 
         game.endHand()
 
         // Moon shooter gets 0 points
-        XCTAssertEqual(game.players[2].totalScore, 0)
+        XCTAssertEqual(game.totalScores[.north], 0)
     }
 
     func test_shootTheMoon_standard_config_others_get_26() {
         let game = makeTestGame()
 
         // Player 2 shoots the moon
-        simulateMoonShot(by: game.players[2], in: game, includeJackOfDiamonds: false)
+        simulateMoonShot(by: .north, in: game, includeJackOfDiamonds: false)
 
         game.endHand()
 
         // All other players get 26 points
-        XCTAssertEqual(game.players[0].totalScore, 26)
-        XCTAssertEqual(game.players[1].totalScore, 26)
-        XCTAssertEqual(game.players[3].totalScore, 26)
+        XCTAssertEqual(game.totalScores[.south], 26)
+        XCTAssertEqual(game.totalScores[.west], 26)
+        XCTAssertEqual(game.totalScores[.east], 26)
     }
 
     func test_shootTheMoon_round_scores_reset_after_moon_shot() {
         let game = makeTestGame()
 
         // Player 1 shoots the moon
-        simulateMoonShot(by: game.players[1], in: game, includeJackOfDiamonds: false)
+        simulateMoonShot(by: .west, in: game, includeJackOfDiamonds: false)
 
         game.endHand()
 
         // All round scores should be reset to 0
-        XCTAssertEqual(game.players[0].roundScore, 0)
-        XCTAssertEqual(game.players[1].roundScore, 0)
-        XCTAssertEqual(game.players[2].roundScore, 0)
-        XCTAssertEqual(game.players[3].roundScore, 0)
+        XCTAssertEqual(game.roundScores[.south], 0)
+        XCTAssertEqual(game.roundScores[.west], 0)
+        XCTAssertEqual(game.roundScores[.north], 0)
+        XCTAssertEqual(game.roundScores[.east], 0)
     }
 
     func test_shootTheMoon_adds_to_existing_total_scores() {
         let game = makeTestGame()
 
         // Set up existing total scores
-        game.players[0].totalScore = 10
-        game.players[1].totalScore = 5
-        game.players[2].totalScore = 8
-        game.players[3].totalScore = 12
+        game.totalScores[.south] = 10
+        game.totalScores[.west] = 5
+        game.totalScores[.north] = 8
+        game.totalScores[.east] = 12
 
         // Player 3 shoots the moon
-        simulateMoonShot(by: game.players[3], in: game, includeJackOfDiamonds: false)
+        simulateMoonShot(by: .east, in: game, includeJackOfDiamonds: false)
 
         game.endHand()
 
         // Moon shooter's total unchanged, others get +26
-        XCTAssertEqual(game.players[0].totalScore, 36)  // 10 + 26
-        XCTAssertEqual(game.players[1].totalScore, 31)  // 5 + 26
-        XCTAssertEqual(game.players[2].totalScore, 34)  // 8 + 26
-        XCTAssertEqual(game.players[3].totalScore, 12)  // 12 + 0 (moon shooter)
+        XCTAssertEqual(game.totalScores[.south], 36)  // 10 + 26
+        XCTAssertEqual(game.totalScores[.west], 31)  // 5 + 26
+        XCTAssertEqual(game.totalScores[.north], 34)  // 8 + 26
+        XCTAssertEqual(game.totalScores[.east], 12)  // 12 + 0 (moon shooter)
     }
 
     func test_shootTheMoon_does_not_trigger_without_all_hearts() {
@@ -833,27 +830,27 @@ final class GameplayTests: XCTestCase {
 
         // Player 0 has Q♠ and only 3 hearts (missing 10)
         var heartTrick = Trick()
-        try! heartTrick.play(Card(suit: .hearts, rank: .two), by: game.players[1])
-        try! heartTrick.play(Card(suit: .hearts, rank: .three), by: game.players[2])
-        try! heartTrick.play(Card(suit: .clubs, rank: .two), by: game.players[3])
-        try! heartTrick.play(Card(suit: .hearts, rank: .ace), by: game.players[0])  // Wins
+        try! heartTrick.play(Card(suit: .hearts, rank: .two), by: .west)
+        try! heartTrick.play(Card(suit: .hearts, rank: .three), by: .north)
+        try! heartTrick.play(Card(suit: .clubs, rank: .two), by: .east)
+        try! heartTrick.play(Card(suit: .hearts, rank: .ace), by: .south)  // Wins
 
         var queenTrick = Trick()
-        try! queenTrick.play(Card(suit: .spades, rank: .two), by: game.players[1])
-        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: game.players[2])
-        try! queenTrick.play(Card(suit: .clubs, rank: .four), by: game.players[3])
-        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[0])  // Wins
+        try! queenTrick.play(Card(suit: .spades, rank: .two), by: .west)
+        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: .north)
+        try! queenTrick.play(Card(suit: .clubs, rank: .four), by: .east)
+        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: .south)  // Wins
 
         game.completedTricks = [heartTrick, queenTrick]
-        game.players[0].roundScore = 16  // 3 hearts + Q♠ = 16, but missing 10 hearts
+        game.roundScores[.south] = 16  // 3 hearts + Q♠ = 16, but missing 10 hearts
 
         game.endHand()
 
         // Normal scoring applies (no moon shot)
-        XCTAssertEqual(game.players[0].totalScore, 16)
-        XCTAssertEqual(game.players[1].totalScore, 0)
-        XCTAssertEqual(game.players[2].totalScore, 0)
-        XCTAssertEqual(game.players[3].totalScore, 0)
+        XCTAssertEqual(game.totalScores[.south], 16)
+        XCTAssertEqual(game.totalScores[.west], 0)
+        XCTAssertEqual(game.totalScores[.north], 0)
+        XCTAssertEqual(game.totalScores[.east], 0)
     }
 
     // MARK: - Hearts Broken Tests
@@ -866,18 +863,18 @@ final class GameplayTests: XCTestCase {
 
         // Set up a trick: player 0 leads clubs, player 1 is void in clubs and plays Q♠
         // player 1's hand: replace clubs card with Q♠ so they must play off-suit
-        game.players[0].hand = [Card(suit: .clubs, rank: .two)]
-        game.players[1].hand = [Card(suit: .spades, rank: .queen)]  // void in clubs, plays Q♠
-        game.players[2].hand = [Card(suit: .clubs, rank: .three)]
-        game.players[3].hand = [Card(suit: .clubs, rank: .four)]
+        game.hands[.south] = [Card(suit: .clubs, rank: .two)]
+        game.hands[.west] = [Card(suit: .spades, rank: .queen)]  // void in clubs, plays Q♠
+        game.hands[.north] = [Card(suit: .clubs, rank: .three)]
+        game.hands[.east] = [Card(suit: .clubs, rank: .four)]
 
-        game.currentPlayerIndex = 0
+        game.currentSeat = .south
 
         // Play the trick
-        try! game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
-        try! game.playCard(Card(suit: .spades, rank: .queen), by: game.players[1])
-        try! game.playCard(Card(suit: .clubs, rank: .three), by: game.players[2])
-        try! game.playCard(Card(suit: .clubs, rank: .four), by: game.players[3])
+        try! game.playCard(Card(suit: .clubs, rank: .two), by: .south)
+        try! game.playCard(Card(suit: .spades, rank: .queen), by: .west)
+        try! game.playCard(Card(suit: .clubs, rank: .three), by: .north)
+        try! game.playCard(Card(suit: .clubs, rank: .four), by: .east)
 
         // Q♠ must NOT break hearts
         XCTAssertFalse(game.heartsBroken, "Playing Q♠ should not break hearts")
@@ -890,31 +887,31 @@ final class GameplayTests: XCTestCase {
         // Create 13 heart tricks where player 1 leads a heart and wins it
         for rank in Card.Rank.allCases {
             var trick = Trick()
-            try! trick.play(Card(suit: .hearts, rank: rank), by: game.players[1])  // Wins
-            try! trick.play(Card(suit: .clubs, rank: .two), by: game.players[2])
-            try! trick.play(Card(suit: .clubs, rank: .three), by: game.players[3])
-            try! trick.play(Card(suit: .clubs, rank: .four), by: game.players[0])
+            try! trick.play(Card(suit: .hearts, rank: rank), by: .west)  // Wins
+            try! trick.play(Card(suit: .clubs, rank: .two), by: .north)
+            try! trick.play(Card(suit: .clubs, rank: .three), by: .east)
+            try! trick.play(Card(suit: .clubs, rank: .four), by: .south)
             game.completedTricks.append(trick)
         }
 
         // Q♠ goes to someone else (player 2)
         var queenTrick = Trick()
-        try! queenTrick.play(Card(suit: .spades, rank: .two), by: game.players[0])
-        try! queenTrick.play(Card(suit: .spades, rank: .three), by: game.players[1])
-        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: game.players[3])
-        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: game.players[2])  // Wins Q♠
+        try! queenTrick.play(Card(suit: .spades, rank: .two), by: .south)
+        try! queenTrick.play(Card(suit: .spades, rank: .three), by: .west)
+        try! queenTrick.play(Card(suit: .spades, rank: .queen), by: .east)
+        try! queenTrick.play(Card(suit: .spades, rank: .ace), by: .north)  // Wins Q♠
         game.completedTricks.append(queenTrick)
 
-        game.players[1].roundScore = 13  // All hearts but no Q♠
-        game.players[2].roundScore = 13  // Q♠
+        game.roundScores[.west] = 13  // All hearts but no Q♠
+        game.roundScores[.north] = 13  // Q♠
 
         game.endHand()
 
         // Normal scoring applies (no moon shot)
-        XCTAssertEqual(game.players[0].totalScore, 0)
-        XCTAssertEqual(game.players[1].totalScore, 13)  // Gets their 13 points
-        XCTAssertEqual(game.players[2].totalScore, 13)  // Gets Q♠
-        XCTAssertEqual(game.players[3].totalScore, 0)
+        XCTAssertEqual(game.totalScores[.south], 0)
+        XCTAssertEqual(game.totalScores[.west], 13)  // Gets their 13 points
+        XCTAssertEqual(game.totalScores[.north], 13)  // Gets Q♠
+        XCTAssertEqual(game.totalScores[.east], 0)
     }
 
     // MARK: - Moon-Shot Variant: subtractFromSelf
@@ -928,12 +925,12 @@ final class GameplayTests: XCTestCase {
             configuration: .withSubtractMoonShot
         )
 
-        game.players[0].totalScore = 50  // Shooter's existing score
+        game.totalScores[.south] = 50  // Shooter's existing score
 
-        simulateMoonShot(by: game.players[0], in: game, includeJackOfDiamonds: false)
+        simulateMoonShot(by: .south, in: game, includeJackOfDiamonds: false)
         game.endHand()
 
-        XCTAssertEqual(game.players[0].totalScore, 24, "Shooter's score should decrease by 26: 50 - 26 = 24")
+        XCTAssertEqual(game.totalScores[.south], 24, "Shooter's score should decrease by 26: 50 - 26 = 24")
     }
 
     func test_shootTheMoon_subtractFromSelf_opponentsScoresAreUnchanged() {
@@ -945,17 +942,17 @@ final class GameplayTests: XCTestCase {
             configuration: .withSubtractMoonShot
         )
 
-        game.players[1].totalScore = 10
-        game.players[2].totalScore = 20
-        game.players[3].totalScore = 30
+        game.totalScores[.west] = 10
+        game.totalScores[.north] = 20
+        game.totalScores[.east] = 30
 
-        simulateMoonShot(by: game.players[0], in: game, includeJackOfDiamonds: false)
+        simulateMoonShot(by: .south, in: game, includeJackOfDiamonds: false)
         game.endHand()
 
         // Opponents' scores are unchanged (no 26 added)
-        XCTAssertEqual(game.players[1].totalScore, 10, "Opponent scores should not change")
-        XCTAssertEqual(game.players[2].totalScore, 20)
-        XCTAssertEqual(game.players[3].totalScore, 30)
+        XCTAssertEqual(game.totalScores[.west], 10, "Opponent scores should not change")
+        XCTAssertEqual(game.totalScores[.north], 20)
+        XCTAssertEqual(game.totalScores[.east], 30)
     }
 
     func test_shootTheMoon_subtractFromSelf_canGoNegative() {
@@ -967,12 +964,12 @@ final class GameplayTests: XCTestCase {
             configuration: .withSubtractMoonShot
         )
 
-        game.players[0].totalScore = 10  // Will go to -16
+        game.totalScores[.south] = 10  // Will go to -16
 
-        simulateMoonShot(by: game.players[0], in: game, includeJackOfDiamonds: false)
+        simulateMoonShot(by: .south, in: game, includeJackOfDiamonds: false)
         game.endHand()
 
-        XCTAssertEqual(game.players[0].totalScore, -16, "Score can go negative with subtractFromSelf variant")
+        XCTAssertEqual(game.totalScores[.south], -16, "Score can go negative with subtractFromSelf variant")
     }
 
     func test_shootTheMoon_subtractFromSelf_roundScoresAreReset() {
@@ -984,56 +981,9 @@ final class GameplayTests: XCTestCase {
             configuration: .withSubtractMoonShot
         )
 
-        simulateMoonShot(by: game.players[1], in: game, includeJackOfDiamonds: false)
+        simulateMoonShot(by: .west, in: game, includeJackOfDiamonds: false)
         game.endHand()
 
-        for player in game.players {
-            XCTAssertEqual(player.roundScore, 0, "Round scores should be reset to 0 after endHand")
-        }
-    }
-
-    // MARK: - Live Accessor Tests
-
-    func test_hand_accessor_returns_live_hand_after_card_played() {
-        let game = makeTestGame()
-        let player = game.players[0]
-
-        // Capture stale copy before the play
-        let staleHand = player.hand
-        let cardToPlay = game.players[0].hand.first(where: { $0.suit == .clubs && $0.rank == .two })!
-
-        try! game.playCard(cardToPlay, by: game.players[0])
-
-        // Stale copy still has the card; live accessor does not
-        XCTAssertTrue(staleHand.contains(cardToPlay), "Stale copy should still contain the played card")
-        XCTAssertFalse(game.hand(for: player).contains(cardToPlay), "Live accessor should reflect the removal")
-        XCTAssertEqual(game.hand(for: player).count, staleHand.count - 1)
-    }
-
-    func test_roundScore_accessor_returns_live_score() {
-        let game = makeTestGame()
-        let player = game.players[0]
-
-        game.players[0].roundScore = 7
-
-        XCTAssertEqual(game.roundScore(for: player), 7)
-    }
-
-    func test_totalScore_accessor_returns_live_score() {
-        let game = makeTestGame()
-        let player = game.players[0]
-
-        game.players[0].totalScore = 42
-
-        XCTAssertEqual(game.totalScore(for: player), 42)
-    }
-
-    func test_accessors_return_defaults_for_unknown_player() {
-        let game = Game()
-        let stranger = Player(name: "Stranger")
-
-        XCTAssertEqual(game.hand(for: stranger), [])
-        XCTAssertEqual(game.roundScore(for: stranger), 0)
-        XCTAssertEqual(game.totalScore(for: stranger), 0)
+        XCTAssertEqual(game.roundScores, SeatMap(repeating: 0), "Round scores should be reset to 0 after endHand")
     }
 }

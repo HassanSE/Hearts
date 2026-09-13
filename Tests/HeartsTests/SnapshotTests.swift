@@ -16,10 +16,10 @@ final class SnapshotTests: XCTestCase {
         let game = Game()
         let snap = game.snapshot()
 
-        XCTAssertEqual(snap.players.map(\.hand), game.players.map(\.hand))
+        XCTAssertEqual(snap.hands, game.hands)
         XCTAssertEqual(snap.completedTricks.count, 0)
         XCTAssertFalse(snap.heartsBroken)
-        XCTAssertEqual(snap.currentPlayerIndex, game.currentPlayerIndex)
+        XCTAssertEqual(snap.currentSeat, game.currentSeat)
         XCTAssertEqual(snap.roundNumber, 0)
         XCTAssertFalse(snap.hasExchanged)
     }
@@ -51,8 +51,8 @@ final class SnapshotTests: XCTestCase {
         let game = Game()
         let snap = game.snapshot()
 
-        let handsBefore = game.players.map(\.hand)
-        let scoreBefore = game.players.map(\.totalScore)
+        let handsBefore = game.hands
+        let scoreBefore = game.totalScores
 
         // Play a complete hand (exchange + 13 tricks + endHand)
         try! game.playCompleteHand()
@@ -65,8 +65,8 @@ final class SnapshotTests: XCTestCase {
         game.restore(from: snap)
 
         // All state matches original
-        XCTAssertEqual(game.players.map(\.hand), handsBefore)
-        XCTAssertEqual(game.players.map(\.totalScore), scoreBefore)
+        XCTAssertEqual(game.hands, handsBefore)
+        XCTAssertEqual(game.totalScores, scoreBefore)
         XCTAssertEqual(game.completedTricks.count, 0)
         XCTAssertEqual(game.roundNumber, 0)
         XCTAssertFalse(game.heartsBroken)
@@ -79,12 +79,12 @@ final class SnapshotTests: XCTestCase {
 
         // Record the first card that will be played
         try game.performExchange()
-        let firstPlayer = game.currentPlayer
-        let firstCard = game.selectCardForBotPlay(player: firstPlayer)
+        let firstSeat = game.currentSeat
+        let firstCard = game.selectCardForBotPlay(seat: firstSeat)
 
         // Play one card
-        try! game.playCard(firstCard, by: firstPlayer)
-        XCTAssertFalse(game.hand(for: firstPlayer).contains(firstCard))
+        try! game.playCard(firstCard, by: firstSeat)
+        XCTAssertFalse(game.hands[firstSeat].contains(firstCard))
 
         // Restore to before-exchange snapshot
         game.restore(from: snap)
@@ -92,9 +92,9 @@ final class SnapshotTests: XCTestCase {
         // Exchange again — same direction
         try game.performExchange()
 
-        // The same player now holds the first card again (or a different one if exchange moved it)
-        // The key invariant: the player's hand is restored to 13 cards
-        XCTAssertEqual(game.players.map { game.hand(for: $0).count }, [13, 13, 13, 13])
+        // The same seat now holds the first card again (or a different one if exchange moved it)
+        // The key invariant: every hand is restored to 13 cards
+        XCTAssertEqual(game.hands.mapValues(\.count), [13, 13, 13, 13])
     }
 
     func test_restore_clears_undo_history() throws {
@@ -123,9 +123,9 @@ final class SnapshotTests: XCTestCase {
         let game = Game()
         try game.performExchange()
 
-        let player = game.currentPlayer
-        let card = game.selectCardForBotPlay(player: player)
-        try! game.playCard(card, by: player)
+        let seat = game.currentSeat
+        let card = game.selectCardForBotPlay(seat: seat)
+        try! game.playCard(card, by: seat)
 
         XCTAssertTrue(game.canUndo)
     }
@@ -134,27 +134,27 @@ final class SnapshotTests: XCTestCase {
         let game = Game()
         try game.performExchange()
 
-        let handsBefore = game.players.map(\.hand)
-        let player = game.currentPlayer
-        let card = game.selectCardForBotPlay(player: player)
+        let handsBefore = game.hands
+        let seat = game.currentSeat
+        let card = game.selectCardForBotPlay(seat: seat)
 
-        try! game.playCard(card, by: player)
+        try! game.playCard(card, by: seat)
 
         // Card has been removed from hand
-        XCTAssertFalse(game.hand(for: player).contains(card))
+        XCTAssertFalse(game.hands[seat].contains(card))
 
         game.undo()
 
         // Hand is restored
-        XCTAssertEqual(game.players.map(\.hand), handsBefore)
-        XCTAssertTrue(game.hand(for: player).contains(card))
+        XCTAssertEqual(game.hands, handsBefore)
+        XCTAssertTrue(game.hands[seat].contains(card))
     }
 
     func test_undo_reverts_multiple_steps() throws {
         let game = Game()
         try game.performExchange()
 
-        let handsBefore = game.players.map(\.hand)
+        let handsBefore = game.hands
 
         // Play 4 cards (one full trick)
         try! game.playCompleteTrick()
@@ -165,23 +165,23 @@ final class SnapshotTests: XCTestCase {
         game.undo(); game.undo(); game.undo(); game.undo()
 
         XCTAssertEqual(game.completedTricks.count, 0)
-        XCTAssertEqual(game.players.map(\.hand), handsBefore)
+        XCTAssertEqual(game.hands, handsBefore)
     }
 
     func test_undo_reverts_exchange() throws {
         let game = Game()
-        let handsBefore = game.players.map(\.hand)
+        let handsBefore = game.hands
 
         try game.performExchange()
 
         // Hands changed
-        XCTAssertNotEqual(game.players.map(\.hand), handsBefore)
+        XCTAssertNotEqual(game.hands, handsBefore)
         XCTAssertTrue(game.canUndo)
 
         game.undo()
 
         // Hands restored to pre-exchange state
-        XCTAssertEqual(game.players.map(\.hand), handsBefore)
+        XCTAssertEqual(game.hands, handsBefore)
         XCTAssertFalse(game.snapshot().hasExchanged)
     }
 
@@ -193,7 +193,7 @@ final class SnapshotTests: XCTestCase {
         let snap = game.snapshot()
         game.undo()
 
-        XCTAssertEqual(game.players.map(\.hand), snap.players.map(\.hand))
+        XCTAssertEqual(game.hands, snap.hands)
         XCTAssertEqual(game.completedTricks.count, 0)
     }
 
@@ -201,9 +201,9 @@ final class SnapshotTests: XCTestCase {
         let game = Game()
         try game.performExchange()
 
-        let player = game.currentPlayer
-        let card = game.selectCardForBotPlay(player: player)
-        try! game.playCard(card, by: player)
+        let seat = game.currentSeat
+        let card = game.selectCardForBotPlay(seat: seat)
+        try! game.playCard(card, by: seat)
 
         // 2 history entries: one from exchange, one from playCard
         game.undo() // reverts playCard

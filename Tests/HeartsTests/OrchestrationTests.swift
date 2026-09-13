@@ -16,19 +16,18 @@ final class OrchestrationTests: XCTestCase {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         // Basic assertions
-        XCTAssertEqual(game.players.count, 4)
-        XCTAssertTrue(game.currentPlayerIndex >= 0 && game.currentPlayerIndex < 4, "Should have valid index")
-        XCTAssertFalse(game.currentPlayer.hand.isEmpty, "Current player should have cards")
+        XCTAssertEqual(game.players.values.count, 4)
+        XCTAssertFalse(game.hands[game.currentSeat].isEmpty, "Current seat should have cards")
 
         // Try to select a card for bot
-        let card = game.selectCardForBotPlay(player: game.currentPlayer)
-        XCTAssertTrue(game.currentPlayer.hand.contains(card), "Selected card should be in hand")
+        let card = game.selectCardForBotPlay(seat: game.currentSeat)
+        XCTAssertTrue(game.hands[game.currentSeat].contains(card), "Selected card should be in hand")
 
         // Try to play a complete trick manually
         for _ in 0..<4 {
-            let currentPlayer = game.currentPlayer
-            let selectedCard = game.selectCardForBotPlay(player: currentPlayer)
-            try! game.playCard(selectedCard, by: currentPlayer)
+            let seat = game.currentSeat
+            let selectedCard = game.selectCardForBotPlay(seat: seat)
+            try! game.playCard(selectedCard, by: seat)
         }
 
         // After 4 plays, trick should be complete
@@ -49,19 +48,20 @@ final class OrchestrationTests: XCTestCase {
         // Current trick should be reset
         XCTAssertEqual(game.currentTrick.cards.count, 0)
 
-        // Winner should be the current player (leads next trick)
-        XCTAssertEqual(game.currentPlayer, winner)
+        // Winner should be the current seat (leads next trick)
+        XCTAssertEqual(game.currentSeat, winner)
     }
 
-    func test_playCompleteTrick_plays_all_4_players() {
+    func test_playCompleteTrick_plays_all_4_seats() {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         let completedTrick = game.completedTricks.count
         try! game.playCompleteTrick()
 
-        // Completed trick should have 4 cards
+        // Completed trick should have 4 cards, one per seat
         let trick = game.completedTricks[completedTrick]
         XCTAssertEqual(trick.cards.count, 4)
+        XCTAssertEqual(Set(trick.seats), Set(Seat.allCases))
     }
 
     func test_playCompleteTrick_first_card_is_two_of_clubs() {
@@ -87,30 +87,27 @@ final class OrchestrationTests: XCTestCase {
         XCTAssertTrue(game.isHandComplete)
     }
 
-    func test_playCompleteHand_awards_points_to_players() {
+    func test_playCompleteHand_awards_points_to_seats() {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         try! game.playCompleteHand()
 
         // Total points should be 26 (13 hearts + 13 for Q♠)
-        let totalPoints = game.players.map { $0.totalScore }.reduce(0, +)
+        let totalPoints = game.totalScores.values.reduce(0, +)
         XCTAssertEqual(totalPoints, 26, "Total points in hand should be 26")
     }
 
-    func test_playCompleteHand_all_players_have_empty_hands() {
+    func test_playCompleteHand_all_seats_have_empty_hands() {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
 
         try! game.playCompleteHand()
 
-        // All players should have empty hands
-        for player in game.players {
-            XCTAssertEqual(player.hand.count, 0)
-        }
+        XCTAssertEqual(game.hands, SeatMap(repeating: []))
     }
 
     // MARK: - playCompleteGame Tests
 
-    func test_playCompleteGame_ends_when_player_reaches_winning_score() {
+    func test_playCompleteGame_ends_when_seat_reaches_winning_score() {
         let config = GameConfiguration(jackOfDiamondsBonus: false, winningScore: 26)
         let game = Game(configuration: config, using: SeededRandomNumberGenerator(seed: 1))
 
@@ -119,11 +116,11 @@ final class OrchestrationTests: XCTestCase {
         // Game should be over
         XCTAssertTrue(game.isGameOver)
 
-        // At least one player should have reached winning score
-        XCTAssertTrue(game.players.contains(where: { $0.totalScore >= 26 }))
+        // At least one seat should have reached winning score
+        XCTAssertTrue(game.totalScores.values.contains(where: { $0 >= 26 }))
 
         // Winner should have lowest score
-        XCTAssertEqual(winner, game.players.min(by: { $0.totalScore < $1.totalScore }))
+        XCTAssertEqual(winner, game.totalScores.min(by: { $0.value < $1.value })?.seat)
     }
 
     func test_playCompleteGame_plays_multiple_hands() {
@@ -142,7 +139,7 @@ final class OrchestrationTests: XCTestCase {
         let winner = try! game.playCompleteGame()
 
         // Winner should have the lowest total score
-        let lowestScore = game.players.map { $0.totalScore }.min()!
-        XCTAssertEqual(winner.totalScore, lowestScore)
+        let lowestScore = game.totalScores.values.min()!
+        XCTAssertEqual(game.totalScores[winner], lowestScore)
     }
 }

@@ -11,70 +11,62 @@ import XCTest
 final class GameTests: XCTestCase {
     func test_init_game_has_4_players() {
         let game = Game()
-        XCTAssertEqual(game.players.count, 4)
+        XCTAssertEqual(game.players.values.count, 4)
     }
     
-    func test_init_game_pass_4_players() {
+    func test_init_game_seats_players_in_order() {
         let game = Game(player1: Player(name: "Joe"),
                         player2: Player(name: "Dan"),
                         player3: Player(name: "Ali"),
                         player4: Player(name: "Tim"))
-        XCTAssertEqual(game.players.count, 4)
+        XCTAssertEqual(game.players.mapValues(\.name), ["Joe", "Dan", "Ali", "Tim"])
+        XCTAssertEqual(game.players[.north].name, "Ali")
     }
     
     func test_init_deal_cards() {
         let game = Game()
-        XCTAssertEqual(game.players[0].hand.count, 13)
-        XCTAssertEqual(game.players[1].hand.count, 13)
-        XCTAssertEqual(game.players[2].hand.count, 13)
-        XCTAssertEqual(game.players[3].hand.count, 13)
+        XCTAssertEqual(game.hands.mapValues(\.count), [13, 13, 13, 13])
     }
     
-    func test_init_each_player_has_3_opponents() {
-        let game = Game()
-        let players = game.players
-
-        // Each player should have 3 opponents (left, right, across)
-        for player in players {
-            XCTAssertNotNil(game.getOpponent(player, direction: .left))
-            XCTAssertNotNil(game.getOpponent(player, direction: .right))
-            XCTAssertNotNil(game.getOpponent(player, direction: .across))
+    func test_init_each_seat_has_3_opponents() {
+        // Each seat should have 3 opponents (left, right, across)
+        for seat in Seat.allCases {
+            XCTAssertNotNil(CardExchangeDirection.left.recipient(of: seat))
+            XCTAssertNotNil(CardExchangeDirection.right.recipient(of: seat))
+            XCTAssertNotNil(CardExchangeDirection.across.recipient(of: seat))
         }
     }
     
     func test_leader_after_first_hand_is_dealt() {
         let game = Game()
-        let leader = game.players.filter { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }.first
+        let leader = game.hands.first { $0.value.contains(Card(suit: .clubs, rank: .two)) }?.seat
+        XCTAssertNotNil(leader)
         XCTAssertEqual(leader, game.leader)
+        XCTAssertEqual(leader, game.currentSeat)
     }
     
-    func test_players_direction() {
-        let game = Game()
-        let players = game.players
+    func test_seats_direction() {
+        XCTAssertEqual(CardExchangeDirection.right.recipient(of: .south), .east, "South's right opponent should be east.")
+        XCTAssertEqual(CardExchangeDirection.left.recipient(of: .east), .south, "East's left opponent should be south.")
 
-        let player1 = players[0]
-        XCTAssertEqual(game.getOpponent(player1, direction: .right), players[3], "Player 1's right opponent should be Player 4.")
-        XCTAssertEqual(game.getOpponent(players[3], direction: .left), players[0], "Player 4's left opponent should be Player 1.")
-
-        guard let left = game.getOpponent(player1, direction: .left),
-              let leftOfLeft = game.getOpponent(left, direction: .left),
-              let player1Across = game.getOpponent(player1, direction: .across) else {
-            XCTFail("Failed to get left opponent of Player 1 or player across from Player 1.")
+        guard let left = CardExchangeDirection.left.recipient(of: .south),
+              let leftOfLeft = CardExchangeDirection.left.recipient(of: left),
+              let across = CardExchangeDirection.across.recipient(of: .south) else {
+            XCTFail("Failed to get left opponent of south or seat across from south.")
             return
         }
-        XCTAssertEqual(leftOfLeft, player1Across, "The left of left opponent of Player 1 should be the player across from Player 1.")
+        XCTAssertEqual(leftOfLeft, across, "The left of left of south should be the seat across from south.")
 
-        guard let right = game.getOpponent(player1, direction: .right),
-              let rightOfRight = game.getOpponent(right, direction: .right),
-              let player1Across = game.getOpponent(player1, direction: .across) else {
-            XCTFail("Failed to get right opponent of Player 1 or player across from Player 1.")
+        guard let right = CardExchangeDirection.right.recipient(of: .south),
+              let rightOfRight = CardExchangeDirection.right.recipient(of: right) else {
+            XCTFail("Failed to get right opponent of south.")
             return
         }
 
-        XCTAssertEqual(rightOfRight, player1Across, "The right of right opponent of Player 1 should be the player across from Player 1.")
+        XCTAssertEqual(rightOfRight, across, "The right of right of south should be the seat across from south.")
 
-        let acrossOfRight = game.getOpponent(right, direction: .across)
-        XCTAssertEqual(acrossOfRight, left, "The across opponent of right opponent of Player 1 should be the left opponent of Player 1.")
+        let acrossOfRight = CardExchangeDirection.across.recipient(of: right)
+        XCTAssertEqual(acrossOfRight, left, "The seat across from south's right opponent should be south's left opponent.")
     }
 
     func test_exchange_cards_direction() {
@@ -108,18 +100,18 @@ final class GameTests: XCTestCase {
         let game = Game()
         
         // Cards before exchange
-        let player1CardsBE = game.players[0].hand
-        let player2CardsBE = game.players[1].hand
-        let player3CardsBE = game.players[2].hand
-        let player4CardsBE = game.players[3].hand
+        let player1CardsBE = game.hands[.south]
+        let player2CardsBE = game.hands[.west]
+        let player3CardsBE = game.hands[.north]
+        let player4CardsBE = game.hands[.east]
 
         try game.performExchange()
         
         // Cards after exchange
-        let player1CardsAE = game.players[0].hand
-        let player2CardsAE = game.players[1].hand
-        let player3CardsAE = game.players[2].hand
-        let player4CardsAE = game.players[3].hand
+        let player1CardsAE = game.hands[.south]
+        let player2CardsAE = game.hands[.west]
+        let player3CardsAE = game.hands[.north]
+        let player4CardsAE = game.hands[.east]
         
         let playerHandCount = 13
         let passedCardCount = 3
@@ -156,15 +148,15 @@ final class GameTests: XCTestCase {
     // MARK: - AI Integration Tests
 
     func test_selectCardsForBotExchange_returns_3_cards_from_hand() {
-        let game = Game()
-        let botPlayer = game.players[0]  // All players are bots in default init
+        let game = Game()  // All seats are bots in default init
+        let hand = game.hands[.south]
 
-        let selectedCards = game.selectCardsForBotExchange(player: botPlayer)
+        let selectedCards = game.selectCardsForBotExchange(seat: .south)
 
         // Should return 3 cards from the bot's hand
-        XCTAssertTrue(botPlayer.hand.contains(selectedCards.0))
-        XCTAssertTrue(botPlayer.hand.contains(selectedCards.1))
-        XCTAssertTrue(botPlayer.hand.contains(selectedCards.2))
+        XCTAssertTrue(hand.contains(selectedCards.0))
+        XCTAssertTrue(hand.contains(selectedCards.1))
+        XCTAssertTrue(hand.contains(selectedCards.2))
 
         // Should be unique cards
         XCTAssertNotEqual(selectedCards.0, selectedCards.1)
@@ -174,12 +166,12 @@ final class GameTests: XCTestCase {
 
     func test_selectCardForBotPlay_returns_legal_card() {
         let game = Game()
-        let botPlayer = game.players[game.currentPlayerIndex]
+        let seat = game.currentSeat
 
-        let selectedCard = game.selectCardForBotPlay(player: botPlayer)
+        let selectedCard = game.selectCardForBotPlay(seat: seat)
 
         // Should return a card from the bot's hand
-        XCTAssertTrue(botPlayer.hand.contains(selectedCard))
+        XCTAssertTrue(game.hands[seat].contains(selectedCard))
 
         // Should be a legal move (2 of clubs on first play)
         if game.completedTricks.isEmpty && game.currentTrick.cards.isEmpty {
@@ -197,15 +189,15 @@ final class GameTests: XCTestCase {
         let game = Game(player1: botPlayer1, player2: botPlayer2, player3: botPlayer3, player4: botPlayer4)
 
         // Play first card (2 of clubs)
-        let firstCard = game.selectCardForBotPlay(player: game.currentPlayer)
-        try! game.playCard(firstCard, by: game.currentPlayer)
+        let firstCard = game.selectCardForBotPlay(seat: game.currentSeat)
+        try! game.playCard(firstCard, by: game.currentSeat)
 
-        // Next player must follow suit if possible
-        let secondPlayer = game.currentPlayer
-        let secondCard = game.selectCardForBotPlay(player: secondPlayer)
+        // Next seat must follow suit if possible
+        let secondSeat = game.currentSeat
+        let secondCard = game.selectCardForBotPlay(seat: secondSeat)
 
-        // If player has clubs, they must play a club
-        let hasClubs = secondPlayer.hand.contains(where: { $0.suit == .clubs })
+        // If the seat has clubs, it must play a club
+        let hasClubs = game.hands[secondSeat].contains(where: { $0.suit == .clubs })
         if hasClubs {
             XCTAssertEqual(secondCard.suit, .clubs, "Bot should follow suit when possible")
         }
@@ -223,11 +215,11 @@ final class GameTrickPointsTests: XCTestCase {
              configuration: GameConfiguration(jackOfDiamondsBonus: jackBonus))
     }
 
-    /// Builds a complete trick from four cards played by the game's four players in order.
+    /// Builds a complete trick from four cards played from south clockwise.
     private func makeTrick(_ cards: [Card], in game: Game) throws -> Trick {
         var trick = Trick()
-        for (player, card) in zip(game.players, cards) {
-            try trick.play(card, by: player)
+        for (seat, card) in zip(Seat.allCases, cards) {
+            try trick.play(card, by: seat)
         }
         return trick
     }
@@ -272,7 +264,7 @@ final class GameTrickPointsTests: XCTestCase {
     func test_points_partialTrick_countsCardsPlayedSoFar() throws {
         let game = makeGame(jackBonus: true)
         var trick = Trick()
-        try trick.play(Card(suit: .diamonds, rank: .jack), by: game.players[0])
+        try trick.play(Card(suit: .diamonds, rank: .jack), by: .south)
 
         XCTAssertEqual(game.points(in: trick), -10)
     }
@@ -280,7 +272,7 @@ final class GameTrickPointsTests: XCTestCase {
     func test_points_matchesPointsDeliveredToDelegate() throws {
         final class Spy: GameEngineDelegate {
             var delivered: [Int] = []
-            func game(_ game: Game, didCompleteTrick trick: Trick, winner: Player, points: Int) {
+            func game(_ game: Game, didCompleteTrick trick: Trick, winner: Seat, points: Int) {
                 delivered.append(points)
             }
         }
@@ -313,13 +305,13 @@ final class GamePlayCardErrorSurfaceTests: XCTestCase {
 
         var invalidAttempts = 0
         while !game.isHandComplete {
-            for player in game.players {
-                for card in game.hand(for: player) {
-                    let legal = game.legalMoves(for: player).contains(card)
+            for (seat, hand) in game.hands {
+                for card in hand {
+                    let legal = game.legalMoves(for: seat).contains(card)
                     if legal { continue }
                     do {
-                        try game.playCard(card, by: player)
-                        XCTFail("Illegal play \(card) by \(player.name) was accepted")
+                        try game.playCard(card, by: seat)
+                        XCTFail("Illegal play \(card) by \(seat) was accepted")
                     } catch let error as GameError {
                         invalidAttempts += 1
                         _ = error
@@ -328,15 +320,15 @@ final class GamePlayCardErrorSurfaceTests: XCTestCase {
                     }
                 }
             }
-            let current = game.currentPlayer
+            let current = game.currentSeat
             guard let move = game.legalMoves(for: current).first else {
-                return XCTFail("No legal move for \(current.name)")
+                return XCTFail("No legal move for \(current)")
             }
             try game.playCard(move, by: current)
         }
 
         XCTAssertGreaterThan(invalidAttempts, 0)
-        XCTAssertThrowsError(try game.playCard(Card(suit: .clubs, rank: .two), by: game.currentPlayer)) { error in
+        XCTAssertThrowsError(try game.playCard(Card(suit: .clubs, rank: .two), by: game.currentSeat)) { error in
             XCTAssertEqual(error as? GameError, .handComplete)
         }
     }
@@ -362,28 +354,28 @@ final class GameEndHandTests: XCTestCase {
             [Card(suit: .clubs, rank: .five), Card(suit: .clubs, rank: .six)],
             [Card(suit: .hearts, rank: .seven), Card(suit: .hearts, rank: .eight)]
         ], configuration: configuration)
-        try game.playCard(Card(suit: .clubs, rank: .two), by: game.players[0])
-        try game.playCard(Card(suit: .clubs, rank: .three), by: game.players[1])
-        try game.playCard(Card(suit: .clubs, rank: .five), by: game.players[2])
-        try game.playCard(Card(suit: .hearts, rank: .seven), by: game.players[3])
-        try game.playCard(Card(suit: .clubs, rank: .six), by: game.players[2])
-        try game.playCard(Card(suit: .hearts, rank: .eight), by: game.players[3])
-        try game.playCard(Card(suit: .clubs, rank: .ace), by: game.players[0])
-        try game.playCard(Card(suit: .clubs, rank: .four), by: game.players[1])
+        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
+        try game.playCard(Card(suit: .clubs, rank: .three), by: .west)
+        try game.playCard(Card(suit: .clubs, rank: .five), by: .north)
+        try game.playCard(Card(suit: .hearts, rank: .seven), by: .east)
+        try game.playCard(Card(suit: .clubs, rank: .six), by: .north)
+        try game.playCard(Card(suit: .hearts, rank: .eight), by: .east)
+        try game.playCard(Card(suit: .clubs, rank: .ace), by: .south)
+        try game.playCard(Card(suit: .clubs, rank: .four), by: .west)
         return game
     }
 
     func test_endHand_returnsRoundScoresDerivedFromTricksAndNewTotals() throws {
         let game = try makeTwoTrickGame()
-        game.players[2].totalScore = 40
+        game.totalScores[.north] = 40
 
         let result = game.endHand()
 
         XCTAssertEqual(result.roundScores, [1, 0, 1, 0])
         XCTAssertEqual(result.totalScores, [1, 0, 41, 0])
         XCTAssertNil(result.moonShooter)
-        XCTAssertEqual(game.players.map(\.totalScore), [1, 0, 41, 0])
-        XCTAssertEqual(game.players.map(\.roundScore), [0, 0, 0, 0])
+        XCTAssertEqual(game.totalScores, [1, 0, 41, 0])
+        XCTAssertEqual(game.roundScores, [0, 0, 0, 0])
     }
 
     func test_endHand_deliversSameResultToDelegate() throws {

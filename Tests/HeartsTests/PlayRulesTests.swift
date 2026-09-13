@@ -16,7 +16,7 @@ final class PlayRulesTests: XCTestCase {
     private func trick(_ cards: Card...) -> Trick {
         var trick = Trick()
         for (index, card) in cards.enumerated() {
-            try! trick.play(card, by: Player(name: "P\(index)", type: .bot(difficulty: .easy)))
+            try! trick.play(card, by: Seat.allCases[index])
         }
         return trick
     }
@@ -152,7 +152,7 @@ final class PlayRulesTests: XCTestCase {
             let trickSize = Int.random(in: 0...3, using: &generator)
             var trick = Trick()
             for index in 0..<trickSize {
-                try! trick.play(cards[index], by: Player(name: "P\(index)", type: .bot(difficulty: .easy)))
+                try! trick.play(cards[index], by: Seat.allCases[index])
             }
             let rules = PlayRules(
                 hand: hand,

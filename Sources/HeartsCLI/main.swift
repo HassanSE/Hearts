@@ -81,9 +81,9 @@ func directionLabel(_ direction: CardExchangeDirection) -> String {
     }
 }
 
-func runExchangePhase(game: Game) throws {
+func runExchangePhase(game: Game, humanSeat: Seat) throws {
     let direction = game.exchangeDirection
-    let humanHand = game.hand(for: game.players[0])
+    let humanHand = game.hands[humanSeat]
 
     if direction == .none {
         print("")
@@ -110,12 +110,12 @@ func runExchangePhase(game: Game) throws {
 
         let selected = parts.map { sortedCards[$0 - 1] }
         do {
-            try game.performExchange(selections: [0: selected])
+            try game.performExchange(selections: [humanSeat: selected])
         } catch let error as GameError {
             print("Invalid selection: \(formatGameError(error))")
             continue
         }
-        printNumberedHand(game.hand(for: game.players[0]), label: "Your hand after exchange:")
+        printNumberedHand(game.hands[humanSeat], label: "Your hand after exchange:")
         return
     }
 }
@@ -133,7 +133,6 @@ func formatGameError(_ error: GameError) -> String {
     case .trickAlreadyComplete: return "The trick is already complete."
     case .exchangeAlreadyPerformed: return "Cards have already been passed this hand."
     case .exchangeNotAllowedAfterPlay: return "Cards can't be passed once play has started."
-    case .invalidSeat(let seat): return "There is no seat \(seat)."
     case .missingPassSelection: return "You must choose cards to pass."
     case .wrongPassCount(_, let count): return "Please enter exactly 3 numbers (got \(count))."
     case .duplicatePassCards: return "Cards must be distinct."
@@ -146,7 +145,7 @@ func formatSuit(_ suit: Card.Suit) -> String {
     "\(suit)"
 }
 
-func printTrickState(_ trick: Trick) {
+func printTrickState(_ trick: Trick, game: Game) {
     print("")
     if trick.plays.isEmpty {
         print("Current trick: (you lead)")
@@ -154,17 +153,16 @@ func printTrickState(_ trick: Trick) {
         let leadSuit = trick.leadSuit.map { " — lead suit: \(formatSuit($0))" } ?? ""
         print("Current trick:\(leadSuit)")
         for play in trick.plays {
-            print("  \(play.player.name): \(formatCard(play.card))")
+            print("  \(game.players[play.seat].name): \(formatCard(play.card))")
         }
     }
 }
 
-func promptHumanPlay(game: Game) throws {
-    printTrickState(game.currentTrick)
-    let human = game.players[0]
-    printNumberedHand(game.hand(for: human), label: "Your hand:")
+func promptHumanPlay(game: Game, humanSeat: Seat) throws {
+    printTrickState(game.currentTrick, game: game)
+    printNumberedHand(game.hands[humanSeat], label: "Your hand:")
 
-    let legal = game.legalMoves(for: human)
+    let legal = game.legalMoves(for: humanSeat)
     let sortedCards = legal.sorted()
     printNumberedHand(legal, label: "Legal moves:")
 
@@ -178,7 +176,7 @@ func promptHumanPlay(game: Game) throws {
         }
         let card = sortedCards[n - 1]
         do {
-            try game.playCard(card, by: human)
+            try game.playCard(card, by: humanSeat)
             return
         } catch let error as GameError {
             // playCard throws only GameError; anything else propagates to the caller.
@@ -187,13 +185,13 @@ func promptHumanPlay(game: Game) throws {
     }
 }
 
-func runOneTrick(game: Game) throws {
+func runOneTrick(game: Game, humanSeat: Seat) throws {
     let preCount = game.completedTricks.count
 
     try game.playBotTurnsUntilHumanTurn()
 
     if game.completedTricks.count == preCount && !game.isHandComplete {
-        try promptHumanPlay(game: game)
+        try promptHumanPlay(game: game, humanSeat: humanSeat)
         try game.playBotTurnsUntilHumanTurn()
     }
 
@@ -203,12 +201,12 @@ func runOneTrick(game: Game) throws {
             print("")
             print("Completed trick \(preCount + 1):")
             for play in trick.plays {
-                print("  \(play.player.name): \(formatCard(play.card))")
+                print("  \(game.players[play.seat].name): \(formatCard(play.card))")
             }
             let pts = game.points(in: trick)
             let suffix = abs(pts) == 1 ? "point" : "points"
             let signed = pts < 0 ? "\(pts)" : "+\(pts)"
-            print("→ Won by \(winner.name) (\(signed) \(suffix))")
+            print("→ Won by \(game.players[winner].name) (\(signed) \(suffix))")
         }
     }
 }
@@ -226,8 +224,8 @@ func printScoreboard(game: Game, result: HandResult, handNumber: Int) {
     print("Scoreboard after hand \(handNumber):")
     print("  \(padRight("Player", 10)) \(padLeft("Round", 6))  \(padLeft("Total", 6))")
     print("  \(String(repeating: "-", count: 26))")
-    for (i, player) in game.players.enumerated() {
-        print("  \(padRight(player.name, 10)) \(padLeft("\(result.roundScores[i])", 6))  \(padLeft("\(result.totalScores[i])", 6))")
+    for (seat, player) in game.players {
+        print("  \(padRight(player.name, 10)) \(padLeft("\(result.roundScores[seat])", 6))  \(padLeft("\(result.totalScores[seat])", 6))")
     }
 }
 
@@ -236,42 +234,43 @@ func printGameResult(game: Game) {
     print(String(repeating: "=", count: 32))
     print("           GAME OVER")
     print(String(repeating: "=", count: 32))
-    let sorted = game.players.sorted { $0.totalScore < $1.totalScore }
+    let standings = game.totalScores.sorted { $0.value < $1.value }
     print("  Final standings:")
-    for player in sorted {
-        print("    \(padRight(player.name, 10)) \(padLeft("\(player.totalScore)", 4))")
+    for (seat, score) in standings {
+        print("    \(padRight(game.players[seat].name, 10)) \(padLeft("\(score)", 4))")
     }
     print("")
     if let winner = game.gameWinner {
-        let suffix = winner.totalScore == 1 ? "point" : "points"
-        print("Winner: \(winner.name) with \(winner.totalScore) \(suffix)")
+        let score = game.totalScores[winner]
+        let suffix = score == 1 ? "point" : "points"
+        print("Winner: \(game.players[winner].name) with \(score) \(suffix)")
     } else if game.isGameTied {
         print("Game tied — should continue, but exiting.")
     }
 }
 
-func runHand(game: Game, handNumber: Int) throws {
+func runHand(game: Game, humanSeat: Seat, handNumber: Int) throws {
     print("")
     print(String(repeating: "=", count: 32))
     print("  Hand \(handNumber) (round \(game.roundNumber))")
     print(String(repeating: "=", count: 32))
 
-    try runExchangePhase(game: game)
+    try runExchangePhase(game: game, humanSeat: humanSeat)
     print("")
     print("Leading player: \(game.currentPlayer.name) (holds 2♣)")
 
     while !game.isHandComplete {
-        try runOneTrick(game: game)
+        try runOneTrick(game: game, humanSeat: humanSeat)
     }
 
     let result = game.endHand()
     printScoreboard(game: game, result: result, handNumber: handNumber)
 }
 
-func runGame(game: Game) throws {
+func runGame(game: Game, humanSeat: Seat) throws {
     var handNumber = 1
     while !game.isGameOver || game.isGameTied {
-        try runHand(game: game, handNumber: handNumber)
+        try runHand(game: game, humanSeat: humanSeat, handNumber: handNumber)
         handNumber += 1
         if !game.isGameOver || game.isGameTied {
             game.startNewHand()
@@ -289,9 +288,9 @@ func makeGame(difficulty: BotDifficulty, configuration: GameConfiguration) -> Ga
 }
 
 final class CLIEventLogger: GameEngineDelegate {
-    func game(_ game: Game, didBreakHearts card: Card, by player: Player) {
+    func game(_ game: Game, didBreakHearts card: Card, by seat: Seat) {
         print("")
-        print("♥  Hearts have been broken — \(player.name) played \(formatCard(card)).")
+        print("♥  Hearts have been broken — \(game.players[seat].name) played \(formatCard(card)).")
     }
 
     func game(_ game: Game, didEndHand result: HandResult) {
@@ -321,12 +320,17 @@ game.delegate = eventLogger
 
 print("")
 print("Game initialized.")
-for (index, player) in game.players.enumerated() {
-    print("  [\(index)] \(player.name) — \(player.type)")
+for (seat, player) in game.players {
+    print("  [\(seat.rawValue)] \(player.name) — \(player.type)")
 }
 print("Difficulty: \(difficulty)")
 print("Jack of Diamonds bonus: \(configuration.jackOfDiamondsBonus)")
 print("Winning score: \(configuration.winningScore)")
 print("Moon shot variant: \(configuration.moonShotVariant)")
 
-try runGame(game: game)
+// The engine knows which seats are human; this CLI drives exactly one of them.
+guard let humanSeat = game.humanSeats.first else {
+    print("No human seat in this game — nothing to play.")
+    exit(1)
+}
+try runGame(game: game, humanSeat: humanSeat)

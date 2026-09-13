@@ -31,8 +31,10 @@ public enum CardExchangeDirection: Codable {
     }
 
     /// The seat that receives cards passed from `seat`, or `nil` when no cards are passed.
-    func recipient(of seat: Int, seatCount: Int = 4) -> Int? {
-        seatOffset.map { (seat + $0) % seatCount }
+    /// - Parameter seat: The passing seat.
+    /// - Returns: The receiving seat: left is the next seat clockwise, right the previous, across the opposite.
+    public func recipient(of seat: Seat) -> Seat? {
+        seatOffset.map { seat.advanced(by: $0) }
     }
 }
 
@@ -50,18 +52,14 @@ enum CardExchange {
     /// Validates `selections` against `hands` and returns the hands after passing in `direction`.
     ///
     /// - Parameters:
-    ///   - hands: Current hand for each seat, indexed by seat.
+    ///   - hands: Current hand for each seat.
     ///   - selections: Exactly three distinct cards for every seat, keyed by seat.
     ///   - direction: Where each seat's cards go. Must not be `.none`.
-    /// - Returns: New hands, indexed by seat, with passed cards removed and received cards appended.
-    /// - Throws: `GameError.invalidSeat`, `.missingPassSelection`, `.wrongPassCount`,
+    /// - Returns: New hands with passed cards removed and received cards appended.
+    /// - Throws: `GameError.missingPassSelection`, `.wrongPassCount`,
     ///   `.duplicatePassCards`, or `.passedCardNotInHand`. Nothing is modified on failure.
-    static func apply(hands: [[Card]], selections: [Int: [Card]], direction: CardExchangeDirection) throws -> [[Card]] {
-        let seatCount = hands.count
-        for seat in selections.keys where !(0..<seatCount).contains(seat) {
-            throw GameError.invalidSeat(seat)
-        }
-        for seat in 0..<seatCount {
+    static func apply(hands: SeatMap<[Card]>, selections: [Seat: [Card]], direction: CardExchangeDirection) throws -> SeatMap<[Card]> {
+        for seat in Seat.allCases {
             guard let selection = selections[seat] else { throw GameError.missingPassSelection(seat: seat) }
             guard selection.count == cardsPerExchange else {
                 throw GameError.wrongPassCount(seat: seat, count: selection.count)
@@ -74,8 +72,8 @@ enum CardExchange {
         }
 
         var result = hands
-        for seat in 0..<seatCount {
-            guard let selection = selections[seat], let recipient = direction.recipient(of: seat, seatCount: seatCount) else {
+        for seat in Seat.allCases {
+            guard let selection = selections[seat], let recipient = direction.recipient(of: seat) else {
                 continue
             }
             result[seat].removeAll { selection.contains($0) }
