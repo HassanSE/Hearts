@@ -381,7 +381,7 @@ final class HumanPlayerTests: XCTestCase {
 
     // MARK: - performExchange
 
-    func test_performExchange_humanCards_usesSpecifiedCards() {
+    func test_performExchange_humanCards_usesSpecifiedCards() throws {
         let game = makeHumanBotGame()
         // Give the human a 13-card hand so exchange precondition is satisfied
         game.players[0].hand = [
@@ -431,10 +431,8 @@ final class HumanPlayerTests: XCTestCase {
         let card1 = Card(suit: .clubs, rank: .ace)
         let card2 = Card(suit: .clubs, rank: .king)
         let card3 = Card(suit: .clubs, rank: .queen)
-        let humanCards = PassedCards(first: card1, second: card2, third: card3)
-
         // roundNumber=0 → .left exchange (human passes to player at index 1)
-        game.performExchange(humanCards: humanCards)
+        try game.performExchange(selections: [0: [card1, card2, card3]])
 
         XCTAssertFalse(game.players[0].hand.contains(card1), "Human should no longer hold the passed card1")
         XCTAssertFalse(game.players[0].hand.contains(card2), "Human should no longer hold the passed card2")
@@ -446,17 +444,19 @@ final class HumanPlayerTests: XCTestCase {
         XCTAssertEqual(game.players[1].hand.count, 13)
     }
 
-    func test_performExchange_preventedOnSecondCall() {
+    func test_performExchange_preventedOnSecondCall() throws {
         let game = Game()  // all bots
         let handsBefore = game.players.map { $0.hand }
 
-        game.performExchange()
+        try game.performExchange()
         let handsAfterFirst = game.players.map { $0.hand }
 
-        // Second call should be a no-op — hands must not change further
-        game.performExchange()
+        // Second call must throw and leave hands untouched
+        XCTAssertThrowsError(try game.performExchange()) { error in
+            XCTAssertEqual(error as? GameError, .exchangeAlreadyPerformed)
+        }
 
-        XCTAssertEqual(game.players[0].hand, handsAfterFirst[0], "Second exchange call should be a no-op")
+        XCTAssertEqual(game.players[0].hand, handsAfterFirst[0], "Failed second exchange must not change hands")
         XCTAssertEqual(game.players[1].hand, handsAfterFirst[1])
         XCTAssertEqual(game.players[2].hand, handsAfterFirst[2])
         XCTAssertEqual(game.players[3].hand, handsAfterFirst[3])
@@ -465,17 +465,17 @@ final class HumanPlayerTests: XCTestCase {
         XCTAssertTrue(anyHandChanged, "First exchange should change hands")
     }
 
-    func test_performExchange_allowedAfterStartNewHand() {
+    func test_performExchange_allowedAfterStartNewHand() throws {
         let game = Game()  // all bots
 
-        game.performExchange()
+        try game.performExchange()
 
         // Start a new hand — exchange flag resets
         game.startNewHand()
         let handsAfterNewHand = game.players.map { $0.hand }
 
         // Exchange again should work (hands change from fresh deal)
-        game.performExchange()
+        try game.performExchange()
         let handsAfterSecondExchange = game.players.map { $0.hand }
 
         // After startNewHand the hands are re-dealt (not the same as before)
@@ -484,12 +484,12 @@ final class HumanPlayerTests: XCTestCase {
         XCTAssertTrue(anyHandChanged, "Exchange after startNewHand should change hands")
     }
 
-    func test_performExchange_noPassRound_doesNothing() {
+    func test_performExchange_noPassRound_doesNothing() throws {
         let game = Game()  // all bots
         game.roundNumber = 3  // .none direction
         let handsBefore = game.players.map { $0.hand }
 
-        game.performExchange()  // should be a no-op (direction is .none)
+        try game.performExchange()  // should be a no-op (direction is .none)
 
         for i in 0..<4 {
             XCTAssertEqual(game.players[i].hand, handsBefore[i], "Hands should not change when direction is .none")

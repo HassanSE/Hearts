@@ -137,39 +137,6 @@ final class PlayerTests: XCTestCase {
         XCTAssertTrue(description.contains("30"))
     }
 
-    // MARK: - Card Exchange Tests
-
-    func test_acceptExchange_with_valid_hand_size() {
-        // Simulates the player's state AFTER they've already passed 3 cards.
-        let cards = [
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .clubs, rank: .four),
-            Card(suit: .clubs, rank: .five),
-            Card(suit: .clubs, rank: .six),
-            Card(suit: .clubs, rank: .seven),
-            Card(suit: .clubs, rank: .eight),
-            Card(suit: .clubs, rank: .nine),
-            Card(suit: .clubs, rank: .ten),
-            Card(suit: .clubs, rank: .jack)
-        ]
-        var player = Player(name: "Nina", hand: cards)
-
-        XCTAssertEqual(player.hand.count, 10, "Player should have 10 cards after passing 3")
-
-        let exchangeCards: PassedCards = (
-            Card(suit: .hearts, rank: .ace),
-            Card(suit: .hearts, rank: .king),
-            Card(suit: .hearts, rank: .queen)
-        )
-        player.acceptExchange(cards: exchangeCards)
-
-        XCTAssertEqual(player.hand.count, 13, "Player should have 13 cards after accepting 3")
-        XCTAssertTrue(player.hand.contains(exchangeCards.first))
-        XCTAssertTrue(player.hand.contains(exchangeCards.second))
-        XCTAssertTrue(player.hand.contains(exchangeCards.third))
-    }
-
     // MARK: - Player Type Tests
 
     func test_playerType_human_properties() {

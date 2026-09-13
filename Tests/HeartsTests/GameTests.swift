@@ -104,7 +104,7 @@ final class GameTests: XCTestCase {
         XCTAssertEqual(game.exchangeDirection, .none, "Round 7 should wrap to .none")
     }
     
-    func test_exchange_cards() {
+    func test_exchange_cards() throws {
         let game = Game()
         
         // Cards before exchange
@@ -113,7 +113,7 @@ final class GameTests: XCTestCase {
         let player3CardsBE = game.players[2].hand
         let player4CardsBE = game.players[3].hand
 
-        game.performExchange()
+        try game.performExchange()
         
         // Cards after exchange
         let player1CardsAE = game.players[0].hand
@@ -309,7 +309,7 @@ final class GamePlayCardErrorSurfaceTests: XCTestCase {
     func test_playCard_anyInvalidAttempt_throwsOnlyGameError() throws {
         let game = Game()
         game.startNewHand()
-        game.performExchange()
+        try game.performExchange()
 
         var invalidAttempts = 0
         while !game.isHandComplete {

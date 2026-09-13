@@ -95,14 +95,14 @@ func directionLabel(_ direction: CardExchangeDirection) -> String {
     }
 }
 
-func runExchangePhase(game: Game) {
+func runExchangePhase(game: Game) throws {
     let direction = game.exchangeDirection
     let humanHand = game.hand(for: game.players[0])
 
     if direction == .none {
         print("")
         print("No exchange this round.")
-        game.performExchange()
+        try game.performExchange()
         return
     }
 
@@ -116,22 +116,19 @@ func runExchangePhase(game: Game) {
         let input = readLineOrExit()
         let parts = input.split(whereSeparator: { $0 == " " || $0 == "," }).compactMap { Int($0) }
 
-        guard parts.count == 3 else {
-            print("Please enter exactly 3 numbers.")
-            continue
-        }
-        guard Set(parts).count == 3 else {
-            print("Cards must be distinct.")
-            continue
-        }
+        // Only index parsing lives here; the engine validates the selection itself.
         guard parts.allSatisfy({ $0 >= 1 && $0 <= sortedCards.count }) else {
             print("Numbers must be between 1 and \(sortedCards.count).")
             continue
         }
 
         let selected = parts.map { sortedCards[$0 - 1] }
-        let passed: PassedCards = (selected[0], selected[1], selected[2])
-        game.performExchange(humanCards: passed)
+        do {
+            try game.performExchange(selections: [0: selected])
+        } catch let error as GameError {
+            print("Invalid selection: \(formatGameError(error))")
+            continue
+        }
         printNumberedHand(game.hand(for: game.players[0]), label: "Your hand after exchange:")
         return
     }
@@ -148,6 +145,13 @@ func formatGameError(_ error: GameError) -> String {
     case .handComplete: return "The hand is already complete."
     case .trickIncomplete: return "The trick isn't finished yet."
     case .trickAlreadyComplete: return "The trick is already complete."
+    case .exchangeAlreadyPerformed: return "Cards have already been passed this hand."
+    case .exchangeNotAllowedAfterPlay: return "Cards can't be passed once play has started."
+    case .invalidSeat(let seat): return "There is no seat \(seat)."
+    case .missingPassSelection: return "You must choose cards to pass."
+    case .wrongPassCount(_, let count): return "Please enter exactly 3 numbers (got \(count))."
+    case .duplicatePassCards: return "Cards must be distinct."
+    case .passedCardNotInHand(_, let card): return "\(formatCard(card)) isn't in your hand."
     }
 }
 
@@ -265,7 +269,7 @@ func runHand(game: Game, handNumber: Int) throws {
     print("  Hand \(handNumber) (round \(game.roundNumber))")
     print(String(repeating: "=", count: 32))
 
-    runExchangePhase(game: game)
+    try runExchangePhase(game: game)
     print("")
     print("Leading player: \(game.currentPlayer.name) (holds 2♣)")
 

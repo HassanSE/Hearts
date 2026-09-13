@@ -23,14 +23,6 @@ public struct Player: Codable {
         self.roundScore = roundScore
         self.totalScore = totalScore
     }
-
-    mutating func acceptExchange(cards: PassedCards) {
-        precondition(hand.count == 10, "Player must have exactly 10 cards before accepting exchange (13 dealt - 3 passed)")
-        hand.append(cards.first)
-        hand.append(cards.second)
-        hand.append(cards.third)
-        assert(hand.count == 13, "Player must have exactly 13 cards after accepting exchange")
-    }
 }
 
 extension Player {
@@ -53,8 +45,6 @@ extension Player: Hashable {
         hasher.combine(id)
     }
 }
-
-extension Player: CardExchangeStrategy { }
 
 extension Player: CustomDebugStringConvertible {
     public var debugDescription: String {

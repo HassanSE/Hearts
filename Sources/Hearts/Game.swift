@@ -7,13 +7,6 @@
 
 import Foundation
 
-public enum CardExchangeDirection: Codable {
-    case left
-    case right
-    case across
-    case none
-}
-
 /// A serializable snapshot of all game state, suitable for persistence or undo support.
 public struct GameSnapshot: Codable {
     public let players: [Player]
@@ -58,6 +51,20 @@ public enum GameError: Error, Equatable {
     case trickIncomplete
     /// A card was played into a trick that already holds all four cards.
     case trickAlreadyComplete
+    /// `performExchange` was called a second time in the same hand.
+    case exchangeAlreadyPerformed
+    /// `performExchange` was called after a card had already been played this hand.
+    case exchangeNotAllowedAfterPlay
+    /// An exchange selection was keyed by a seat index outside `0..<players.count`.
+    case invalidSeat(Int)
+    /// A human seat was given no exchange selection.
+    case missingPassSelection(seat: Int)
+    /// A seat's exchange selection did not contain exactly three cards.
+    case wrongPassCount(seat: Int, count: Int)
+    /// A seat's exchange selection contained the same card more than once.
+    case duplicatePassCards(seat: Int)
+    /// A seat's exchange selection included a card that seat does not hold.
+    case passedCardNotInHand(seat: Int, card: Card)
 }
 
 public class Game {
@@ -219,10 +226,9 @@ public class Game {
 
     /// Returns the opponent of `player` in the given direction, or `nil` if direction is `.none`.
     func getOpponent(_ player: Player, direction: CardExchangeDirection) -> Player? {
-        guard direction != .none else { return nil }
-        guard let index = players.firstIndex(where: { $0.id == player.id }) else { return nil }
-        let offset = direction == .left ? 1 : direction == .right ? 3 : 2
-        return players[(index + offset) % 4]
+        guard let index = players.firstIndex(where: { $0.id == player.id }),
+              let recipient = direction.recipient(of: index, seatCount: players.count) else { return nil }
+        return players[recipient]
     }
 
     private func deal() {
@@ -236,62 +242,50 @@ public class Game {
         }
     }
 
-    /// Perform the card exchange for the current round.
+    /// Performs the card exchange for the current hand.
     ///
-    /// - Parameter humanCards: The 3 cards the human player wants to pass.
-    ///   If `nil` and a human player is in the game, their first 3 cards are passed as a fallback.
-    ///   Ignored when `exchangeDirection` is `.none`.
+    /// Every seat passes three cards in `exchangeDirection`. Bot seats choose their own cards;
+    /// every human seat must appear in `selections`. Any mix of human and bot seats is supported.
+    /// When `exchangeDirection` is `.none`, `selections` is ignored and no cards move, but the
+    /// exchange still counts as performed for this hand.
     ///
-    /// Call this once per hand. Subsequent calls are no-ops until `startNewHand()` resets the state.
-    /// For all-bot games this is called automatically by `playCompleteHand()`.
-    /// For human games, call it explicitly after showing the human their hand:
+    /// On any error nothing changes: no hand is modified and the exchange can be retried.
+    ///
     /// ```swift
     /// game.startNewHand()
-    /// // show human game.players[humanIndex].hand, get selection…
-    /// game.performExchange(humanCards: selected)
+    /// // show the human game.hand(for: human), collect three cards…
+    /// try game.performExchange(selections: [0: chosen])
     /// ```
-    public func performExchange(humanCards: PassedCards? = nil) {
-        guard !hasExchanged else { return }
-        history.append(snapshot())
-        hasExchanged = true
-
-        guard exchangeDirection != .none else { return }
-
-        let offset: Int
-        switch exchangeDirection {
-        case .left:   offset = 1
-        case .right:  offset = 3
-        case .across: offset = 2
-        case .none:   return
+    ///
+    /// - Parameter selections: Three distinct cards to pass, keyed by seat index (`0..<4`).
+    ///   Entries for bot seats override the bot's own choice.
+    /// - Throws: `GameError.exchangeAlreadyPerformed` if called twice in one hand;
+    ///   `.exchangeNotAllowedAfterPlay` if any card has been played this hand;
+    ///   `.invalidSeat` for a key outside `0..<players.count`;
+    ///   `.missingPassSelection` for a human seat with no entry;
+    ///   `.wrongPassCount`, `.duplicatePassCards`, or `.passedCardNotInHand` for a bad selection.
+    public func performExchange(selections: [Int: [Card]] = [:]) throws {
+        guard !hasExchanged else { throw GameError.exchangeAlreadyPerformed }
+        guard currentTrick.plays.isEmpty && completedTricks.isEmpty else {
+            throw GameError.exchangeNotAllowedAfterPlay
         }
 
-        // Phase 1: collect each player's 3 cards to pass (and remove them from their hand)
-        var cardsToPass: [(toIndex: Int, cards: PassedCards)] = []
-        for i in 0..<players.count {
-            let toIndex = (i + offset) % 4
-            let passingCards: PassedCards
-
-            if players[i].type.isHuman, let selected = humanCards {
-                // Human explicitly chose these 3 cards
-                players[i].hand.removeAll { $0 == selected.first || $0 == selected.second || $0 == selected.third }
-                passingCards = selected
-            } else if players[i].type.isBot {
-                // Bot uses its AI strategy to select 3 cards
-                passingCards = selectCardsForBotExchange(player: players[i])
-                players[i].hand.removeAll { $0 == passingCards.first || $0 == passingCards.second || $0 == passingCards.third }
-            } else {
-                // Human with no selection provided — fall back to first 3 cards (pure selection, no mutation)
-                passingCards = players[i].selectCardsToPass()
-                players[i].hand.removeAll { $0 == passingCards.first || $0 == passingCards.second || $0 == passingCards.third }
+        // Validate and compute before touching any state so a failed exchange is a no-op.
+        var newHands = players.map(\.hand)
+        if exchangeDirection != .none {
+            var allSelections = selections
+            for (seat, player) in players.enumerated() where allSelections[seat] == nil && player.type.isBot {
+                let passed = selectCardsForBotExchange(player: player)
+                allSelections[seat] = [passed.first, passed.second, passed.third]
             }
-
-            cardsToPass.append((toIndex: toIndex, cards: passingCards))
+            newHands = try CardExchange.apply(hands: newHands, selections: allSelections, direction: exchangeDirection)
         }
 
-        // Phase 2: distribute the collected cards
-        for exchange in cardsToPass {
-            players[exchange.toIndex].acceptExchange(cards: exchange.cards)
+        history.append(snapshot())
+        for (seat, hand) in newHands.enumerated() {
+            players[seat].hand = hand
         }
+        hasExchanged = true
 
         // Re-identify who holds 2♣ — exchange may have moved it to a different player
         if let leaderIndex = players.firstIndex(where: { $0.hand.contains(where: { $0.suit == .clubs && $0.rank == .two }) }) {
@@ -628,8 +622,10 @@ public class Game {
     public func playCompleteHand() throws {
         precondition(!isHandComplete, "Hand is already complete")
 
-        // Perform exchange for bots (no-op if already done or direction is .none)
-        performExchange()
+        // Exchange for bots unless the caller already did it this hand
+        if !hasExchanged {
+            try performExchange()
+        }
 
         // Play all 13 tricks
         while !isHandComplete {
