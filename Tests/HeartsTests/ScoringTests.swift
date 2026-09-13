@@ -11,16 +11,16 @@ import XCTest
 /// Exercises the scoring rules with hand-built tricks; no `Game` is constructed.
 final class ScoringTests: XCTestCase {
 
-    private let queenOfSpades = Card(suit: .spades, rank: .queen)
-    private let jackOfDiamonds = Card(suit: .diamonds, rank: .jack)
-    private let allHearts = Card.Rank.allCases.map { Card(suit: .hearts, rank: $0) }
+    private let queenOfSpades = Card.queenOfSpades
+    private let jackOfDiamonds = Card.jackOfDiamonds
+    private let allHearts = Card.fullSuit(.hearts)
 
     // MARK: - Trick points
 
-    func test_pointsInTrick_withJackBonusOn_trickContainingJackOfDiamonds_returnsMinus10() throws {
+    func test_pointsIn_jackBonusOnWithJackOfDiamonds_returnsMinus10() throws {
         let scoring = Scoring(configuration: .withJackBonus)
-        let trick = try makeTrick([jackOfDiamonds, Card(suit: .diamonds, rank: .two),
-                                   Card(suit: .diamonds, rank: .five), Card(suit: .diamonds, rank: .nine)])
+        let trick = try Trick.mock([jackOfDiamonds, Card.twoOfDiamonds,
+                                   Card.fiveOfDiamonds, Card.nineOfDiamonds])
 
         XCTAssertEqual(scoring.points(in: trick), -10)
     }
@@ -30,10 +30,10 @@ final class ScoringTests: XCTestCase {
     func test_settleHand_noMoonShot_addsCapturedPointsToTotals() {
         let scoring = Scoring(configuration: .standard)
         let captured: SeatMap<[Card]> = [
-            [Card(suit: .hearts, rank: .two), Card(suit: .hearts, rank: .three), Card(suit: .clubs, rank: .ace)],
+            [Card.twoOfHearts, Card.threeOfHearts, Card.aceOfClubs],
             [queenOfSpades],
             [],
-            [Card(suit: .hearts, rank: .king)]
+            [Card.kingOfHearts]
         ]
 
         let result = scoring.settleHand(capturedCards: captured, totalScores: [10, 20, 30, 40])
@@ -43,7 +43,7 @@ final class ScoringTests: XCTestCase {
         XCTAssertNil(result.moonShooter)
     }
 
-    func test_settleHand_moonShot_addToOthers_shooterGetsZeroOthersGet26() {
+    func test_settleHand_moonShotAddToOthers_shooterGetsZeroOthersGet26() {
         let scoring = Scoring(configuration: .standard)
         let captured: SeatMap<[Card]> = [[], allHearts + [queenOfSpades], [], []]
 
@@ -54,7 +54,7 @@ final class ScoringTests: XCTestCase {
         XCTAssertEqual(result.totalScores, [36, 20, 56, 66])
     }
 
-    func test_settleHand_moonShot_subtractFromSelf_shooterLoses26OthersUnchanged() {
+    func test_settleHand_moonShotSubtractFromSelf_shooterLoses26OthersUnchanged() {
         let scoring = Scoring(configuration: .withSubtractMoonShot)
         let captured: SeatMap<[Card]> = [allHearts + [queenOfSpades], [], [], []]
 
@@ -65,7 +65,7 @@ final class ScoringTests: XCTestCase {
         XCTAssertEqual(result.totalScores, [24, 10, 20, 30])
     }
 
-    func test_settleHand_moonShot_withJackBonus_shooterCapturedJack_shooterGetsMinus10() {
+    func test_settleHand_moonShotWithJackBonusShooterHoldsJack_shooterGetsMinus10() {
         let scoring = Scoring(configuration: .withJackBonus)
         let captured: SeatMap<[Card]> = [allHearts + [queenOfSpades, jackOfDiamonds], [], [], []]
 
@@ -75,7 +75,7 @@ final class ScoringTests: XCTestCase {
         XCTAssertEqual(result.roundScores, [-10, 26, 26, 26])
     }
 
-    func test_settleHand_moonShot_withJackBonus_opponentCapturedJack_bonusStaysWithOpponent() {
+    func test_settleHand_moonShotWithJackBonusOpponentHoldsJack_bonusStaysWithOpponent() {
         let scoring = Scoring(configuration: .withJackBonus)
         let captured: SeatMap<[Card]> = [allHearts + [queenOfSpades], [], [jackOfDiamonds], []]
 
@@ -85,7 +85,7 @@ final class ScoringTests: XCTestCase {
         XCTAssertEqual(result.roundScores, [0, 26, 16, 26])
     }
 
-    func test_settleHand_moonShot_withJackBonus_subtractFromSelf_shooterCapturedJack_getsMinus36() {
+    func test_settleHand_moonShotSubtractFromSelfShooterHoldsJack_shooterGetsMinus36() {
         let scoring = Scoring(configuration: GameConfiguration(jackOfDiamondsBonus: true, moonShotVariant: .subtractFromSelf))
         let captured: SeatMap<[Card]> = [[], allHearts + [queenOfSpades, jackOfDiamonds], [], []]
 
@@ -147,15 +147,5 @@ final class ScoringTests: XCTestCase {
 
         XCTAssertNil(scoring.winner(totalScores: [10, 20, 20, 30]))
         XCTAssertFalse(scoring.isTied(totalScores: [10, 20, 20, 30]))
-    }
-
-    // MARK: - Helpers
-
-    private func makeTrick(_ cards: [Card]) throws -> Trick {
-        var trick = Trick()
-        for (index, card) in cards.enumerated() {
-            try trick.play(card, by: Seat.allCases[index])
-        }
-        return trick
     }
 }

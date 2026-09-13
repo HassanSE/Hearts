@@ -10,16 +10,16 @@ import XCTest
 
 final class CardTests: XCTestCase {
     
-    func test_init_card_has_suit_and_rank() {
-        let card = Card(suit: .clubs, rank: .ace)
+    func test_init_withSuitAndRank_storesBoth() {
+        let card = Card.aceOfClubs
         XCTAssertEqual(card.suit, Card.Suit.clubs)
         XCTAssertEqual(card.rank, Card.Rank.ace)
     }
     
-    func test_cards_with_same_suit_are_comparable() {
-        let aceOfClubs = Card(suit: .clubs, rank: .ace)
-        let jackOfClubs = Card(suit: .clubs, rank: .jack)
-        let twoOfClubs = Card(suit: .clubs, rank: .two)
+    func test_comparable_sameSuit_ordersByRank() {
+        let aceOfClubs = Card.aceOfClubs
+        let jackOfClubs = Card.jackOfClubs
+        let twoOfClubs = Card.twoOfClubs
         XCTAssertGreaterThan(aceOfClubs, jackOfClubs)
         XCTAssertGreaterThan(jackOfClubs, twoOfClubs)
         XCTAssertLessThan(twoOfClubs, aceOfClubs)
@@ -40,24 +40,24 @@ final class CardTests: XCTestCase {
 
     func test_sorted_mixedHand_groupsBySuitThenAscendingRank() {
         let hand: [Card] = [
-            Card(suit: .hearts, rank: .two),
-            Card(suit: .clubs, rank: .ace),
-            Card(suit: .spades, rank: .queen),
-            Card(suit: .diamonds, rank: .two),
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .hearts, rank: .ace),
+            Card.twoOfHearts,
+            Card.aceOfClubs,
+            Card.queenOfSpades,
+            Card.twoOfDiamonds,
+            Card.threeOfClubs,
+            Card.aceOfHearts,
         ]
         XCTAssertEqual(hand.sorted(), [
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .clubs, rank: .ace),
-            Card(suit: .diamonds, rank: .two),
-            Card(suit: .spades, rank: .queen),
-            Card(suit: .hearts, rank: .two),
-            Card(suit: .hearts, rank: .ace),
+            Card.threeOfClubs,
+            Card.aceOfClubs,
+            Card.twoOfDiamonds,
+            Card.queenOfSpades,
+            Card.twoOfHearts,
+            Card.aceOfHearts,
         ])
     }
 
-    func test_cards_points() {
+    func test_points_everyCardInDeck_matchesStandardValues() {
         let deck = Deck()
         for card in deck.cards {
             if card.suit == .hearts {
@@ -70,14 +70,41 @@ final class CardTests: XCTestCase {
         }
     }
 
-    func test_cards_points_named_special_cards() {
-        XCTAssertEqual(Card(suit: .spades, rank: .queen).points, 13)
-        XCTAssertEqual(Card(suit: .hearts, rank: .ace).points, 1)
-        XCTAssertEqual(Card(suit: .hearts, rank: .two).points, 1)
-        XCTAssertEqual(Card(suit: .diamonds, rank: .jack).points, 0)
-        XCTAssertEqual(Card(suit: .clubs, rank: .ace).points, 0)
-        XCTAssertEqual(Card(suit: .spades, rank: .ace).points, 0)
-        XCTAssertEqual(Card(suit: .spades, rank: .king).points, 0)
+    func test_points_namedCards_matchStandardValues() {
+        XCTAssertEqual(Card.queenOfSpades.points, 13)
+        XCTAssertEqual(Card.aceOfHearts.points, 1)
+        XCTAssertEqual(Card.twoOfHearts.points, 1)
+        XCTAssertEqual(Card.jackOfDiamonds.points, 0)
+        XCTAssertEqual(Card.aceOfClubs.points, 0)
+        XCTAssertEqual(Card.aceOfSpades.points, 0)
+        XCTAssertEqual(Card.kingOfSpades.points, 0)
     }
 
+    // MARK: - Rank
+
+    
+    func test_allCases_rank_hasThirteen() {
+        let ranks = Card.Rank.allCases
+        XCTAssertEqual(ranks.count, 13)
+    }
+    
+    func test_comparable_rank_ordersTwoLowToAceHigh() {
+        let ranks = Card.Rank.allCases.sorted(by: >)
+        XCTAssertEqual(ranks.first, Card.Rank.ace)
+        XCTAssertEqual(ranks.last, Card.Rank.two)
+        XCTAssertEqual(ranks, [.ace, .king, .queen, .jack, .ten, .nine, .eight, .seven, .six, .five, .four, .three, .two])
+    }
+
+    // MARK: - Suit
+
+    
+    func test_allCases_suit_hasFour() {
+        let suits = Card.Suit.allCases
+        XCTAssertEqual(suits.count, 4)
+    }
+    
+    func test_sorted_allSuits_followsDisplayOrderClubsDiamondsSpadesHearts() {
+        let suits = Card.Suit.allCases.sorted()
+        XCTAssertEqual(suits, [.clubs, .diamonds, .spades, .hearts])
+    }
 }

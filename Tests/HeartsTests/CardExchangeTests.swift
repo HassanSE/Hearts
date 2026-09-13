@@ -12,26 +12,15 @@ final class CardExchangeTests: XCTestCase {
 
     // MARK: - Fixtures
 
-    /// One full suit per seat: clubs, diamonds, hearts, spades.
-    private func suitHands() -> [[Card]] {
-        [Card.Suit.clubs, .diamonds, .hearts, .spades].map { suit in
-            Card.Rank.allCases.map { Card(suit: suit, rank: $0) }
-        }
-    }
-
     /// Builds a game with the given seat types, dealing each seat a full suit so the cards it holds are known.
     private func makeGame(types: [PlayerType]) -> Game {
         let players = types.enumerated().map { Player(name: "P\($0.offset)", type: $0.element) }
         // Four distinct full suits are a valid deal by construction.
         return try! Game(player1: players[0], player2: players[1], player3: players[2], player4: players[3],
-                         hands: suitHands())
+                         hands: Card.oneSuitPerSeat)
     }
 
-    private func cards(_ suit: Card.Suit, _ ranks: Card.Rank...) -> [Card] {
-        ranks.map { Card(suit: suit, rank: $0) }
-    }
-
-    /// The full suit dealt to `seat` by `suitHands()`.
+    /// The full suit dealt to `seat` by `Card.oneSuitPerSeat`.
     private func dealtSuit(of seat: Seat) -> Card.Suit {
         [Card.Suit.clubs, .diamonds, .hearts, .spades][seat.rawValue]
     }
@@ -40,8 +29,8 @@ final class CardExchangeTests: XCTestCase {
 
     func test_performExchange_withTwoHumans_deliversEachSelectionToTheLeftNeighbour() throws {
         let game = makeGame(types: [.human, .human, .bot(difficulty: .easy), .bot(difficulty: .easy)])
-        let seat0Pass = cards(.clubs, .ace, .king, .queen)
-        let seat1Pass = cards(.diamonds, .two, .three, .four)
+        let seat0Pass = Card.suited(.clubs, .ace, .king, .queen)
+        let seat1Pass = Card.suited(.diamonds, .two, .three, .four)
 
         // roundNumber 0 → pass left (seat i → seat i+1)
         try game.performExchange(selections: [.south: seat0Pass, .west: seat1Pass])
@@ -80,22 +69,22 @@ final class CardExchangeTests: XCTestCase {
     }
 
     func test_performExchange_withTwoCards_throwsWrongPassCount() {
-        assertExchangeThrows(.wrongPassCount(seat: .south, count: 2), selections: [.south: cards(.clubs, .ace, .king)])
+        assertExchangeThrows(.wrongPassCount(seat: .south, count: 2), selections: [.south: Card.suited(.clubs, .ace, .king)])
     }
 
     func test_performExchange_withFourCards_throwsWrongPassCount() {
-        assertExchangeThrows(.wrongPassCount(seat: .south, count: 4), selections: [.south: cards(.clubs, .ace, .king, .queen, .jack)])
+        assertExchangeThrows(.wrongPassCount(seat: .south, count: 4), selections: [.south: Card.suited(.clubs, .ace, .king, .queen, .jack)])
     }
 
     func test_performExchange_withDuplicateCard_throwsDuplicatePassCards() {
-        assertExchangeThrows(.duplicatePassCards(seat: .south), selections: [.south: cards(.clubs, .ace, .king, .ace)])
+        assertExchangeThrows(.duplicatePassCards(seat: .south), selections: [.south: Card.suited(.clubs, .ace, .king, .ace)])
     }
 
     func test_performExchange_withCardNotHeld_throwsPassedCardNotInHand() {
-        let stranger = Card(suit: .hearts, rank: .ace)
+        let stranger = Card.aceOfHearts
         assertExchangeThrows(
             .passedCardNotInHand(seat: .south, card: stranger),
-            selections: [.south: [Card(suit: .clubs, rank: .ace), stranger, Card(suit: .clubs, rank: .king)]]
+            selections: [.south: [Card.aceOfClubs, stranger, Card.kingOfClubs]]
         )
     }
 
@@ -103,15 +92,15 @@ final class CardExchangeTests: XCTestCase {
         assertExchangeThrows(
             .missingPassSelection(seat: .west),
             types: [.human, .human, .bot(difficulty: .easy), .bot(difficulty: .easy)],
-            selections: [.south: cards(.clubs, .ace, .king, .queen)]
+            selections: [.south: Card.suited(.clubs, .ace, .king, .queen)]
         )
     }
 
     func test_performExchange_withBadBotSelection_throwsForThatSeat() {
         // A caller may override a bot's choice, but it is validated like any other seat.
         assertExchangeThrows(
-            .passedCardNotInHand(seat: .west, card: Card(suit: .clubs, rank: .two)),
-            selections: [.south: cards(.clubs, .ace, .king, .queen), .west: cards(.clubs, .two, .three, .four)]
+            .passedCardNotInHand(seat: .west, card: Card.twoOfClubs),
+            selections: [.south: Card.suited(.clubs, .ace, .king, .queen), .west: Card.suited(.clubs, .two, .three, .four)]
         )
     }
 
@@ -119,10 +108,10 @@ final class CardExchangeTests: XCTestCase {
 
     func test_performExchange_calledTwice_throwsWrongPhase() throws {
         let game = makeGame(types: [.human, .bot(difficulty: .easy), .bot(difficulty: .easy), .bot(difficulty: .easy)])
-        try game.performExchange(selections: [.south: cards(.clubs, .ace, .king, .queen)])
+        try game.performExchange(selections: [.south: Card.suited(.clubs, .ace, .king, .queen)])
         let handsAfterFirst = game.hands
 
-        XCTAssertThrowsError(try game.performExchange(selections: [.south: cards(.clubs, .two, .three, .four)])) { error in
+        XCTAssertThrowsError(try game.performExchange(selections: [.south: Card.suited(.clubs, .two, .three, .four)])) { error in
             XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingPlay(.south)))
         }
         XCTAssertEqual(game.hands, handsAfterFirst)
@@ -131,9 +120,9 @@ final class CardExchangeTests: XCTestCase {
     func test_performExchange_afterCardPlayed_throwsWrongPhase() throws {
         let game = makeGame(types: [.human, .bot(difficulty: .easy), .bot(difficulty: .easy), .bot(difficulty: .easy)])
         game.phase = .awaitingPlay(.south)
-        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
+        try game.playCard(Card.twoOfClubs, by: .south)
 
-        XCTAssertThrowsError(try game.performExchange(selections: [.south: cards(.clubs, .ace, .king, .queen)])) { error in
+        XCTAssertThrowsError(try game.performExchange(selections: [.south: Card.suited(.clubs, .ace, .king, .queen)])) { error in
             XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingPlay(.west)))
         }
     }
@@ -162,10 +151,10 @@ final class CardExchangeTests: XCTestCase {
         let game = makeGame(types: [.human, .human, .human, .human])
         game.roundNumber = 2  // across: seat i → seat i+2
         let selections: [Seat: [Card]] = [
-            .south: cards(.clubs, .ace, .king, .queen),
-            .west: cards(.diamonds, .ace, .king, .queen),
-            .north: cards(.hearts, .ace, .king, .queen),
-            .east: cards(.spades, .ace, .king, .queen)
+            .south: Card.suited(.clubs, .ace, .king, .queen),
+            .west: Card.suited(.diamonds, .ace, .king, .queen),
+            .north: Card.suited(.hearts, .ace, .king, .queen),
+            .east: Card.suited(.spades, .ace, .king, .queen)
         ]
 
         try game.performExchange(selections: selections)
@@ -196,12 +185,46 @@ final class CardExchangeTests: XCTestCase {
     func test_performExchange_movesTwoOfClubs_updatesCurrentPlayer() throws {
         let game = makeGame(types: [.human, .bot(difficulty: .easy), .bot(difficulty: .easy), .bot(difficulty: .easy)])
 
-        try game.performExchange(selections: [.south: cards(.clubs, .two, .three, .four)])
+        try game.performExchange(selections: [.south: Card.suited(.clubs, .two, .three, .four)])
 
         XCTAssertEqual(game.currentSeat, .west)
     }
 
     // MARK: - CardExchangeDirection
+
+    func test_recipient_everySeatAndDirection_hasAnOpponent() {
+        // Each seat should have 3 opponents (left, right, across)
+        for seat in Seat.allCases {
+            XCTAssertNotNil(CardExchangeDirection.left.recipient(of: seat))
+            XCTAssertNotNil(CardExchangeDirection.right.recipient(of: seat))
+            XCTAssertNotNil(CardExchangeDirection.across.recipient(of: seat))
+        }
+    }
+    
+
+    func test_recipient_fromSouth_followsTableGeometry() {
+        XCTAssertEqual(CardExchangeDirection.right.recipient(of: .south), .east, "South's right opponent should be east.")
+        XCTAssertEqual(CardExchangeDirection.left.recipient(of: .east), .south, "East's left opponent should be south.")
+
+        guard let left = CardExchangeDirection.left.recipient(of: .south),
+              let leftOfLeft = CardExchangeDirection.left.recipient(of: left),
+              let across = CardExchangeDirection.across.recipient(of: .south) else {
+            XCTFail("Failed to get left opponent of south or seat across from south.")
+            return
+        }
+        XCTAssertEqual(leftOfLeft, across, "The left of left of south should be the seat across from south.")
+
+        guard let right = CardExchangeDirection.right.recipient(of: .south),
+              let rightOfRight = CardExchangeDirection.right.recipient(of: right) else {
+            XCTFail("Failed to get right opponent of south.")
+            return
+        }
+
+        XCTAssertEqual(rightOfRight, across, "The right of right of south should be the seat across from south.")
+
+        let acrossOfRight = CardExchangeDirection.across.recipient(of: right)
+        XCTAssertEqual(acrossOfRight, left, "The seat across from south's right opponent should be south's left opponent.")
+    }
 
     func test_recipient_forEachDirection_matchesSeatOffsets() {
         XCTAssertEqual(CardExchangeDirection.left.recipient(of: .east), .south)

@@ -14,12 +14,6 @@ final class HistoryTests: XCTestCase {
 
     // MARK: - Fixtures
 
-    private final class Spy: GameEngineDelegate {
-        var events: [String] = []
-        func game(_ game: Game, didTransitionTo phase: GamePhase) { events.append("transition") }
-        func game(_ game: Game, didRestoreTo phase: GamePhase) { events.append("restore:\(phase)") }
-    }
-
     /// A copy of `snapshot` with some fields replaced, standing in for a hand-edited or corrupt save file.
     private func edited(_ snapshot: GameSnapshot,
                         hands: SeatMap<[Card]>? = nil,
@@ -209,8 +203,11 @@ final class HistoryTests: XCTestCase {
     func test_restore_withEverySnapshotOfARealGame_succeeds() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 9))
         var snapshots: [GameSnapshot] = []
-        let recorder = Recorder { snapshots.append(game.snapshot()) }
-        game.delegate = recorder
+        let spy = DelegateSpy()
+        spy.onEvent = { game, event in
+            if case .transition = event { snapshots.append(game.snapshot()) }
+        }
+        game.delegate = spy
         try game.playCompleteGame()
 
         let replay = Game(using: SeededRandomNumberGenerator(seed: 9))
@@ -220,42 +217,36 @@ final class HistoryTests: XCTestCase {
         }
     }
 
-    private final class Recorder: GameEngineDelegate {
-        let onTransition: () -> Void
-        init(onTransition: @escaping () -> Void) { self.onTransition = onTransition }
-        func game(_ game: Game, didTransitionTo phase: GamePhase) { onTransition() }
-    }
-
     // MARK: - Delegate
 
-    func test_undo_notifiesDelegateOfTheRestoreBeforeTheTransition() throws {
+    func test_undo_withDelegate_firesRestoreBeforeTransition() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 5))
-        let spy = Spy()
+        let spy = DelegateSpy()
         game.delegate = spy
         try game.performExchange()
-        spy.events = []
+        spy.reset()
 
         game.undo()
 
-        XCTAssertEqual(spy.events, ["restore:awaitingExchange", "transition"])
+        XCTAssertEqual(spy.events, [.restore(.awaitingExchange), .transition(.awaitingExchange)])
     }
 
-    func test_restore_notifiesDelegateOfTheRestoreBeforeTheTransition() throws {
+    func test_restore_withDelegate_firesRestoreBeforeTransition() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 5))
         try game.performExchange()
         let snap = game.snapshot()
         try game.playCompleteTrick()
-        let spy = Spy()
+        let spy = DelegateSpy()
         game.delegate = spy
 
         try game.restore(from: snap)
 
-        XCTAssertEqual(spy.events, ["restore:\(snap.phase)", "transition"])
+        XCTAssertEqual(spy.events, [.restore(snap.phase), .transition(snap.phase)])
     }
 
     func test_restore_whenRejected_notifiesNobody() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 5))
-        let spy = Spy()
+        let spy = DelegateSpy()
         game.delegate = spy
 
         XCTAssertThrowsError(try game.restore(from: edited(game.snapshot(), phase: .awaitingSettlement)))

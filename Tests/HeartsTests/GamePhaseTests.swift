@@ -12,30 +12,12 @@ final class GamePhaseTests: XCTestCase {
 
     // MARK: - Fixtures
 
-    private final class PhaseSpy: GameEngineDelegate {
-        var phases: [GamePhase] = []
-        var handResults: [HandResult] = []
-        var trickCount = 0
-        var phaseAtLastTrick: GamePhase?
-        func game(_ game: Game, didTransitionTo phase: GamePhase) { phases.append(phase) }
-        func game(_ game: Game, didEndHand result: HandResult) { handResults.append(result) }
-        func game(_ game: Game, didCompleteTrick trick: Trick, winner: Seat, points: Int) {
-            trickCount += 1
-            phaseAtLastTrick = game.phase
-        }
-    }
-
     private func botGame(seed: UInt64 = 1, winningScore: Int = 100) -> Game {
-        Game(configuration: GameConfiguration(winningScore: winningScore),
-             using: SeededRandomNumberGenerator(seed: seed))
+        Game.seededBots(seed: seed, difficulty: .medium, configuration: GameConfiguration(winningScore: winningScore))
     }
 
     private func mixedGame(seed: UInt64 = 1, winningScore: Int = 100) -> Game {
-        let human = Player(name: "You", type: .human)
-        let bots = (1...3).map { Player(name: "Bot\($0)", type: .bot(difficulty: .easy)) }
-        return Game(player1: human, player2: bots[0], player3: bots[1], player4: bots[2],
-                    configuration: GameConfiguration(winningScore: winningScore),
-                    using: SeededRandomNumberGenerator(seed: seed))
+        Game.seededHumanSouth(seed: seed, configuration: GameConfiguration(winningScore: winningScore))
     }
 
     private enum PhaseCase: CaseIterable {
@@ -71,14 +53,14 @@ final class GamePhaseTests: XCTestCase {
         XCTAssertFalse(botGame().isHandComplete)
     }
 
-    func test_performExchange_movesToAwaitingPlayForTheTwoOfClubsHolder() throws {
+    func test_performExchange_fromAwaitingExchange_movesToAwaitingPlayForTwoOfClubsHolder() throws {
         let game = botGame()
         try game.performExchange()
         XCTAssertEqual(game.phase, .awaitingPlay(game.currentSeat))
         XCTAssertEqual(game.currentSeat, game.leader)
     }
 
-    func test_playCard_advancesAwaitingPlayToTheNextSeat() throws {
+    func test_playCard_midTrick_advancesAwaitingPlayToNextSeat() throws {
         let game = botGame()
         try game.performExchange()
         let seat = game.currentSeat
@@ -98,22 +80,22 @@ final class GamePhaseTests: XCTestCase {
     func test_playCard_onPartialDeal_movesToAwaitingSettlementWhenHandsAreEmpty() throws {
         let players = (0..<4).map { Player(name: "P\($0)") }
         let game = try Game(player1: players[0], player2: players[1], player3: players[2], player4: players[3], hands: [
-            [Card(suit: .clubs, rank: .two)], [Card(suit: .clubs, rank: .three)],
-            [Card(suit: .clubs, rank: .four)], [Card(suit: .clubs, rank: .five)]
+            [Card.twoOfClubs], [Card.threeOfClubs],
+            [Card.fourOfClubs], [Card.fiveOfClubs]
         ])
         game.phase = .awaitingPlay(.south)
 
-        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
-        try game.playCard(Card(suit: .clubs, rank: .three), by: .west)
-        try game.playCard(Card(suit: .clubs, rank: .four), by: .north)
+        try game.playCard(Card.twoOfClubs, by: .south)
+        try game.playCard(Card.threeOfClubs, by: .west)
+        try game.playCard(Card.fourOfClubs, by: .north)
         XCTAssertEqual(game.phase, .awaitingPlay(.east))
-        try game.playCard(Card(suit: .clubs, rank: .five), by: .east)
+        try game.playCard(Card.fiveOfClubs, by: .east)
 
         XCTAssertEqual(game.phase, .awaitingSettlement)
         XCTAssertTrue(game.isHandComplete)
     }
 
-    func test_endHand_movesToHandCompleteCarryingTheResult() throws {
+    func test_endHand_fromAwaitingSettlement_movesToHandCompleteWithResult() throws {
         let game = try botGame(in: .awaitingSettlement)
         let result = try game.endHand()
         XCTAssertEqual(game.phase, .handComplete(result))
@@ -140,7 +122,7 @@ final class GamePhaseTests: XCTestCase {
         XCTAssertEqual(game.phase, .handComplete(result))
     }
 
-    func test_startNewHand_movesToAwaitingExchangeWithAFreshDeal() throws {
+    func test_startNewHand_fromHandComplete_movesToAwaitingExchangeWithFreshDeal() throws {
         let game = try botGame(in: .handComplete)
         try game.startNewHand()
         XCTAssertEqual(game.phase, .awaitingExchange)
@@ -156,7 +138,7 @@ final class GamePhaseTests: XCTestCase {
         let mutators: [Mutator] = [
             ("performExchange", { try $0.performExchange() }, .awaitingExchange),
             ("playCard", { game in
-                let card = game.hands[game.currentSeat].first ?? Card(suit: .clubs, rank: .two)
+                let card = game.hands[game.currentSeat].first ?? Card.twoOfClubs
                 try game.playCard(card, by: game.currentSeat)
             }, .awaitingPlay),
             ("endHand", { try $0.endHand() }, .awaitingSettlement),
@@ -178,10 +160,10 @@ final class GamePhaseTests: XCTestCase {
         }
     }
 
-    func test_playCard_checksPhaseBeforeTurnAndCard() throws {
+    func test_playCard_wrongPhase_throwsWrongPhaseBeforeTurnAndCardChecks() throws {
         let game = botGame()
         let wrongSeat = game.currentSeat.next
-        XCTAssertThrowsError(try game.playCard(Card(suit: .diamonds, rank: .ace), by: wrongSeat)) { error in
+        XCTAssertThrowsError(try game.playCard(Card.aceOfDiamonds, by: wrongSeat)) { error in
             XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingExchange))
         }
     }
@@ -246,9 +228,9 @@ final class GamePhaseTests: XCTestCase {
         XCTAssertTrue(game.currentTrick.plays.allSatisfy { $0.seat != .south })
     }
 
-    func test_advance_mixedGame_afterHumanPlays_finishesTrickAndSettlesHandsWithoutHelp() throws {
+    func test_advance_mixedGameAfterHumanPlays_finishesTrickAndSettlesHand() throws {
         let game = mixedGame(winningScore: 1)
-        let spy = PhaseSpy()
+        let spy = DelegateSpy()
         game.delegate = spy
 
         while true {
@@ -261,7 +243,7 @@ final class GamePhaseTests: XCTestCase {
                 try game.playCard(try XCTUnwrap(game.legalMoves(for: seat).first), by: seat)
             case .gameOver:
                 XCTAssertEqual(spy.handResults.count, game.roundNumber)
-                XCTAssertEqual(spy.trickCount, 13 * game.roundNumber)
+                XCTAssertEqual(spy.completedTricks.count, 13 * game.roundNumber)
                 return
             case .awaitingSettlement, .handComplete:
                 XCTFail("advance() must not stop at \(game.phase)")
@@ -323,9 +305,9 @@ final class GamePhaseTests: XCTestCase {
 
     // MARK: - Delegate
 
-    func test_delegate_receivesEveryTransitionOfAHand() throws {
+    func test_didTransitionTo_fullHand_firesForEveryPhaseInOrder() throws {
         let game = botGame()
-        let spy = PhaseSpy()
+        let spy = DelegateSpy()
         game.delegate = spy
 
         try game.playCompleteHand()
@@ -339,24 +321,28 @@ final class GamePhaseTests: XCTestCase {
 
     func test_delegate_didTransitionTo_firesAfterTheEventThatCausedIt() throws {
         let game = botGame()
-        let spy = PhaseSpy()
+        let spy = DelegateSpy()
+        var phaseAtLastTrick: GamePhase?
+        spy.onEvent = { game, event in
+            if case .completeTrick = event { phaseAtLastTrick = game.phase }
+        }
         game.delegate = spy
         try game.performExchange()
 
         try game.playCompleteTrick()
 
         let closingSeat = game.completedTricks[0].plays[3].seat
-        XCTAssertEqual(spy.phaseAtLastTrick, .awaitingPlay(closingSeat),
+        XCTAssertEqual(phaseAtLastTrick, .awaitingPlay(closingSeat),
                        "didCompleteTrick still sees the phase of the play that closed the trick")
         XCTAssertEqual(spy.phases.last, .awaitingPlay(game.currentSeat))
     }
 
-    func test_delegate_receivesTransitionOnUndoAndRestore() throws {
+    func test_didTransitionTo_undoAndRestore_fires() throws {
         let game = botGame()
         try game.performExchange()
         let snap = game.snapshot()
         try game.playCompleteTrick()
-        let spy = PhaseSpy()
+        let spy = DelegateSpy()
         game.delegate = spy
 
         game.undo()
@@ -369,7 +355,7 @@ final class GamePhaseTests: XCTestCase {
 
     // MARK: - Snapshot / undo
 
-    func test_snapshot_carriesThePhaseAndRestoreReappliesIt() throws {
+    func test_snapshot_anyPhase_carriesPhaseAndRestoreReappliesIt() throws {
         let game = try botGame(in: .handComplete)
         let snap = game.snapshot()
         XCTAssertEqual(snap.phase, game.phase)
@@ -398,7 +384,7 @@ final class GamePhaseTests: XCTestCase {
         XCTAssertEqual(try game.endHand().totalScores, game.totalScores, "settlement can be redone")
     }
 
-    func test_legalMoves_isEmptyOutsideAwaitingPlay() throws {
+    func test_legalMoves_outsideAwaitingPlay_isEmpty() throws {
         let game = botGame()
         XCTAssertEqual(game.legalMoves(for: game.currentSeat), [])
         try game.performExchange()

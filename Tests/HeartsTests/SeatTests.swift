@@ -12,19 +12,19 @@ final class SeatTests: XCTestCase {
 
     // MARK: - Seat
 
-    func test_allCases_isTheFourSeatsInClockwiseOrder() {
+    func test_allCases_seat_isFourSeatsClockwise() {
         XCTAssertEqual(Seat.allCases, [.south, .west, .north, .east])
         XCTAssertEqual(Seat.allCases.map(\.rawValue), [0, 1, 2, 3])
     }
 
-    func test_next_isTheSeatToTheLeftAndWrapsAround() {
+    func test_next_anySeat_isSeatToLeftWrappingAround() {
         XCTAssertEqual(Seat.south.next, .west)
         XCTAssertEqual(Seat.west.next, .north)
         XCTAssertEqual(Seat.north.next, .east)
         XCTAssertEqual(Seat.east.next, .south)
     }
 
-    func test_advancedBy_wrapsModuloFour() {
+    func test_advancedBy_anyCount_wrapsModuloFour() {
         XCTAssertEqual(Seat.east.advanced(by: 1), .south)
         XCTAssertEqual(Seat.south.advanced(by: 2), .north)
         XCTAssertEqual(Seat.west.advanced(by: 7), .south)
@@ -38,7 +38,7 @@ final class SeatTests: XCTestCase {
         XCTAssertNil(CardExchangeDirection.none.recipient(of: .south))
     }
 
-    func test_seat_roundTripsThroughJSON() throws {
+    func test_codable_seat_roundTripsThroughJSON() throws {
         for seat in Seat.allCases {
             let data = try JSONEncoder().encode(seat)
             XCTAssertEqual(try JSONDecoder().decode(Seat.self, from: data), seat)
@@ -70,7 +70,7 @@ final class SeatTests: XCTestCase {
         XCTAssertEqual(map.values, [0, 0, 5, 0])
     }
 
-    func test_seatMap_iteratesSeatValuePairsInSeatOrder() {
+    func test_iteration_seatMap_yieldsPairsInSeatOrder() {
         let map: SeatMap<String> = ["a", "b", "c", "d"]
         let pairs = map.map { "\($0.seat.rawValue)\($0.value)" }
         XCTAssertEqual(pairs, ["0a", "1b", "2c", "3d"])
@@ -81,7 +81,7 @@ final class SeatTests: XCTestCase {
         XCTAssertEqual(map.mapValues { $0 * 2 }, [2, 4, 6, 8])
     }
 
-    func test_seatMap_roundTripsThroughJSONAsAFourElementArray() throws {
+    func test_codable_seatMap_roundTripsAsFourElementArray() throws {
         let map: SeatMap<Int> = [1, 2, 3, 4]
         let data = try JSONEncoder().encode(map)
         XCTAssertEqual(String(data: data, encoding: .utf8), "[1,2,3,4]")

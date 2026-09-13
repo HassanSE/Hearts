@@ -11,43 +11,29 @@ import XCTest
 /// Seats are the engine's identity: plays, delegate payloads, scores and snapshots are all keyed by `Seat`.
 final class SeatIdentityTests: XCTestCase {
 
-    private final class Spy: GameEngineDelegate {
-        var plays: [(card: Card, seat: Seat)] = []
-        var trickWinners: [Seat] = []
-        var heartsBrokenBy: [Seat] = []
-        var handResults: [HandResult] = []
-        var gameWinners: [Seat] = []
-
-        func game(_ game: Game, didPlayCard card: Card, by seat: Seat) { plays.append((card, seat)) }
-        func game(_ game: Game, didCompleteTrick trick: Trick, winner: Seat, points: Int) { trickWinners.append(winner) }
-        func game(_ game: Game, didBreakHearts card: Card, by seat: Seat) { heartsBrokenBy.append(seat) }
-        func game(_ game: Game, didEndHand result: HandResult) { handResults.append(result) }
-        func game(_ game: Game, didEndGame winner: Seat) { gameWinners.append(winner) }
-    }
-
     private func makeMixedGame() -> Game {
-        Game(player1: Player(name: "Bot", type: .bot(difficulty: .easy)),
-             player2: Player(name: "You", type: .human),
-             player3: Player(name: "Bot", type: .bot(difficulty: .easy)),
-             player4: Player(name: "Also you", type: .human),
+        Game(player1: .bot("Bot"),
+             player2: .human("You"),
+             player3: .bot("Bot"),
+             player4: .human("Also you"),
              using: SeededRandomNumberGenerator(seed: 5))
     }
 
     // MARK: - Player is an immutable profile
 
     func test_player_isJustNameAndType_andTwoEqualProfilesAreEqual() {
-        XCTAssertEqual(Player(name: "Bob", type: .human), Player(name: "Bob", type: .human))
-        XCTAssertNotEqual(Player(name: "Bob", type: .human), Player(name: "Bob", type: .bot(difficulty: .easy)))
+        XCTAssertEqual(Player.human("Bob"), .human("Bob"))
+        XCTAssertNotEqual(Player.human("Bob"), .bot("Bob"))
     }
 
     // MARK: - Trick plays are recorded by seat
 
     func test_trick_recordsSeatPerPlay_andWinnerIsASeat() throws {
         var trick = Trick()
-        try trick.play(Card(suit: .clubs, rank: .five), by: .north)
-        try trick.play(Card(suit: .clubs, rank: .ace), by: .east)
-        try trick.play(Card(suit: .hearts, rank: .king), by: .south)
-        try trick.play(Card(suit: .clubs, rank: .ten), by: .west)
+        try trick.play(Card.fiveOfClubs, by: .north)
+        try trick.play(Card.aceOfClubs, by: .east)
+        try trick.play(Card.kingOfHearts, by: .south)
+        try trick.play(Card.tenOfClubs, by: .west)
 
         XCTAssertEqual(trick.plays.map(\.seat), [.north, .east, .south, .west])
         XCTAssertEqual(trick.winner, .east)
@@ -56,8 +42,8 @@ final class SeatIdentityTests: XCTestCase {
 
     func test_trick_sameSeatTwice_throwsNotPlayersTurn() throws {
         var trick = Trick()
-        try trick.play(Card(suit: .clubs, rank: .five), by: .north)
-        XCTAssertThrowsError(try trick.play(Card(suit: .clubs, rank: .six), by: .north)) { error in
+        try trick.play(Card.fiveOfClubs, by: .north)
+        XCTAssertThrowsError(try trick.play(Card.sixOfClubs, by: .north)) { error in
             XCTAssertEqual(error as? GameError, .notPlayersTurn)
         }
     }
@@ -68,7 +54,7 @@ final class SeatIdentityTests: XCTestCase {
         let game = Game(using: SeededRandomNumberGenerator(seed: 1))
         try game.performExchange()
         let leader = game.currentSeat
-        let card = Card(suit: .clubs, rank: .two)
+        let card = Card.twoOfClubs
         XCTAssertTrue(game.hands[leader].contains(card))
 
         try game.playCard(card, by: leader)
@@ -81,12 +67,12 @@ final class SeatIdentityTests: XCTestCase {
     func test_game_leader_isTheOneSeatHoldingTwoOfClubs() throws {
         let game = try Game(player1: Player(name: "A"), player2: Player(name: "B"),
                             player3: Player(name: "C"), player4: Player(name: "D"),
-                            hands: [[], [], [Card(suit: .clubs, rank: .two)], []])
+                            hands: [[], [], [Card.twoOfClubs], []])
         XCTAssertEqual(game.leader, .north)
         XCTAssertEqual(game.currentSeat, .north)
     }
 
-    func test_game_exposesHumanAndBotSeats() {
+    func test_humanSeats_mixedGame_partitionSeatsByType() {
         let game = makeMixedGame()
         XCTAssertEqual(game.humanSeats, [.west, .east])
         XCTAssertEqual(game.botSeats, [.south, .north])
@@ -104,22 +90,22 @@ final class SeatIdentityTests: XCTestCase {
 
     // MARK: - Delegate and scores are keyed by seat
 
-    func test_delegate_receivesSeatsThatMatchTheRecordedTricks() throws {
+    func test_didPlayCard_fullHand_seatsMatchRecordedTricks() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 2))
-        let spy = Spy()
+        let spy = DelegateSpy()
         game.delegate = spy
 
         try game.playCompleteHand()
 
         XCTAssertEqual(spy.plays.map(\.seat), game.completedTricks.flatMap { $0.plays.map(\.seat) })
-        XCTAssertEqual(spy.trickWinners, game.completedTricks.compactMap(\.winner))
+        XCTAssertEqual(spy.completedTricks.map(\.winner), game.completedTricks.compactMap(\.winner))
         XCTAssertEqual(spy.handResults.first?.totalScores, game.totalScores)
         XCTAssertEqual(game.roundScores, SeatMap(repeating: 0))
     }
 
     func test_endHand_gameOver_reportsWinningSeat() throws {
         let game = Game(configuration: GameConfiguration(winningScore: 30), using: SeededRandomNumberGenerator(seed: 2))
-        let spy = Spy()
+        let spy = DelegateSpy()
         game.delegate = spy
 
         let winner = try game.playCompleteGame()
@@ -130,7 +116,7 @@ final class SeatIdentityTests: XCTestCase {
         XCTAssertEqual(spy.gameWinners, [winner], "didEndGame fires once, for the seat with the unique lowest total")
     }
 
-    func test_performExchange_selectionsAreKeyedBySeat() throws {
+    func test_performExchange_selectionsKeyedBySeat_movesEachSeatsCards() throws {
         let game = makeMixedGame()
         let westPass = Array(game.hands[.west].prefix(3))
         let eastPass = Array(game.hands[.east].prefix(3))
@@ -151,7 +137,7 @@ final class SeatIdentityTests: XCTestCase {
 
     // MARK: - Snapshots no longer embed hands in plays
 
-    func test_snapshot_encodedPlaysCarryOnlySeatAndCard() throws {
+    func test_snapshot_encoded_playsCarryOnlySeatAndCard() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 3))
         try game.playCompleteHand()
 
@@ -171,7 +157,7 @@ final class SeatIdentityTests: XCTestCase {
         XCTAssertLessThan(data.count, 8_000, "a full-hand snapshot is a few KB once plays stop embedding hands")
     }
 
-    func test_snapshot_restoresPerSeatStateAndCurrentSeat() throws {
+    func test_restore_midHand_restoresPerSeatStateAndCurrentSeat() throws {
         let game = Game(using: SeededRandomNumberGenerator(seed: 4))
         try game.performExchange()
         let before = game.snapshot()

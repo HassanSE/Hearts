@@ -9,12 +9,12 @@ import XCTest
 @testable import Hearts
 
 final class DeckTests: XCTestCase {
-    func test_init_deck_has_52_cards() {
+    func test_init_freshDeck_has52Cards() {
         let deck = Deck()
         XCTAssertEqual(deck.count, 52)
     }
     
-    func test_deck_has_4_suits_of_cards() {
+    func test_init_freshDeck_has13CardsPerSuit() {
         let deck = Deck()
         let spades = deck.cards.filter { $0.suit == .spades }
         let hearts = deck.cards.filter { $0.suit == .hearts }

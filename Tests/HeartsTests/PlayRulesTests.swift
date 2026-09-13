@@ -11,16 +11,6 @@ import XCTest
 /// Rules are exercised directly through `PlayRules`; no `Game` is constructed anywhere in this file.
 final class PlayRulesTests: XCTestCase {
 
-    private let twoOfClubs = Card(suit: .clubs, rank: .two)
-
-    private func trick(_ cards: Card...) -> Trick {
-        var trick = Trick()
-        for (index, card) in cards.enumerated() {
-            try! trick.play(card, by: Seat.allCases[index])
-        }
-        return trick
-    }
-
     private func rules(hand: [Card], trick: Trick = Trick(), heartsBroken: Bool = false, isFirstTrick: Bool = false) -> PlayRules {
         PlayRules(hand: hand, currentTrick: trick, heartsBroken: heartsBroken, isFirstTrick: isFirstTrick)
     }
@@ -35,103 +25,103 @@ final class PlayRulesTests: XCTestCase {
     // MARK: - Rule 1: 2♣ leads the first trick
 
     func test_validate_firstTrickLeadingWithoutTwoOfClubs_throwsMustLeadWithTwoOfClubs() {
-        let rules = rules(hand: [twoOfClubs, Card(suit: .clubs, rank: .three)], isFirstTrick: true)
-        assertThrows(rules, Card(suit: .clubs, rank: .three), .mustLeadWithTwoOfClubs)
-        XCTAssertNoThrow(try rules.validate(twoOfClubs))
-        XCTAssertEqual(rules.legalMoves(), [twoOfClubs])
+        let rules = rules(hand: [Card.twoOfClubs, Card.threeOfClubs], isFirstTrick: true)
+        assertThrows(rules, Card.threeOfClubs, .mustLeadWithTwoOfClubs)
+        XCTAssertNoThrow(try rules.validate(Card.twoOfClubs))
+        XCTAssertEqual(rules.legalMoves(), [Card.twoOfClubs])
     }
 
-    func test_validate_firstTrickLeading_hasNoTwoOfClubs_throwsMustLeadWithTwoOfClubs() {
+    func test_validate_firstTrickLeadWithoutTwoOfClubs_throwsMustLeadWithTwoOfClubs() {
         // Unreachable through Game (the 2♣ holder always leads) but the rule is stated unconditionally.
-        let rules = rules(hand: [Card(suit: .clubs, rank: .three)], isFirstTrick: true)
-        assertThrows(rules, Card(suit: .clubs, rank: .three), .mustLeadWithTwoOfClubs)
+        let rules = rules(hand: [Card.threeOfClubs], isFirstTrick: true)
+        assertThrows(rules, Card.threeOfClubs, .mustLeadWithTwoOfClubs)
         XCTAssertTrue(rules.legalMoves().isEmpty)
     }
 
     func test_validate_laterTrickLeading_doesNotRequireTwoOfClubs() {
-        let rules = rules(hand: [twoOfClubs, Card(suit: .clubs, rank: .three)], isFirstTrick: false)
-        XCTAssertNoThrow(try rules.validate(Card(suit: .clubs, rank: .three)))
+        let rules = rules(hand: [Card.twoOfClubs, Card.threeOfClubs], isFirstTrick: false)
+        XCTAssertNoThrow(try rules.validate(Card.threeOfClubs))
         XCTAssertEqual(rules.legalMoves().count, 2)
     }
 
     // MARK: - Rule 2: no points on the first trick
 
-    func test_validate_firstTrickFollowing_pointCardWithAlternative_throwsCannotPlayPointsOnFirstTrick() {
+    func test_validate_firstTrickPointCardWithAlternative_throwsCannotPlayPointsOnFirstTrick() throws {
         let rules = rules(
-            hand: [Card(suit: .hearts, rank: .seven), Card(suit: .spades, rank: .queen), Card(suit: .diamonds, rank: .five)],
-            trick: trick(twoOfClubs),
+            hand: [Card.sevenOfHearts, Card.queenOfSpades, Card.fiveOfDiamonds],
+            trick: try Trick.mock([Card.twoOfClubs]),
             isFirstTrick: true
         )
-        assertThrows(rules, Card(suit: .hearts, rank: .seven), .cannotPlayPointsOnFirstTrick)
-        assertThrows(rules, Card(suit: .spades, rank: .queen), .cannotPlayPointsOnFirstTrick)
-        XCTAssertEqual(rules.legalMoves(), [Card(suit: .diamonds, rank: .five)])
+        assertThrows(rules, Card.sevenOfHearts, .cannotPlayPointsOnFirstTrick)
+        assertThrows(rules, Card.queenOfSpades, .cannotPlayPointsOnFirstTrick)
+        XCTAssertEqual(rules.legalMoves(), [Card.fiveOfDiamonds])
     }
 
-    func test_validate_firstTrickFollowing_onlyPointCards_allowsPoints() {
+    func test_validate_firstTrickOnlyPointCards_allowsPoints() throws {
         let rules = rules(
-            hand: [Card(suit: .hearts, rank: .seven), Card(suit: .spades, rank: .queen)],
-            trick: trick(twoOfClubs),
+            hand: [Card.sevenOfHearts, Card.queenOfSpades],
+            trick: try Trick.mock([Card.twoOfClubs]),
             isFirstTrick: true
         )
-        XCTAssertNoThrow(try rules.validate(Card(suit: .hearts, rank: .seven)))
-        XCTAssertNoThrow(try rules.validate(Card(suit: .spades, rank: .queen)))
+        XCTAssertNoThrow(try rules.validate(Card.sevenOfHearts))
+        XCTAssertNoThrow(try rules.validate(Card.queenOfSpades))
         XCTAssertEqual(rules.legalMoves().count, 2)
     }
 
-    func test_validate_firstTrickFollowing_pointsChecked_beforeFollowSuit() {
+    func test_validate_firstTrickPointCard_checksPointsBeforeFollowSuit() throws {
         // A point card played while holding the lead suit violates two rules; the first-trick rule wins.
         let rules = rules(
-            hand: [Card(suit: .clubs, rank: .nine), Card(suit: .hearts, rank: .seven)],
-            trick: trick(twoOfClubs),
+            hand: [Card.nineOfClubs, Card.sevenOfHearts],
+            trick: try Trick.mock([Card.twoOfClubs]),
             isFirstTrick: true
         )
-        assertThrows(rules, Card(suit: .hearts, rank: .seven), .cannotPlayPointsOnFirstTrick)
+        assertThrows(rules, Card.sevenOfHearts, .cannotPlayPointsOnFirstTrick)
     }
 
     // MARK: - Rule 3: hearts must be broken to lead
 
-    func test_validate_leadingHeartBeforeBroken_withOtherSuits_throwsHeartsNotBroken() {
-        let rules = rules(hand: [Card(suit: .hearts, rank: .three), Card(suit: .diamonds, rank: .four)], heartsBroken: false)
-        assertThrows(rules, Card(suit: .hearts, rank: .three), .heartsNotBroken)
-        XCTAssertEqual(rules.legalMoves(), [Card(suit: .diamonds, rank: .four)])
+    func test_validate_leadingHeartBeforeBrokenWithOtherSuits_throwsHeartsNotBroken() {
+        let rules = rules(hand: [Card.threeOfHearts, Card.fourOfDiamonds], heartsBroken: false)
+        assertThrows(rules, Card.threeOfHearts, .heartsNotBroken)
+        XCTAssertEqual(rules.legalMoves(), [Card.fourOfDiamonds])
     }
 
     func test_validate_leadingHeartAfterBroken_allowsHeart() {
-        let rules = rules(hand: [Card(suit: .hearts, rank: .three), Card(suit: .diamonds, rank: .four)], heartsBroken: true)
-        XCTAssertNoThrow(try rules.validate(Card(suit: .hearts, rank: .three)))
+        let rules = rules(hand: [Card.threeOfHearts, Card.fourOfDiamonds], heartsBroken: true)
+        XCTAssertNoThrow(try rules.validate(Card.threeOfHearts))
         XCTAssertEqual(rules.legalMoves().count, 2)
     }
 
-    func test_validate_leadingHeartBeforeBroken_onlyHearts_allowsHeart() {
-        let rules = rules(hand: [Card(suit: .hearts, rank: .three), Card(suit: .hearts, rank: .four)], heartsBroken: false)
-        XCTAssertNoThrow(try rules.validate(Card(suit: .hearts, rank: .three)))
+    func test_validate_leadingHeartBeforeBrokenWithOnlyHearts_allowsHeart() {
+        let rules = rules(hand: [Card.threeOfHearts, Card.fourOfHearts], heartsBroken: false)
+        XCTAssertNoThrow(try rules.validate(Card.threeOfHearts))
         XCTAssertEqual(rules.legalMoves().count, 2)
     }
 
-    func test_validate_followingWithHeartBeforeBroken_isNotALeadViolation() {
+    func test_validate_followingWithHeartBeforeBroken_isNotALeadViolation() throws {
         // Discarding a heart while void in the lead suit is legal even if hearts are unbroken.
-        let rules = rules(hand: [Card(suit: .hearts, rank: .three)], trick: trick(Card(suit: .diamonds, rank: .ace)), heartsBroken: false)
-        XCTAssertNoThrow(try rules.validate(Card(suit: .hearts, rank: .three)))
+        let rules = rules(hand: [Card.threeOfHearts], trick: try Trick.mock([Card.aceOfDiamonds]), heartsBroken: false)
+        XCTAssertNoThrow(try rules.validate(Card.threeOfHearts))
     }
 
     // MARK: - Rule 4: must follow suit
 
-    func test_validate_holdingLeadSuit_playingOffSuit_throwsMustFollowSuit() {
-        let rules = rules(hand: [Card(suit: .diamonds, rank: .two), Card(suit: .spades, rank: .queen)], trick: trick(Card(suit: .diamonds, rank: .ace)))
-        assertThrows(rules, Card(suit: .spades, rank: .queen), .mustFollowSuit(required: .diamonds))
-        XCTAssertEqual(rules.legalMoves(), [Card(suit: .diamonds, rank: .two)])
+    func test_validate_offSuitWhileHoldingLeadSuit_throwsMustFollowSuit() throws {
+        let rules = rules(hand: [Card.twoOfDiamonds, Card.queenOfSpades], trick: try Trick.mock([Card.aceOfDiamonds]))
+        assertThrows(rules, Card.queenOfSpades, .mustFollowSuit(required: .diamonds))
+        XCTAssertEqual(rules.legalMoves(), [Card.twoOfDiamonds])
     }
 
-    func test_validate_voidInLeadSuit_allowsAnyCard() {
-        let rules = rules(hand: [Card(suit: .clubs, rank: .two), Card(suit: .spades, rank: .queen)], trick: trick(Card(suit: .diamonds, rank: .ace)))
+    func test_validate_voidInLeadSuit_allowsAnyCard() throws {
+        let rules = rules(hand: [Card.twoOfClubs, Card.queenOfSpades], trick: try Trick.mock([Card.aceOfDiamonds]))
         XCTAssertEqual(rules.legalMoves().count, 2)
     }
 
     // MARK: - Card not in hand
 
     func test_validate_cardNotInHand_throwsCardNotInHand() {
-        let rules = rules(hand: [Card(suit: .diamonds, rank: .two)])
-        assertThrows(rules, Card(suit: .diamonds, rank: .three), .cardNotInHand)
+        let rules = rules(hand: [Card.twoOfDiamonds])
+        assertThrows(rules, Card.threeOfDiamonds, .cardNotInHand)
     }
 
     func test_legalMoves_emptyHand_isEmpty() {
@@ -142,7 +132,7 @@ final class PlayRulesTests: XCTestCase {
 
     func test_legalMoves_forRandomStates_equalsCardsThatValidateAccepts() {
         var generator = SeededRandomNumberGenerator(seed: 0x5EED)
-        let deck = Card.Suit.allCases.flatMap { suit in Card.Rank.allCases.map { Card(suit: suit, rank: $0) } }
+        let deck = Deck().cards
 
         for _ in 0..<500 {
             var cards = deck.shuffled(using: &generator)
@@ -171,7 +161,7 @@ final class PlayRulesTests: XCTestCase {
             XCTAssertTrue(rules.legalMoves().allSatisfy { hand.contains($0) })
             let reachable = !rules.isFirstTrick || trick.leadSuit == nil || trick.leadSuit == .clubs
             if reachable && !hand.isEmpty && rules.legalMoves().isEmpty {
-                XCTAssertTrue(rules.isFirstTrick && trick.leadSuit == nil && !hand.contains(twoOfClubs))
+                XCTAssertTrue(rules.isFirstTrick && trick.leadSuit == nil && !hand.contains(Card.twoOfClubs))
             }
         }
     }

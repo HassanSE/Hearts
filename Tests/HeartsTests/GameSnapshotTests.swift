@@ -1,5 +1,5 @@
 //
-//  SnapshotTests.swift
+//  GameSnapshotTests.swift
 //
 //
 //  Created by Muhammad Hassan on 12/04/2026.
@@ -8,11 +8,11 @@
 import XCTest
 @testable import Hearts
 
-final class SnapshotTests: XCTestCase {
+final class GameSnapshotTests: XCTestCase {
 
     // MARK: - snapshot()
 
-    func test_snapshot_captures_initial_state() throws {
+    func test_snapshot_freshGame_capturesInitialState() throws {
         let game = Game()
         let snap = game.snapshot()
 
@@ -24,7 +24,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(snap.phase, .awaitingExchange)
     }
 
-    func test_snapshot_reflects_state_after_exchange() throws {
+    func test_snapshot_afterExchange_reflectsPhase() throws {
         let game = Game()
         try game.performExchange()
         let snap = game.snapshot()
@@ -32,7 +32,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(snap.phase, .awaitingPlay(game.currentSeat))
     }
 
-    func test_snapshot_reflects_hearts_broken() throws {
+    func test_snapshot_afterHeartPlayed_reflectsHeartsBroken() throws {
         let game = Game()
         try game.performExchange()
 
@@ -47,7 +47,7 @@ final class SnapshotTests: XCTestCase {
 
     // MARK: - restore(from:)
 
-    func test_restore_reverts_to_pre_play_state() throws {
+    func test_restore_afterPlays_revertsToSnapshotState() throws {
         let game = Game()
         let snap = game.snapshot()
 
@@ -73,7 +73,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(game.phase, .awaitingExchange)
     }
 
-    func test_restore_allows_replaying_same_moves() throws {
+    func test_restore_afterPlays_allowsReplayingSameMoves() throws {
         let game = Game()
         let snap = game.snapshot()
 
@@ -97,7 +97,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(game.hands.mapValues(\.count), [13, 13, 13, 13])
     }
 
-    func test_restore_clears_undo_history() throws {
+    func test_restore_withHistory_clearsUndoHistory() throws {
         let game = Game()
         try game.performExchange()
 
@@ -114,12 +114,12 @@ final class SnapshotTests: XCTestCase {
 
     // MARK: - undo()
 
-    func test_canUndo_is_false_on_fresh_game() throws {
+    func test_canUndo_freshGame_isFalse() throws {
         let game = Game()
         XCTAssertFalse(game.canUndo)
     }
 
-    func test_canUndo_is_true_after_playing_a_card() throws {
+    func test_canUndo_afterPlayingCard_isTrue() throws {
         let game = Game()
         try game.performExchange()
 
@@ -130,7 +130,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertTrue(game.canUndo)
     }
 
-    func test_undo_reverts_single_card_play() throws {
+    func test_undo_afterOnePlay_revertsIt() throws {
         let game = Game()
         try game.performExchange()
 
@@ -150,7 +150,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertTrue(game.hands[seat].contains(card))
     }
 
-    func test_undo_reverts_multiple_steps() throws {
+    func test_undo_repeated_revertsMultipleSteps() throws {
         let game = Game()
         try game.performExchange()
 
@@ -185,7 +185,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(game.phase, .awaitingExchange)
     }
 
-    func test_undo_is_noop_when_history_empty() throws {
+    func test_undo_emptyHistory_isNoop() throws {
         let game = Game()
         XCTAssertFalse(game.canUndo)
 
@@ -197,7 +197,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(game.completedTricks.count, 0)
     }
 
-    func test_canUndo_becomes_false_after_exhausting_history() throws {
+    func test_canUndo_afterExhaustingHistory_isFalse() throws {
         let game = Game()
         try game.performExchange()
 
@@ -211,7 +211,7 @@ final class SnapshotTests: XCTestCase {
         XCTAssertFalse(game.canUndo)
     }
 
-    func test_startNewHand_keeps_undo_history() throws {
+    func test_startNewHand_withHistory_keepsUndoHistory() throws {
         let game = Game()
         try game.performExchange()
         try! game.playCompleteHand()

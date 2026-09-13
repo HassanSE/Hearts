@@ -82,10 +82,10 @@ final class DeterminismTests: XCTestCase {
 
     func test_init_withFixedHands_dealsExactlyThoseHandsAndSeatsTwoOfClubsHolderAsLeader() throws {
         let hands: [[Card]] = [
-            [Card(suit: .diamonds, rank: .four)],
-            [Card(suit: .clubs, rank: .two), Card(suit: .hearts, rank: .six)],
-            [Card(suit: .clubs, rank: .eight)],
-            [Card(suit: .spades, rank: .queen)]
+            [Card.fourOfDiamonds],
+            [Card.twoOfClubs, Card.sixOfHearts],
+            [Card.eightOfClubs],
+            [Card.queenOfSpades]
         ]
 
         let game = try makeFixedDealGame(hands: hands)
@@ -96,18 +96,18 @@ final class DeterminismTests: XCTestCase {
         XCTAssertFalse(game.heartsBroken)
     }
 
-    func test_init_withFixedHands_wrongHandCount_throwsInvalidDeal() {
-        XCTAssertThrowsError(try makeFixedDealGame(hands: [[Card(suit: .clubs, rank: .two)]])) { error in
+    func test_init_fixedHandsWithWrongCount_throwsInvalidDeal() {
+        XCTAssertThrowsError(try makeFixedDealGame(hands: [[Card.twoOfClubs]])) { error in
             XCTAssertEqual(error as? GameError, .invalidDeal)
         }
     }
 
-    func test_init_withFixedHands_duplicateCard_throwsInvalidDeal() {
+    func test_init_fixedHandsWithDuplicateCard_throwsInvalidDeal() {
         let hands: [[Card]] = [
-            [Card(suit: .clubs, rank: .two)],
-            [Card(suit: .clubs, rank: .two)],
-            [Card(suit: .clubs, rank: .three)],
-            [Card(suit: .clubs, rank: .four)]
+            [Card.twoOfClubs],
+            [Card.twoOfClubs],
+            [Card.threeOfClubs],
+            [Card.fourOfClubs]
         ]
         XCTAssertThrowsError(try makeFixedDealGame(hands: hands)) { error in
             XCTAssertEqual(error as? GameError, .invalidDeal)
@@ -115,7 +115,7 @@ final class DeterminismTests: XCTestCase {
     }
 
     func test_startNewHand_afterFixedDeal_dealsAFullShuffledHandFromTheGenerator() throws {
-        let hands: [[Card]] = [[Card(suit: .clubs, rank: .two)], [], [], []]
+        let hands: [[Card]] = [[Card.twoOfClubs], [], [], []]
         let game = try Game(player1: fourPlayers[0], player2: fourPlayers[1], player3: fourPlayers[2],
                             player4: fourPlayers[3], hands: hands, using: SeededRandomNumberGenerator(seed: 3))
         let reference = Game(using: SeededRandomNumberGenerator(seed: 3))

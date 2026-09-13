@@ -9,12 +9,12 @@ import XCTest
 @testable import Hearts
 
 final class GameTests: XCTestCase {
-    func test_init_game_has_4_players() {
+    func test_init_default_seatsFourPlayers() {
         let game = Game()
         XCTAssertEqual(game.players.values.count, 4)
     }
     
-    func test_init_game_seats_players_in_order() {
+    func test_init_namedPlayers_seatsThemInOrder() {
         let game = Game(player1: Player(name: "Joe"),
                         player2: Player(name: "Dan"),
                         player3: Player(name: "Ali"),
@@ -28,48 +28,17 @@ final class GameTests: XCTestCase {
         XCTAssertEqual(game.hands.mapValues(\.count), [13, 13, 13, 13])
     }
     
-    func test_init_each_seat_has_3_opponents() {
-        // Each seat should have 3 opponents (left, right, across)
-        for seat in Seat.allCases {
-            XCTAssertNotNil(CardExchangeDirection.left.recipient(of: seat))
-            XCTAssertNotNil(CardExchangeDirection.right.recipient(of: seat))
-            XCTAssertNotNil(CardExchangeDirection.across.recipient(of: seat))
-        }
-    }
-    
-    func test_leader_after_first_hand_is_dealt() {
+
+    func test_leader_afterDeal_isTwoOfClubsHolderAndCurrentSeat() {
         let game = Game()
-        let leader = game.hands.first { $0.value.contains(Card(suit: .clubs, rank: .two)) }?.seat
+        let leader = game.hands.first { $0.value.contains(Card.twoOfClubs) }?.seat
         XCTAssertNotNil(leader)
         XCTAssertEqual(leader, game.leader)
         XCTAssertEqual(leader, game.currentSeat)
     }
     
-    func test_seats_direction() {
-        XCTAssertEqual(CardExchangeDirection.right.recipient(of: .south), .east, "South's right opponent should be east.")
-        XCTAssertEqual(CardExchangeDirection.left.recipient(of: .east), .south, "East's left opponent should be south.")
 
-        guard let left = CardExchangeDirection.left.recipient(of: .south),
-              let leftOfLeft = CardExchangeDirection.left.recipient(of: left),
-              let across = CardExchangeDirection.across.recipient(of: .south) else {
-            XCTFail("Failed to get left opponent of south or seat across from south.")
-            return
-        }
-        XCTAssertEqual(leftOfLeft, across, "The left of left of south should be the seat across from south.")
-
-        guard let right = CardExchangeDirection.right.recipient(of: .south),
-              let rightOfRight = CardExchangeDirection.right.recipient(of: right) else {
-            XCTFail("Failed to get right opponent of south.")
-            return
-        }
-
-        XCTAssertEqual(rightOfRight, across, "The right of right of south should be the seat across from south.")
-
-        let acrossOfRight = CardExchangeDirection.across.recipient(of: right)
-        XCTAssertEqual(acrossOfRight, left, "The seat across from south's right opponent should be south's left opponent.")
-    }
-
-    func test_exchange_cards_direction() {
+    func test_exchangeDirection_byRoundNumber_rotatesLeftRightAcrossNone() {
         let game = Game()
         XCTAssertEqual(game.exchangeDirection, .left)
 
@@ -96,7 +65,7 @@ final class GameTests: XCTestCase {
         XCTAssertEqual(game.exchangeDirection, .none, "Round 7 should wrap to .none")
     }
     
-    func test_exchange_cards() throws {
+    func test_performExchange_allBots_movesThreeCardsToRecipient() throws {
         let game = Game()
         
         // Cards before exchange
@@ -147,7 +116,7 @@ final class GameTests: XCTestCase {
 
     // MARK: - AI Integration Tests
 
-    func test_selectCardsForBotExchange_returns_3_cards_from_hand() throws {
+    func test_selectCardsForBotExchange_botSeat_returnsThreeCardsFromHand() throws {
         let game = Game()  // All seats are bots in default init
         let hand = game.hands[.south]
 
@@ -164,7 +133,7 @@ final class GameTests: XCTestCase {
         XCTAssertNotEqual(selectedCards.1, selectedCards.2)
     }
 
-    func test_selectCardForBotPlay_returns_legal_card() throws {
+    func test_selectCardForBotPlay_botSeat_returnsLegalCard() throws {
         let game = Game()
         let seat = game.currentSeat
 
@@ -180,11 +149,11 @@ final class GameTests: XCTestCase {
         }
     }
 
-    func test_selectCardForBotPlay_respects_follow_suit_rule() throws {
-        let botPlayer1 = Player(name: "Bot1", type: .bot(difficulty: .medium))
-        let botPlayer2 = Player(name: "Bot2", type: .bot(difficulty: .medium))
-        let botPlayer3 = Player(name: "Bot3", type: .bot(difficulty: .medium))
-        let botPlayer4 = Player(name: "Bot4", type: .bot(difficulty: .medium))
+    func test_selectCardForBotPlay_holdingLeadSuit_followsSuit() throws {
+        let botPlayer1 = Player.bot("Bot1", difficulty: .medium)
+        let botPlayer2 = Player.bot("Bot2", difficulty: .medium)
+        let botPlayer3 = Player.bot("Bot3", difficulty: .medium)
+        let botPlayer4 = Player.bot("Bot4", difficulty: .medium)
 
         let game = Game(player1: botPlayer1, player2: botPlayer2, player3: botPlayer3, player4: botPlayer4)
         try game.performExchange()
@@ -216,47 +185,38 @@ final class GameTrickPointsTests: XCTestCase {
              configuration: GameConfiguration(jackOfDiamondsBonus: jackBonus))
     }
 
-    /// Builds a complete trick from four cards played from south clockwise.
-    private func makeTrick(_ cards: [Card], in game: Game) throws -> Trick {
-        var trick = Trick()
-        for (seat, card) in zip(Seat.allCases, cards) {
-            try trick.play(card, by: seat)
-        }
-        return trick
-    }
-
-    func test_points_withJackBonusOn_trickContainingJackOfDiamonds_returnsMinus10() throws {
+    func test_points_jackBonusOnWithJackOfDiamonds_returnsMinus10() throws {
         let game = makeGame(jackBonus: true)
-        let trick = try makeTrick([
-            Card(suit: .diamonds, rank: .two),
-            Card(suit: .diamonds, rank: .jack),
-            Card(suit: .diamonds, rank: .five),
-            Card(suit: .diamonds, rank: .nine)
-        ], in: game)
+        let trick = try Trick.mock([
+            Card.twoOfDiamonds,
+            Card.jackOfDiamonds,
+            Card.fiveOfDiamonds,
+            Card.nineOfDiamonds
+        ])
 
         XCTAssertEqual(game.points(in: trick), -10)
     }
 
-    func test_points_withJackBonusOn_jackAndHearts_sumsBonusAndPenalties() throws {
+    func test_points_jackBonusOnWithJackAndHearts_sumsBonusAndPenalties() throws {
         let game = makeGame(jackBonus: true)
-        let trick = try makeTrick([
-            Card(suit: .diamonds, rank: .jack),
-            Card(suit: .hearts, rank: .three),
-            Card(suit: .hearts, rank: .king),
-            Card(suit: .spades, rank: .queen)
-        ], in: game)
+        let trick = try Trick.mock([
+            Card.jackOfDiamonds,
+            Card.threeOfHearts,
+            Card.kingOfHearts,
+            Card.queenOfSpades
+        ])
 
         XCTAssertEqual(game.points(in: trick), 5)
     }
 
-    func test_points_withJackBonusOff_trickContainingJackOfDiamonds_returnsRawPoints() throws {
+    func test_points_jackBonusOffWithJackOfDiamonds_returnsRawPoints() throws {
         let game = makeGame(jackBonus: false)
-        let trick = try makeTrick([
-            Card(suit: .diamonds, rank: .jack),
-            Card(suit: .hearts, rank: .three),
-            Card(suit: .diamonds, rank: .five),
-            Card(suit: .diamonds, rank: .nine)
-        ], in: game)
+        let trick = try Trick.mock([
+            Card.jackOfDiamonds,
+            Card.threeOfHearts,
+            Card.fiveOfDiamonds,
+            Card.nineOfDiamonds
+        ])
 
         XCTAssertEqual(game.points(in: trick), 1)
         XCTAssertEqual(game.points(in: trick), trick.points)
@@ -265,29 +225,23 @@ final class GameTrickPointsTests: XCTestCase {
     func test_points_partialTrick_countsCardsPlayedSoFar() throws {
         let game = makeGame(jackBonus: true)
         var trick = Trick()
-        try trick.play(Card(suit: .diamonds, rank: .jack), by: .south)
+        try trick.play(Card.jackOfDiamonds, by: .south)
 
         XCTAssertEqual(game.points(in: trick), -10)
     }
 
-    func test_points_matchesPointsDeliveredToDelegate() throws {
-        final class Spy: GameEngineDelegate {
-            var delivered: [Int] = []
-            func game(_ game: Game, didCompleteTrick trick: Trick, winner: Seat, points: Int) {
-                delivered.append(points)
-            }
-        }
+    func test_points_fullHand_matchesPointsDeliveredToDelegate() throws {
         let bots = (1...4).map { Player(name: "Bot\($0)", type: .bot(difficulty: .easy)) }
         let game = Game(player1: bots[0], player2: bots[1], player3: bots[2], player4: bots[3],
                         configuration: GameConfiguration(jackOfDiamondsBonus: true))
-        let spy = Spy()
+        let spy = DelegateSpy()
         game.delegate = spy
         try game.performExchange()
         try game.playCompleteHand()
 
-        XCTAssertEqual(spy.delivered.count, 13)
-        XCTAssertEqual(spy.delivered, game.completedTricks.map { game.points(in: $0) })
-        XCTAssertTrue(game.completedTricks.contains { $0.cards.contains(Card(suit: .diamonds, rank: .jack)) })
+        XCTAssertEqual(spy.completedTricks.map(\.points).count, 13)
+        XCTAssertEqual(spy.completedTricks.map(\.points), game.completedTricks.map { game.points(in: $0) })
+        XCTAssertTrue(game.completedTricks.contains { $0.cards.contains(Card.jackOfDiamonds) })
     }
 }
 
@@ -328,7 +282,7 @@ final class GamePlayCardErrorSurfaceTests: XCTestCase {
         }
 
         XCTAssertGreaterThan(invalidAttempts, 0)
-        XCTAssertThrowsError(try game.playCard(Card(suit: .clubs, rank: .two), by: game.currentSeat)) { error in
+        XCTAssertThrowsError(try game.playCard(Card.twoOfClubs, by: game.currentSeat)) { error in
             XCTAssertEqual(error as? GameError, .wrongPhase(.awaitingSettlement))
         }
     }
@@ -337,36 +291,23 @@ final class GamePlayCardErrorSurfaceTests: XCTestCase {
 // MARK: - Hand settlement
 
 final class GameEndHandTests: XCTestCase {
-    private final class Spy: GameEngineDelegate {
-        var results: [HandResult] = []
-        func game(_ game: Game, didEndHand result: HandResult) {
-            results.append(result)
-        }
-    }
-
     /// Two tricks: seat 2 wins the first (2♣ 3♣ 5♣ 7♥), then seat 0 wins the second (6♣ 8♥ A♣ 4♣).
     /// Seats 0 and 2 each capture one heart.
     private func makeTwoTrickGame(configuration: GameConfiguration = .standard) throws -> Game {
         let players = (0..<4).map { Player(name: "P\($0)") }
         let game = try Game(player1: players[0], player2: players[1], player3: players[2], player4: players[3], hands: [
-            [Card(suit: .clubs, rank: .two), Card(suit: .clubs, rank: .ace)],
-            [Card(suit: .clubs, rank: .three), Card(suit: .clubs, rank: .four)],
-            [Card(suit: .clubs, rank: .five), Card(suit: .clubs, rank: .six)],
-            [Card(suit: .hearts, rank: .seven), Card(suit: .hearts, rank: .eight)]
+            [Card.twoOfClubs, Card.aceOfClubs],
+            [Card.threeOfClubs, Card.fourOfClubs],
+            [Card.fiveOfClubs, Card.sixOfClubs],
+            [Card.sevenOfHearts, Card.eightOfHearts]
         ], configuration: configuration)
         game.phase = .awaitingPlay(.south)
-        try game.playCard(Card(suit: .clubs, rank: .two), by: .south)
-        try game.playCard(Card(suit: .clubs, rank: .three), by: .west)
-        try game.playCard(Card(suit: .clubs, rank: .five), by: .north)
-        try game.playCard(Card(suit: .hearts, rank: .seven), by: .east)
-        try game.playCard(Card(suit: .clubs, rank: .six), by: .north)
-        try game.playCard(Card(suit: .hearts, rank: .eight), by: .east)
-        try game.playCard(Card(suit: .clubs, rank: .ace), by: .south)
-        try game.playCard(Card(suit: .clubs, rank: .four), by: .west)
+        try game.play([.twoOfClubs, .threeOfClubs, .fiveOfClubs, .sevenOfHearts,
+                       .sixOfClubs, .eightOfHearts, .aceOfClubs, .fourOfClubs])
         return game
     }
 
-    func test_endHand_returnsRoundScoresDerivedFromTricksAndNewTotals() throws {
+    func test_endHand_twoTricks_returnsRoundScoresFromTricksAndNewTotals() throws {
         let game = try makeTwoTrickGame()
         game.totalScores[.north] = 40
 
@@ -379,26 +320,26 @@ final class GameEndHandTests: XCTestCase {
         XCTAssertEqual(game.roundScores, [0, 0, 0, 0])
     }
 
-    func test_endHand_deliversSameResultToDelegate() throws {
+    func test_endHand_withDelegate_deliversSameResult() throws {
         let game = try makeTwoTrickGame()
-        let spy = Spy()
+        let spy = DelegateSpy()
         game.delegate = spy
 
         let result = try game.endHand()
 
-        XCTAssertEqual(spy.results, [result])
+        XCTAssertEqual(spy.handResults, [result])
     }
 
-    func test_endHand_usesConfiguredScoring() throws {
+    func test_endHand_jackBonusConfiguration_usesConfiguredScoring() throws {
         let game = try makeTwoTrickGame(configuration: .withJackBonus)
 
         XCTAssertEqual(try game.endHand(), game.scoring.settleHand(
             capturedCards: [
-                [Card(suit: .clubs, rank: .six), Card(suit: .hearts, rank: .eight),
-                 Card(suit: .clubs, rank: .ace), Card(suit: .clubs, rank: .four)],
+                [Card.sixOfClubs, Card.eightOfHearts,
+                 Card.aceOfClubs, Card.fourOfClubs],
                 [],
-                [Card(suit: .clubs, rank: .two), Card(suit: .clubs, rank: .three),
-                 Card(suit: .clubs, rank: .five), Card(suit: .hearts, rank: .seven)],
+                [Card.twoOfClubs, Card.threeOfClubs,
+                 Card.fiveOfClubs, Card.sevenOfHearts],
                 []
             ],
             totalScores: [0, 0, 0, 0]))

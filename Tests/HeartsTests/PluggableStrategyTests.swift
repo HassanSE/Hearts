@@ -67,8 +67,8 @@ final class PluggableStrategyTests: XCTestCase {
         XCTAssertEqual(north.playCalls, 26)
     }
 
-    func test_strategyForHumanSeat_isIgnored() throws {
-        let human = Player(name: "You", type: .human)
+    func test_init_strategyForHumanSeat_isIgnored() throws {
+        let human = Player.human("You")
         let bots = makeBots()
         let stray = LowestCardStrategy()
         let game = Game(player1: human, player2: bots[1], player3: bots[2], player4: bots[3],

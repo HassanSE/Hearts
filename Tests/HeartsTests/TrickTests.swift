@@ -10,18 +10,9 @@ import XCTest
 
 final class TrickTests: XCTestCase {
 
-    /// Plays `cards` into a fresh trick from south clockwise.
-    private func makeTrick(_ cards: [Card]) throws -> Trick {
-        var trick = Trick()
-        for (seat, card) in zip(Seat.allCases, cards) {
-            try trick.play(card, by: seat)
-        }
-        return trick
-    }
-
     // MARK: - Initialization Tests
 
-    func test_init_trick_is_empty() {
+    func test_init_fresh_isEmpty() {
         let trick = Trick()
 
         XCTAssertEqual(trick.plays.count, 0)
@@ -33,28 +24,28 @@ final class TrickTests: XCTestCase {
 
     // MARK: - Lead Suit Tests
 
-    func test_leadSuit_is_nil_when_no_cards_played() {
+    func test_leadSuit_noPlays_isNil() {
         let trick = Trick()
 
         XCTAssertNil(trick.leadSuit)
     }
 
-    func test_leadSuit_is_suit_of_first_card_played() throws {
+    func test_leadSuit_afterFirstPlay_isFirstCardsSuit() throws {
         var trick = Trick()
 
-        try trick.play(Card(suit: .clubs, rank: .five), by: .south)
+        try trick.play(Card.fiveOfClubs, by: .south)
 
         XCTAssertEqual(trick.leadSuit, .clubs)
     }
 
     // MARK: - Completion Tests
 
-    func test_isComplete_is_false_with_less_than_4_cards() throws {
+    func test_isComplete_fewerThanFourPlays_isFalse() throws {
         var trick = Trick()
         let cards = [
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .clubs, rank: .four)
+            Card.twoOfClubs,
+            Card.threeOfClubs,
+            Card.fourOfClubs
         ]
 
         for (seat, card) in zip(Seat.allCases, cards) {
@@ -63,12 +54,12 @@ final class TrickTests: XCTestCase {
         }
     }
 
-    func test_isComplete_is_true_with_4_cards() throws {
-        let trick = try makeTrick([
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .clubs, rank: .four),
-            Card(suit: .clubs, rank: .five)
+    func test_isComplete_fourPlays_isTrue() throws {
+        let trick = try Trick.mock([
+            Card.twoOfClubs,
+            Card.threeOfClubs,
+            Card.fourOfClubs,
+            Card.fiveOfClubs
         ])
 
         XCTAssertTrue(trick.isComplete)
@@ -76,31 +67,31 @@ final class TrickTests: XCTestCase {
 
     // MARK: - Winner Tests
 
-    func test_winner_is_nil_when_trick_incomplete() throws {
+    func test_winner_incomplete_isNil() throws {
         var trick = Trick()
 
-        try trick.play(Card(suit: .clubs, rank: .ace), by: .south)
+        try trick.play(Card.aceOfClubs, by: .south)
 
         XCTAssertNil(trick.winner, "Winner should be nil until trick is complete")
     }
 
-    func test_winner_is_seat_with_highest_card_of_lead_suit() throws {
-        let trick = try makeTrick([
-            Card(suit: .clubs, rank: .five),
-            Card(suit: .clubs, rank: .ace),   // Highest club — should win
-            Card(suit: .hearts, rank: .king), // Different suit
-            Card(suit: .clubs, rank: .ten)
+    func test_winner_complete_isHighestCardOfLeadSuit() throws {
+        let trick = try Trick.mock([
+            Card.fiveOfClubs,
+            Card.aceOfClubs,   // Highest club — should win
+            Card.kingOfHearts, // Different suit
+            Card.tenOfClubs
         ])
 
         XCTAssertEqual(trick.winner, .west, "Seat with highest card of lead suit should win")
     }
 
-    func test_winner_ignores_higher_cards_of_non_lead_suit() throws {
-        let trick = try makeTrick([
-            Card(suit: .diamonds, rank: .two),  // Lead with diamonds
-            Card(suit: .hearts, rank: .ace),    // Ace but wrong suit
-            Card(suit: .diamonds, rank: .five), // Should win (highest diamond)
-            Card(suit: .spades, rank: .king)    // King but wrong suit
+    func test_winner_higherOffSuitCard_ignoresIt() throws {
+        let trick = try Trick.mock([
+            Card.twoOfDiamonds,  // Lead with diamonds
+            Card.aceOfHearts,    // Ace but wrong suit
+            Card.fiveOfDiamonds, // Should win (highest diamond)
+            Card.kingOfSpades    // King but wrong suit
         ])
 
         XCTAssertEqual(trick.winner, .north, "Only cards of lead suit can win")
@@ -108,45 +99,45 @@ final class TrickTests: XCTestCase {
 
     // MARK: - Points Tests
 
-    func test_points_is_zero_for_no_point_cards() throws {
-        let trick = try makeTrick([
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .clubs, rank: .four),
-            Card(suit: .clubs, rank: .five)
+    func test_points_noPointCards_isZero() throws {
+        let trick = try Trick.mock([
+            Card.twoOfClubs,
+            Card.threeOfClubs,
+            Card.fourOfClubs,
+            Card.fiveOfClubs
         ])
 
         XCTAssertEqual(trick.points, 0)
     }
 
     func test_points_counts_hearts() throws {
-        let trick = try makeTrick([
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .hearts, rank: .three),  // 1 point
-            Card(suit: .hearts, rank: .four),   // 1 point
-            Card(suit: .clubs, rank: .five)
+        let trick = try Trick.mock([
+            Card.twoOfClubs,
+            Card.threeOfHearts,  // 1 point
+            Card.fourOfHearts,   // 1 point
+            Card.fiveOfClubs
         ])
 
         XCTAssertEqual(trick.points, 2, "Should count 2 hearts as 2 points")
     }
 
-    func test_points_counts_queen_of_spades() throws {
-        let trick = try makeTrick([
-            Card(suit: .spades, rank: .two),
-            Card(suit: .spades, rank: .queen),  // 13 points
-            Card(suit: .spades, rank: .four),
-            Card(suit: .spades, rank: .five)
+    func test_points_queenOfSpades_isThirteen() throws {
+        let trick = try Trick.mock([
+            Card.twoOfSpades,
+            Card.queenOfSpades,  // 13 points
+            Card.fourOfSpades,
+            Card.fiveOfSpades
         ])
 
         XCTAssertEqual(trick.points, 13, "Queen of spades should be worth 13 points")
     }
 
-    func test_points_counts_hearts_and_queen_of_spades() throws {
-        let trick = try makeTrick([
-            Card(suit: .hearts, rank: .two),    // 1 point
-            Card(suit: .spades, rank: .queen),  // 13 points
-            Card(suit: .hearts, rank: .four),   // 1 point
-            Card(suit: .clubs, rank: .five)
+    func test_points_heartsAndQueenOfSpades_sumsBoth() throws {
+        let trick = try Trick.mock([
+            Card.twoOfHearts,    // 1 point
+            Card.queenOfSpades,  // 13 points
+            Card.fourOfHearts,   // 1 point
+            Card.fiveOfClubs
         ])
 
         XCTAssertEqual(trick.points, 15, "Should count 2 hearts + Q♠ = 15 points")
@@ -154,80 +145,80 @@ final class TrickTests: XCTestCase {
 
     // MARK: - Validation Tests
 
-    func test_play_throws_when_trick_is_complete() throws {
-        var trick = try makeTrick([
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .clubs, rank: .three),
-            Card(suit: .clubs, rank: .four),
-            Card(suit: .clubs, rank: .five)
+    func test_play_completeTrick_throws() throws {
+        var trick = try Trick.mock([
+            Card.twoOfClubs,
+            Card.threeOfClubs,
+            Card.fourOfClubs,
+            Card.fiveOfClubs
         ])
 
         // A fifth card cannot be played, even by a seat that has not played (impossible in practice)
-        XCTAssertThrowsError(try trick.play(Card(suit: .clubs, rank: .six), by: .south)) { error in
+        XCTAssertThrowsError(try trick.play(Card.sixOfClubs, by: .south)) { error in
             XCTAssertEqual(error as? GameError, GameError.trickAlreadyComplete)
         }
     }
 
-    func test_play_throws_when_seat_already_played() throws {
+    func test_play_seatAlreadyPlayed_throws() throws {
         var trick = Trick()
 
-        try trick.play(Card(suit: .clubs, rank: .two), by: .south)
+        try trick.play(Card.twoOfClubs, by: .south)
 
         // Same seat tries to play again
-        XCTAssertThrowsError(try trick.play(Card(suit: .clubs, rank: .three), by: .south)) { error in
+        XCTAssertThrowsError(try trick.play(Card.threeOfClubs, by: .south)) { error in
             XCTAssertEqual(error as? GameError, GameError.notPlayersTurn)
         }
     }
 
     // Trick no longer validates card-in-hand; Game does before calling Trick.
-    func test_play_does_not_enforce_card_in_hand() throws {
+    func test_play_anyCard_doesNotCheckHand() throws {
         var trick = Trick()
 
         // Trick accepts the play regardless — caller (Game) is responsible for the hand check
-        XCTAssertNoThrow(try trick.play(Card(suit: .clubs, rank: .two), by: .south))
+        XCTAssertNoThrow(try trick.play(Card.twoOfClubs, by: .south))
     }
 
     // Trick no longer validates follow-suit; Game does before calling Trick.
-    func test_play_does_not_enforce_follow_suit() throws {
+    func test_play_offSuit_doesNotEnforceFollowSuit() throws {
         var trick = Trick()
 
-        try trick.play(Card(suit: .clubs, rank: .two), by: .south)
+        try trick.play(Card.twoOfClubs, by: .south)
 
         // Even though west "has clubs", Trick does not enforce follow-suit — Game does.
-        XCTAssertNoThrow(try trick.play(Card(suit: .hearts, rank: .ace), by: .west))
+        XCTAssertNoThrow(try trick.play(Card.aceOfHearts, by: .west))
     }
 
     // MARK: - Helper Property Tests
 
-    func test_cards_returns_all_played_cards() throws {
+    func test_cards_afterPlays_returnsAllInOrder() throws {
         let cards = [
-            Card(suit: .clubs, rank: .two),
-            Card(suit: .clubs, rank: .three)
+            Card.twoOfClubs,
+            Card.threeOfClubs
         ]
 
-        let trick = try makeTrick(cards)
+        let trick = try Trick.mock(cards)
 
         XCTAssertEqual(trick.cards, cards)
     }
 
-    func test_seats_returns_all_seats_that_played_in_order() throws {
+    func test_seats_afterPlays_returnsAllInOrder() throws {
         var trick = Trick()
 
-        try trick.play(Card(suit: .clubs, rank: .two), by: .east)
-        try trick.play(Card(suit: .clubs, rank: .three), by: .south)
+        try trick.play(Card.twoOfClubs, by: .east)
+        try trick.play(Card.threeOfClubs, by: .south)
 
         XCTAssertEqual(trick.seats, [.east, .south])
     }
 
-    func test_hasPlayed_returns_true_for_seat_that_played() throws {
+    func test_hasPlayed_seatThatPlayed_isTrue() throws {
         var trick = Trick()
 
-        try trick.play(Card(suit: .clubs, rank: .two), by: .south)
+        try trick.play(Card.twoOfClubs, by: .south)
 
         XCTAssertTrue(trick.hasPlayed(.south))
     }
 
-    func test_hasPlayed_returns_false_for_seat_that_has_not_played() {
+    func test_hasPlayed_seatThatHasNotPlayed_isFalse() {
         let trick = Trick()
 
         XCTAssertFalse(trick.hasPlayed(.south))
@@ -238,8 +229,8 @@ final class TrickTests: XCTestCase {
     func test_debugDescription_shows_plays() throws {
         var trick = Trick()
 
-        try trick.play(Card(suit: .clubs, rank: .two), by: .south)
-        try trick.play(Card(suit: .clubs, rank: .three), by: .west)
+        try trick.play(Card.twoOfClubs, by: .south)
+        try trick.play(Card.threeOfClubs, by: .west)
 
         let description = trick.debugDescription
 
