@@ -151,20 +151,16 @@ let game = Game(player1: human, player2: easyBot, player3: hardBot, player4: med
 - ✅ `GameEngineDelegate` events for every play, trick, hand, phase change and restore
 - ✅ `Codable` snapshots, validated restore, and multi-step undo
 - ✅ A terminal client (`swift run HeartsCLI`) that plays a full game against the bots
-- ✅ 367 tests, ~98% line coverage
-
-## What's Coming
-
-- 🚧 Doc comments on the whole public surface
-- 🚧 Smarter bot leads (avoid leading a suit an opponent is void in)
+- ✅ Every public declaration documented; every value type `Sendable`, so it builds clean in Swift 6 language mode
+- ✅ 380 tests, ~99% line coverage, run on macOS and Linux in CI
 
 ## Project Stats
 
 | | |
 |---|---|
-| Language | Swift 5.7+ |
+| Language | Swift 5.7+ (Swift 6 mode clean) |
 | Platforms | iOS, macOS, Linux, tvOS, watchOS |
-| Tests | 367 passing, ~98% line coverage |
+| Tests | 380 passing, ~99% line coverage |
 | Dependencies | Zero (pure Swift) |
 | UI Frameworks | Zero (bring your own) |
 
